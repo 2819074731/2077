@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
@@ -19,13 +19,17 @@ const msgKind = ref<'ok' | 'err'>('ok')
 
 const editing = ref<{ mode: 'add' | 'rename'; from: string; name: string } | null>(null)
 const formError = ref('')
+const deleting = ref<CategoryRow | null>(null)
+const moveTarget = ref('其他')
+const deletingBusy = ref(false)
+const moveOptions = computed(() => items.value.map(item => item.name).filter(name => name !== deleting.value?.name))
 
 useSeoMeta({ title: '分类管理 · 2077 管理后台', robots: 'noindex' })
 
 function flash(text: string, kind: 'ok' | 'err' = 'ok') {
   msg.value = text
   msgKind.value = kind
-  if (kind === 'ok') setTimeout(() => { if (msg.value === text) msg.value = '' }, 2200)
+  setTimeout(() => { if (msg.value === text) msg.value = '' }, kind === 'err' ? 4800 : 2400)
 }
 
 async function load() {
@@ -73,16 +77,40 @@ async function save() {
   }
 }
 
-async function remove(item: CategoryRow) {
-  if (item.name === '其他') return
-  if (!confirm(`确定删除分类「${item.name}」？`)) return
+async function doDelete(item: CategoryRow, moveTo?: string) {
+  if (deletingBusy.value) return
+  deletingBusy.value = true
   try {
-    await $fetch('/api/admin/categories', { method: 'POST', body: { action: 'delete', name: item.name } })
-    flash('分类已删除')
+    const d: any = await $fetch('/api/admin/categories', {
+      method: 'POST',
+      body: { action: 'delete', name: item.name, ...(moveTo ? { moveTo } : {}) }
+    })
+    deleting.value = null
+    flash(d?.moved ? `已迁移 ${d.moved} 条数据并删除分类` : '分类已删除')
     await load()
   } catch (err: any) {
     flash(err?.data?.statusMessage || err?.data?.message || '删除失败', 'err')
+  } finally {
+    deletingBusy.value = false
   }
+}
+
+async function remove(item: CategoryRow) {
+  if (item.name === '其他') return
+  const used = item.directory + item.nav + item.submissions
+  if (used === 0) {
+    if (!confirm(`确定删除分类「${item.name}」？`)) return
+    await doDelete(item)
+    return
+  }
+  deleting.value = item
+  moveTarget.value = items.value.some(row => row.name === '其他') ? '其他' : (items.value.find(row => row.name !== item.name)?.name || '')
+}
+
+async function confirmMoveDelete() {
+  const item = deleting.value
+  if (!item || !moveTarget.value) return
+  await doDelete(item, moveTarget.value)
 }
 
 async function move(item: CategoryRow, dir: number) {
@@ -108,7 +136,6 @@ onMounted(load)
         </div>
         <button class="btn btn-sm btn-primary shrink-0" @click="openAdd">新增分类</button>
       </div>
-      <p v-if="msg" class="text-[12.5px] mt-2" :class="msgKind === 'err' ? 'text-danger' : 'text-success'">{{ msg }}</p>
     </section>
 
     <div v-if="loading" class="card p-8 text-center text-ink2 text-[13px]">加载中…</div>
@@ -139,6 +166,13 @@ onMounted(load)
       </div>
     </div>
 
+    <div
+      v-if="msg"
+      class="fixed left-1/2 bottom-6 z-[80] w-[calc(100%-2rem)] max-w-[520px] -translate-x-1/2 rounded-xl border bg-bg px-4 py-3 text-[12.5px] shadow-soft"
+      :class="msgKind === 'err' ? 'border-danger text-danger' : 'border-line text-success'"
+      role="status"
+    >{{ msg }}</div>
+
     <Teleport to="body">
       <div v-if="editing" class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" @click.self="!saving && (editing = null)">
         <div class="w-full sm:max-w-[420px] bg-card border border-line rounded-t-2xl sm:rounded-2xl p-4 sm:p-5">
@@ -156,6 +190,37 @@ onMounted(load)
           <div class="flex gap-2 mt-4">
             <button class="btn flex-1" :disabled="saving" @click="editing = null">取消</button>
             <button class="btn btn-primary flex-1" :disabled="saving" @click="save">{{ saving ? '保存中…' : '保存' }}</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <Teleport to="body">
+      <div v-if="deleting" class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" @click.self="!deletingBusy && (deleting = null)">
+        <div class="w-full sm:max-w-[440px] bg-card border border-line rounded-t-2xl sm:rounded-2xl p-4 sm:p-5">
+          <div class="flex items-center gap-2 mb-2">
+            <h3 class="font-semibold text-[15px]">删除分类「{{ deleting.name }}」</h3>
+            <div class="flex-1" />
+            <button class="btn btn-sm btn-ghost" :disabled="deletingBusy" @click="deleting = null">关闭</button>
+          </div>
+          <p class="text-[12.5px] text-ink2 leading-relaxed">
+            该分类还有 {{ deleting.directory + deleting.nav + deleting.submissions }} 条数据，直接删除会被拦截。选择一个目标分类，数据会一并迁移后再删除当前分类。
+          </p>
+          <div class="flex flex-wrap gap-1.5 mt-3">
+            <span class="chip !text-[10px]">目录 {{ deleting.directory }}</span>
+            <span class="chip !text-[10px]">导航 {{ deleting.nav }}</span>
+            <span class="chip !text-[10px]">提交 {{ deleting.submissions }}</span>
+          </div>
+          <label class="flex flex-col gap-1.5 mt-4">
+            <span class="text-[12px] text-ink2">迁移到</span>
+            <select v-model="moveTarget" class="field" :disabled="deletingBusy">
+              <option v-for="name in moveOptions" :key="name" :value="name">{{ name }}</option>
+            </select>
+          </label>
+          <p class="text-[11.5px] text-ink3 mt-2">目录条目、导航链接和提交记录会迁移到目标分类；目标分类已有的同网址导航会自动去重。</p>
+          <div class="flex gap-2 mt-4">
+            <button class="btn flex-1" :disabled="deletingBusy" @click="deleting = null">取消</button>
+            <button class="btn btn-primary flex-1" :disabled="deletingBusy || !moveTarget" @click="confirmMoveDelete">{{ deletingBusy ? '处理中…' : '迁移并删除' }}</button>
           </div>
         </div>
       </div>

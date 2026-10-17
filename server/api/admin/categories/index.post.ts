@@ -103,25 +103,59 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, statusMessage: '「其他」为系统保留分类，不能删除' })
     }
 
+    const categories = await getSiteCategories()
+    const moveTo = cleanText(body?.moveTo, 30)
+    if (moveTo) {
+      if (moveTo === name) throw createError({ statusCode: 400, statusMessage: '迁移目标不能是当前分类' })
+      if (!categories.includes(moveTo)) {
+        throw createError({ statusCode: 404, statusMessage: '迁移目标分类不存在' })
+      }
+    }
+
     const used = await usage(name)
     const total = used.directory + used.nav + used.submissions
-    if (total > 0) {
+    if (total > 0 && !moveTo) {
       throw createError({
         statusCode: 409,
-        statusMessage: `该分类下还有 ${total} 条数据（目录 ${used.directory}、导航 ${used.nav}、提交 ${used.submissions}），请先迁移或删除`
+        statusMessage: `该分类下还有 ${total} 条数据（目录 ${used.directory}、导航 ${used.nav}、提交 ${used.submissions}），请选择迁移目标或先删除数据`
       })
     }
 
+    if (moveTo) {
+      const db = useDb()
+      await db.execute('UPDATE directory_entries SET category = ? WHERE category = ?', [moveTo, name])
+      await db.execute('UPDATE submissions SET grp = ? WHERE grp = ?', [moveTo, name])
+    }
+
     const cfg = await getSiteConfig()
-    const groups = cfg.groups.filter((g) => g.name !== name)
-    if (groups.length !== cfg.groups.length) {
+    const oldGroup = cfg.groups.find((g) => g.name === name)
+    let groupChanged = false
+    let groups = cfg.groups
+    if (oldGroup) {
+      const target = cfg.groups.find((g) => g.name === moveTo)
+      if (target) {
+        const seen = new Set(target.links.map((l) => urlKey(l.url)))
+        for (const link of oldGroup.links) {
+          const key = urlKey(link.url)
+          if (!key || seen.has(key)) continue
+          seen.add(key)
+          target.links.push(link)
+        }
+        groups = cfg.groups.filter((g) => g !== oldGroup)
+      } else if (moveTo) {
+        oldGroup.name = moveTo
+      } else {
+        groups = cfg.groups.filter((g) => g !== oldGroup)
+      }
+      groupChanged = true
+    }
+    if (groupChanged) {
       await setSetting('site_config', { groups, recommended: cfg.recommended })
       invalidateSiteConfig()
     }
 
-    const categories = await getSiteCategories()
     const saved = await saveSiteCategories(categories.filter((item) => item !== name))
-    return { ok: true, categories: saved }
+    return { ok: true, categories: saved, moved: total }
   }
 
   if (action === 'move') {

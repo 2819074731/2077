@@ -49,7 +49,7 @@ function openReview(item: any) {
   mode.value = 'review'
   editingItem.value = item
   toNav.value = item.target !== 'directory'
-  toDirectory.value = item.target === 'directory'
+  toDirectory.value = true
   form.value = {
     name: item.name || '',
     url: item.url || '',

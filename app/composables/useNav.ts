@@ -2,25 +2,37 @@ import { DEFAULT_GROUPS, DEFAULT_ENGINE, ENGINES, INLINE_GROUP_COUNT, urlKey, ty
 const uid = () => 'x' + Math.random().toString(36).slice(2, 10)
 const LS_GROUPS = 'my2077.groups'
 const LS_FREQ = 'my2077.freq'
+const LS_FREQ_AT = 'my2077.freq.at'
+const LS_FREQ_META = 'my2077.freq.meta'
 const LS_ENGINE = 'my2077.engine'
 const LS_CUSTOM_ENGINE = 'my2077.engine.custom'
 
 export type FreqMap = Record<string, number>
+export type FreqAtMap = Record<string, number>
+export type FreqMeta = { pin: string[]; hide: string[] }
 
-function readFreq(): FreqMap {
-  if (!import.meta.client) return {}
+function readJson<T>(key: string, fallback: T): T {
+  if (!import.meta.client) return fallback
   try {
-    const raw = localStorage.getItem(LS_FREQ)
-    const o = raw ? JSON.parse(raw) : {}
-    return o && typeof o === 'object' ? o : {}
+    const raw = localStorage.getItem(key)
+    const value = raw ? JSON.parse(raw) : null
+    return value && typeof value === 'object' ? value as T : fallback
   } catch {
-    return {}
+    return fallback
   }
 }
 
-function writeFreq(f: FreqMap) {
+function writeJson(key: string, value: unknown) {
   if (!import.meta.client) return
-  try { localStorage.setItem(LS_FREQ, JSON.stringify(f)) } catch {}
+  try { localStorage.setItem(key, JSON.stringify(value)) } catch {}
+}
+
+function readFreq(): FreqMap {
+  return readJson<FreqMap>(LS_FREQ, {})
+}
+
+function writeFreq(f: FreqMap) {
+  writeJson(LS_FREQ, f)
 }
 
 function mergeFreq(a: FreqMap, b: FreqMap): FreqMap {
@@ -29,11 +41,64 @@ function mergeFreq(a: FreqMap, b: FreqMap): FreqMap {
   return out
 }
 
+function readFreqAt(): FreqAtMap {
+  const raw = readJson<FreqAtMap>(LS_FREQ_AT, {})
+  const out: FreqAtMap = {}
+  for (const [url, value] of Object.entries(raw)) {
+    const t = Number(value)
+    if (url && Number.isFinite(t) && t > 0) out[url] = t
+  }
+  return out
+}
+
+function writeFreqAt(value: FreqAtMap) {
+  writeJson(LS_FREQ_AT, value)
+}
+
+function mergeFreqAt(a: FreqAtMap, b: FreqAtMap): FreqAtMap {
+  const out: FreqAtMap = { ...a }
+  for (const [url, value] of Object.entries(b)) {
+    const t = Number(value)
+    if (url && Number.isFinite(t) && t > (out[url] || 0)) out[url] = t
+  }
+  return out
+}
+
+function cleanFreqKeys(input: unknown): string[] {
+  const out: string[] = []
+  const seen = new Set<string>()
+  for (const raw of Array.isArray(input) ? input : []) {
+    const key = urlKey(String(raw || ''))
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    out.push(key)
+  }
+  return out
+}
+
+function readFreqMeta(): FreqMeta {
+  const raw = readJson<Partial<FreqMeta>>(LS_FREQ_META, {})
+  return { pin: cleanFreqKeys(raw.pin), hide: cleanFreqKeys(raw.hide) }
+}
+
+function writeFreqMeta(value: FreqMeta) {
+  writeJson(LS_FREQ_META, value)
+}
+
+function mergeFreqMeta(a: FreqMeta, b: FreqMeta): FreqMeta {
+  const pin = cleanFreqKeys([...a.pin, ...b.pin])
+  const pinned = new Set(pin)
+  const hide = cleanFreqKeys([...a.hide, ...b.hide]).filter(key => !pinned.has(key))
+  return { pin, hide }
+}
+
 export function useNav() {
   const groups = useState<NavGroup[]>('nav-groups', () => JSON.parse(JSON.stringify(DEFAULT_GROUPS)))
   const diy = useState<boolean>('nav-diy', () => false)
   const syncMsg = useState<string>('nav-sync-msg', () => '')
   const freq = useState<FreqMap>('nav-freq', () => ({}))
+  const freqAt = useState<FreqAtMap>('nav-freq-at', () => ({}))
+  const freqMeta = useState<FreqMeta>('nav-freq-meta', () => ({ pin: [], hide: [] }))
   const recommended = useState<{ name: string; url: string; icon?: string }[]>('nav-recommended', () => [])
   const siteConfig = useState<any>('nav-site-config', () => null)
   /** 首页当前分类：null = 全部；否则只展示该分组。 */
@@ -79,6 +144,8 @@ export function useNav() {
     } catch {}
     diy.value = localStorage.getItem('my2077.diy') === '1'
     freq.value = readFreq()
+    freqAt.value = readFreqAt()
+    freqMeta.value = readFreqMeta()
     const savedEngine = localStorage.getItem(LS_ENGINE)
     if (savedEngine) engineId.value = savedEngine
     try {
@@ -101,7 +168,9 @@ export function useNav() {
     const key = url.trim()
     if (!key) return
     freq.value = { ...freq.value, [key]: (freq.value[key] || 0) + 1 }
+    freqAt.value = { ...freqAt.value, [key]: Date.now() }
     writeFreq(freq.value)
+    writeFreqAt(freqAt.value)
     const { user } = useAuth()
     if (user.value) {
       clearTimeout(syncTimer)
@@ -132,20 +201,120 @@ export function useNav() {
     return [...featured, ...rest]
   }
 
-  /** 用户个人常用站点：仅按点击频次排序，独立于推荐。 */
-  function frequentList(limit = 12) {
+  function persistFreqMeta(next: FreqMeta) {
+    freqMeta.value = next
+    writeFreqMeta(next)
+    scheduleSync()
+  }
+
+  function togglePin(url: string) {
+    const key = urlKey(url)
+    if (!key) return
+    const pinned = freqMeta.value.pin.includes(key)
+    const pin = pinned ? freqMeta.value.pin.filter(k => k !== key) : [key, ...freqMeta.value.pin]
+    const hide = freqMeta.value.hide.filter(k => k !== key)
+    persistFreqMeta({ pin, hide })
+  }
+
+  function hideFreq(url: string) {
+    const key = urlKey(url)
+    if (!key) return
+    persistFreqMeta({
+      pin: freqMeta.value.pin.filter(k => k !== key),
+      hide: [key, ...freqMeta.value.hide.filter(k => k !== key)]
+    })
+  }
+
+  function unhideFreq(url: string) {
+    const key = urlKey(url)
+    if (!key) return
+    persistFreqMeta({ pin: freqMeta.value.pin, hide: freqMeta.value.hide.filter(k => k !== key) })
+  }
+
+  function isFreqPinned(url: string) {
+    const key = urlKey(url)
+    return !!key && freqMeta.value.pin.includes(key)
+  }
+
+  function isFreqHidden(url: string) {
+    const key = urlKey(url)
+    return !!key && freqMeta.value.hide.includes(key)
+  }
+
+  /**
+   * 常用候选：按「点击次数 × 时间衰减」排序，半衰期 14 天。
+   * 置顶项优先；隐藏项只在管理列表中出现。
+   */
+  function frequentCandidates(limit = 60) {
+    const now = Date.now()
+    const stats = new Map<string, { count: number; last: number }>()
+    for (const [url, value] of Object.entries(freq.value)) {
+      const key = urlKey(url)
+      const count = Number(value)
+      if (!key || !Number.isFinite(count) || count <= 0) continue
+      const prev = stats.get(key)
+      stats.set(key, {
+        count: (prev?.count || 0) + count,
+        last: Math.max(prev?.last || 0, Number(freqAt.value[url]) || 0)
+      })
+    }
+    if (!stats.size) return []
+
+    const pinOrder = new Map(freqMeta.value.pin.map((key, index) => [key, index]))
+    const hidden = new Set(freqMeta.value.hide)
     const seen = new Set<string>()
-    for (const r of recommended.value) seen.add(urlKey(r.url))
-    const map = new Map<string, { name: string; url: string; count: number }>()
-    for (const g of groups.value) {
-      for (const l of g.links) {
-        const c = freq.value[l.url] || 0
-        if (c <= 0 || seen.has(urlKey(l.url))) continue
-        const prev = map.get(l.url)
-        if (!prev || c > prev.count) map.set(l.url, { name: l.name, url: l.url, count: c })
+    const list: {
+      key: string
+      name: string
+      url: string
+      icon?: string
+      count: number
+      last: number
+      score: number
+      pinned: boolean
+      hidden: boolean
+    }[] = []
+
+    for (const group of groups.value) {
+      for (const link of group.links) {
+        const key = urlKey(link.url)
+        if (!key || seen.has(key)) continue
+        const stat = stats.get(key)
+        if (!stat || stat.count <= 0) continue
+        seen.add(key)
+        const decay = stat.last ? Math.pow(0.5, Math.max(0, now - stat.last) / 86400000 / 14) : 0.6
+        list.push({
+          key,
+          name: link.name,
+          url: link.url,
+          icon: link.icon,
+          count: stat.count,
+          last: stat.last,
+          score: stat.count * decay,
+          pinned: pinOrder.has(key),
+          hidden: hidden.has(key)
+        })
       }
     }
-    return Array.from(map.values()).sort((a, b) => b.count - a.count).slice(0, limit)
+
+    return list.sort((a, b) => {
+      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1
+      if (a.pinned && b.pinned) return pinOrder.get(a.key)! - pinOrder.get(b.key)!
+      if (b.score !== a.score) return b.score - a.score
+      return b.last - a.last
+    }).slice(0, limit)
+  }
+
+  /** 首页「常用」：置顶优先，默认隐藏项不展示。 */
+  function frequentList(limit = 12) {
+    return frequentCandidates(80)
+      .filter(item => !item.hidden || item.pinned)
+      .slice(0, limit)
+  }
+
+  /** 常用管理列表：包含隐藏项，便于恢复。 */
+  function frequentManageList(limit = 60) {
+    return frequentCandidates(limit)
   }
 
   /** 首页当前展示的分组：选中分类时仅该组，否则内联前 N 组。 */
@@ -202,7 +371,7 @@ export function useNav() {
     if (!user.value) return
     syncMsg.value = '同步中...'
     try {
-      await $fetch('/api/config', { method: 'PUT', body: { groups: groups.value, freq: freq.value } })
+      await $fetch('/api/config', { method: 'PUT', body: { groups: groups.value, freq: freq.value, freqAt: freqAt.value, freqMeta: freqMeta.value } })
       syncMsg.value = '已同步到云端'
     } catch (e: any) {
       syncMsg.value = '同步失败：' + (e?.data?.message || e.message)
@@ -218,12 +387,26 @@ export function useNav() {
         freq.value = mergeFreq(freq.value, d.freq)
         writeFreq(freq.value)
       }
+      if (d?.freqAt && typeof d.freqAt === 'object') {
+        freqAt.value = mergeFreqAt(freqAt.value, d.freqAt)
+        writeFreqAt(freqAt.value)
+      }
+      if (d?.freqMeta && typeof d.freqMeta === 'object') {
+        freqMeta.value = mergeFreqMeta(freqMeta.value, d.freqMeta)
+        writeFreqMeta(freqMeta.value)
+      }
     } catch {}
   }
 
   function resetFreq() {
     freq.value = {}
-    if (import.meta.client) localStorage.removeItem(LS_FREQ)
+    freqAt.value = {}
+    freqMeta.value = { pin: [], hide: [] }
+    if (import.meta.client) {
+      localStorage.removeItem(LS_FREQ)
+      localStorage.removeItem(LS_FREQ_AT)
+      localStorage.removeItem(LS_FREQ_META)
+    }
     const { user } = useAuth()
     if (user.value) pushToCloud()
   }
@@ -246,6 +429,12 @@ export function useNav() {
     isFeatured,
     orderLinks,
     frequentList,
+    frequentManageList,
+    togglePin,
+    hideFreq,
+    unhideFreq,
+    isFreqPinned,
+    isFreqHidden,
     visibleGroups,
     selectCat,
     allEngines,

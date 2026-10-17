@@ -736,7 +736,7 @@ async function revokeOthers() {
         <span class="h-4 w-1 rounded-full accent-bar" />
         <h2 class="font-semibold">导航配置同步</h2>
       </div>
-      <p class="text-[12.5px] text-ink2 leading-relaxed">首页「自定义」编辑的分组与链接会与云端双向同步，常用站点按点击频次记录。</p>
+      <p class="text-[12.5px] text-ink2 leading-relaxed">首页「自定义」编辑的分组与链接会与云端双向同步，常用站点按近期点击频率排序，可在首页「常用」区置顶或隐藏。</p>
       <div class="mt-4 flex flex-col gap-2">
         <button class="btn btn-sm btn-primary w-full" :disabled="!!syncBusy" @click="doPush">{{ syncBusy === 'push' ? '推送中…' : '推送到云端' }}</button>
         <div class="grid grid-cols-2 gap-2">
