@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
   if (to) { where.push('created_at <= ?'); params.push(`${to} 23:59:59`) }
   if (kw) { where.push('(name LIKE ? OR url LIKE ? OR description LIKE ?)'); params.push(`%${kw}%`, `%${kw}%`, `%${kw}%`) }
   if (missing) where.push("(COALESCE(title, '') = '' OR COALESCE(description, '') = '')")
-  if (broken) where.push('(http_status IS NOT NULL AND http_status >= 400 AND http_status NOT IN (401, 403, 429))')
+  if (broken) where.push('(http_status IS NOT NULL AND http_status >= 400 AND http_status NOT IN (401, 403, 412, 429))')
   const clause = where.length ? 'WHERE ' + where.join(' AND ') : ''
 
   const [[count]]: any = await db.query(`SELECT COUNT(*) AS n FROM directory_entries ${clause}`, params)

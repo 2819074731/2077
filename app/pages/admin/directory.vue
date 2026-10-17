@@ -51,6 +51,15 @@ const tdkRunning = ref(false)
 const linkRunning = ref(false)
 const maintainRunning = ref(false)
 const maintenance = ref<any>(null)
+const tdkScope = ref<'all' | 'category' | 'batch'>('all')
+const tdkCategory = ref('')
+const tdkBatchSize = ref(6)
+const tdkProgress = ref('')
+const tdkModes: Array<{ v: 'all' | 'category' | 'batch'; l: string }> = [
+  { v: 'all', l: '全部' },
+  { v: 'category', l: '按分类' },
+  { v: 'batch', l: '指定数量' }
+]
 const formError = ref('')
 
 useSeoMeta({ title: '分类目录 · 2077 管理后台', robots: 'noindex' })
@@ -163,25 +172,43 @@ async function maintainNow() {
 
 async function batchTdk() {
   if (tdkRunning.value) return
+  if (tdkScope.value === 'category' && !tdkCategory.value) {
+    showToast('请选择要补全的分类', 'err')
+    return
+  }
   tdkRunning.value = true
+  tdkProgress.value = ''
   let updated = 0
   let failed = 0
   let missing = 0
+  let processed = 0
+  const loop = tdkScope.value !== 'batch'
+  const maxRounds = loop ? 500 : 1
   try {
-    for (let i = 0; i < 40; i++) {
-      const d: any = await $fetch('/api/admin/directory/tdk', { method: 'POST', body: { limit: 6, reset: i === 0 } })
+    for (let i = 0; i < maxRounds; i++) {
+      const body: any = {
+        scope: tdkScope.value,
+        limit: tdkScope.value === 'batch' ? tdkBatchSize.value : 6,
+        reset: i === 0
+      }
+      if (tdkScope.value === 'category') body.category = tdkCategory.value
+      const d: any = await $fetch('/api/admin/directory/tdk', { method: 'POST', body })
       updated += Number(d.updated || 0)
       failed += Number(d.failed || 0)
       missing = Number(d.missing || 0)
+      processed += Number(d.processed || 0)
+      tdkProgress.value = `已处理 ${processed} 个，更新 ${updated} 个，剩余 ${Number(d.remaining || 0)} 个`
       if (!d.processed || Number(d.remaining || 0) === 0) break
     }
     const tail = missing ? `，仍有 ${missing} 个站点 TDK 不完整（多受站点防护限制）` : ''
-    showToast(`TDK 补全完成：更新 ${updated} 个${failed ? `，失败 ${failed} 个` : ''}${tail}`, failed ? 'err' : 'ok')
+    const scopeText = tdkScope.value === 'category' ? `「${tdkCategory.value}」分类` : tdkScope.value === 'batch' ? `指定 ${tdkBatchSize.value} 个` : '全部缺失'
+    showToast(`${scopeText}补全完成：处理 ${processed} 个，更新 ${updated} 个${failed ? `，失败 ${failed} 个` : ''}${tail}`, failed ? 'err' : 'ok')
     await load()
   } catch (err: any) {
     showToast(err?.data?.statusMessage || err?.data?.message || '批量补全失败', 'err')
   } finally {
     tdkRunning.value = false
+    tdkProgress.value = ''
   }
 }
 
@@ -348,7 +375,6 @@ onBeforeUnmount(() => {
         <button class="btn btn-sm" :class="missingOnly ? 'btn-primary' : 'btn-ghost'" @click="missingOnly = !missingOnly; search()">缺 TDK</button>
         <button class="btn btn-sm" :class="brokenOnly ? 'btn-primary' : 'btn-ghost'" @click="brokenOnly = !brokenOnly; search()">链接异常</button>
         <span class="text-[12.5px] text-ink2 ml-auto">共 {{ total }} 个 · 已发布 {{ published }}</span>
-        <button class="btn btn-sm" :disabled="tdkRunning" @click="batchTdk">{{ tdkRunning ? '补全中…' : '批量补 TDK' }}</button>
         <button class="btn btn-sm" :disabled="linkRunning" @click="checkLinks">{{ linkRunning ? '巡检中…' : '巡检链接' }}</button>
         <button class="btn btn-sm btn-primary" @click="openCreate">新增站点</button>
       </div>
@@ -364,6 +390,27 @@ onBeforeUnmount(() => {
         <span :class="maintenance.missing ? 'text-warning' : 'text-success'">TDK 缺失 {{ maintenance.missing }}</span>
         <span v-if="maintenance.dueLinks" class="text-ink3">· 待检 {{ maintenance.dueLinks }}</span>
         <button class="btn btn-sm btn-ghost ml-auto" :disabled="maintainRunning || linkRunning || tdkRunning" @click="maintainNow">{{ maintainRunning ? '全量巡检中…' : '立即巡检' }}</button>
+      </div>
+      <div class="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-card2/40 px-3 py-2.5">
+        <span class="text-[12.5px] font-medium text-ink">批量补 TDK</span>
+        <div class="flex gap-1 p-0.5 rounded-lg bg-bg border border-line">
+          <button
+            v-for="m in tdkModes"
+            :key="m.v"
+            class="h-7 px-2.5 rounded-md text-[12px] whitespace-nowrap transition-colors"
+            :class="tdkScope === m.v ? 'bg-ink text-bg font-medium' : 'text-ink2 hover:text-ink'"
+            :disabled="tdkRunning"
+            @click="tdkScope = m.v"
+          >{{ m.l }}</button>
+        </div>
+        <select v-if="tdkScope === 'category'" v-model="tdkCategory" class="field !w-auto max-w-[180px]" :disabled="tdkRunning">
+          <option value="">选择分类</option>
+          <option v-for="c in filterCategories" :key="c.category" :value="c.category">{{ c.category }}（{{ c.n }}）</option>
+        </select>
+        <input v-if="tdkScope === 'batch'" v-model.number="tdkBatchSize" type="number" min="1" max="50" class="field !w-20" :disabled="tdkRunning" aria-label="补全数量" />
+        <button class="btn btn-sm btn-primary" :disabled="tdkRunning || (tdkScope === 'category' && !tdkCategory)" @click="batchTdk">{{ tdkRunning ? '补全中…' : '开始补全' }}</button>
+        <span v-if="tdkProgress" class="text-[12px] text-ink3">{{ tdkProgress }}</span>
+        <span v-else class="text-[12px] text-ink3">全部：循环处理所有缺失；按分类：只补所选分类；指定数量：单次补 N 个</span>
       </div>
       <form class="flex flex-wrap gap-2" @submit.prevent="search">
         <input v-model="kw" class="field grow sm:max-w-[280px]" placeholder="搜索名称、网址或简介" />

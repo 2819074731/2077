@@ -7,13 +7,13 @@ const LINK_TTL_DAYS = 7
 const TDK_TTL_DAYS = 7
 const LINK_CONCURRENCY = 4
 const TDK_CONCURRENCY = 3
-const BROKEN_FILTER = "status = 'published' AND http_status IS NOT NULL AND http_status >= 400 AND http_status NOT IN (401, 403, 429)"
+const BROKEN_FILTER = "status = 'published' AND http_status IS NOT NULL AND http_status >= 400 AND http_status NOT IN (401, 403, 412, 429)"
 const MISSING_FILTER = "status = 'published' AND (COALESCE(title, '') = '' OR COALESCE(description, '') = '')"
 
 let running = false
 
 export function isHealthyStatus(status: number): boolean {
-  return status > 0 && (status < 400 || [401, 403, 429].includes(status))
+  return status > 0 && (status < 400 || [401, 403, 412, 429].includes(status))
 }
 
 export function isMaintenanceRunning(): boolean {
@@ -75,15 +75,17 @@ export async function checkLinksBatch(limit = 20): Promise<{
   }
 }
 
-export async function resetMissingTdk(): Promise<number> {
+export async function resetMissingTdk(category?: string): Promise<number> {
   const db = useDb()
+  const where = category ? `${MISSING_FILTER} AND category = ?` : MISSING_FILTER
   const [result]: any = await db.execute(
-    `UPDATE directory_entries SET tdk_checked_at = NULL WHERE ${MISSING_FILTER}`
+    `UPDATE directory_entries SET tdk_checked_at = NULL WHERE ${where}`,
+    category ? [category] : []
   )
   return Number(result?.affectedRows || 0)
 }
 
-export async function fillTdkBatch(limit = 6): Promise<{
+export async function fillTdkBatch(limit = 6, options: { category?: string } = {}): Promise<{
   processed: number
   updated: number
   failed: number
@@ -91,15 +93,20 @@ export async function fillTdkBatch(limit = 6): Promise<{
   remaining: number
 }> {
   const db = useDb()
-  const size = Math.min(12, Math.max(1, limit))
+  const size = Math.min(50, Math.max(1, limit))
+  const category = String(options.category || '').trim()
+  const scope = category ? 'AND category = ?' : ''
+  const params = category ? [category] : []
   const [rows]: any = await db.query(
     `SELECT id, name, url, title, description, keywords, icon
      FROM directory_entries
      WHERE status = 'published'
        AND (tdk_checked_at IS NULL OR tdk_checked_at < DATE_SUB(NOW(), INTERVAL ${TDK_TTL_DAYS} DAY))
        AND (COALESCE(title, '') = '' OR COALESCE(description, '') = '')
+       ${scope}
      ORDER BY (COALESCE(description, '') = '') DESC, id ASC
-     LIMIT ${size}`
+     LIMIT ${size}`,
+    params
   )
 
   let updated = 0
@@ -133,10 +140,13 @@ export async function fillTdkBatch(limit = 6): Promise<{
     `SELECT COUNT(*) AS n FROM directory_entries
      WHERE status = 'published'
        AND (tdk_checked_at IS NULL OR tdk_checked_at < DATE_SUB(NOW(), INTERVAL ${TDK_TTL_DAYS} DAY))
-       AND (COALESCE(title, '') = '' OR COALESCE(description, '') = '')`
+       AND (COALESCE(title, '') = '' OR COALESCE(description, '') = '')
+       ${scope}`,
+    params
   )
   const [[missing]]: any = await db.query(
-    `SELECT COUNT(*) AS n FROM directory_entries WHERE ${MISSING_FILTER}`
+    `SELECT COUNT(*) AS n FROM directory_entries WHERE ${MISSING_FILTER} ${scope}`,
+    params
   )
   return {
     processed: rows.length,
@@ -154,7 +164,7 @@ export async function getMaintenanceStatus(): Promise<any> {
     `SELECT
        COUNT(*) AS total,
        SUM(checked_at IS NULL OR checked_at < DATE_SUB(NOW(), INTERVAL ${LINK_TTL_DAYS} DAY)) AS due_links,
-       SUM(http_status IS NOT NULL AND http_status >= 400 AND http_status NOT IN (401, 403, 429)) AS broken,
+       SUM(http_status IS NOT NULL AND http_status >= 400 AND http_status NOT IN (401, 403, 412, 429)) AS broken,
        SUM(COALESCE(title, '') = '' OR COALESCE(description, '') = '') AS missing,
        SUM((COALESCE(title, '') = '' OR COALESCE(description, '') = '')
          AND (tdk_checked_at IS NULL OR tdk_checked_at < DATE_SUB(NOW(), INTERVAL ${TDK_TTL_DAYS} DAY))) AS due_tdk
