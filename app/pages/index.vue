@@ -121,7 +121,8 @@ function openDrawer() { drawerOpen.value = true }
 
     <ClientOnly>
       <div class="animate-fade-up">
-        <div v-if="activeEmpty" class="card p-6 sm:p-8 text-center mb-8">
+        <DirectoryCategory v-if="activeEmpty && !diy" :category="activeCategoryName" />
+        <div v-else-if="activeEmpty" class="card p-6 sm:p-8 text-center mb-8">
           <p class="text-[15px] font-semibold">{{ activeCategoryName }}</p>
           <p class="mt-1 text-[12.5px] text-ink2">该分类暂无首页导航站点，可在分类目录中浏览收录内容。</p>
           <NuxtLink :to="`/site?category=${encodeURIComponent(activeCategoryName)}`" class="btn btn-sm btn-primary mt-4">查看分类目录</NuxtLink>
