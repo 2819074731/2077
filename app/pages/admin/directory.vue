@@ -28,6 +28,13 @@ const page = ref(1)
 const kw = ref('')
 const category = ref('')
 const status = ref('')
+const from = ref('')
+const to = ref('')
+const selected = ref<Set<number>>(new Set())
+const bulkActing = ref(false)
+const toast = ref('')
+const toastKind = ref<'ok' | 'err'>('ok')
+let toastTimer: ReturnType<typeof setTimeout> | null = null
 const loading = ref(false)
 const msg = ref('')
 const size = 20
@@ -46,6 +53,7 @@ const categoryOptions = computed(() => {
 })
 
 const filterCategories = computed(() => categories.value.filter((c: any) => Number(c.n) > 0))
+const allSelected = computed(() => items.value.length > 0 && items.value.every((item) => selected.value.has(Number(item.id))))
 
 const emptyEntry = (): Entry => ({
   name: '', url: '', icon: '', category: '其他', title: '', description: '',
@@ -66,11 +74,14 @@ async function load() {
     if (kw.value.trim()) qs.set('q', kw.value.trim())
     if (category.value) qs.set('category', category.value)
     if (status.value) qs.set('status', status.value)
+    if (from.value) qs.set('from', from.value)
+    if (to.value) qs.set('to', to.value)
     const d: any = await $fetch(`/api/admin/directory?${qs}`)
     items.value = d.items || []
     total.value = d.total || 0
     published.value = d.published || 0
     categories.value = d.categories || []
+    selected.value = new Set()
   } finally {
     loading.value = false
   }
@@ -81,6 +92,56 @@ function go(p: number) { page.value = p; load() }
 function flash(text: string) {
   msg.value = text
   setTimeout(() => (msg.value = ''), 1600)
+}
+
+function showToast(text: string, kind: 'ok' | 'err' = 'ok') {
+  toast.value = text
+  toastKind.value = kind
+  if (toastTimer) clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => { toast.value = '' }, 4800)
+}
+
+function resetFilters() {
+  kw.value = ''
+  category.value = ''
+  status.value = ''
+  from.value = ''
+  to.value = ''
+  search()
+}
+
+function toggleSelect(id: number) {
+  const next = new Set(selected.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  selected.value = next
+}
+
+function toggleAll() {
+  selected.value = allSelected.value ? new Set() : new Set(items.value.map((item) => Number(item.id)))
+}
+
+async function bulk(op: 'publish' | 'hide') {
+  if (bulkActing.value || !selected.value.size) return
+  const ids = [...selected.value]
+  const label = op === 'publish' ? '发布' : '隐藏'
+  if (!confirm(`确定${label}所选 ${ids.length} 个站点？`)) return
+  bulkActing.value = true
+  try {
+    const d: any = await $fetch('/api/admin/directory', {
+      method: 'POST',
+      body: { action: 'bulk', ids, op }
+    })
+    const parts = [`更新 ${d.updated} 个`]
+    if (d.skipped) parts.push(`跳过 ${d.skipped} 个`)
+    if (d.errors) parts.push(`失败 ${d.errors} 个`)
+    showToast(`批量${label}完成：${parts.join('，')}`, d.errors ? 'err' : 'ok')
+    await load()
+  } catch (err: any) {
+    showToast(err?.data?.statusMessage || err?.data?.message || '批量操作失败', 'err')
+  } finally {
+    bulkActing.value = false
+  }
 }
 
 async function fetchTkd() {
@@ -174,6 +235,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKey)
+  if (toastTimer) clearTimeout(toastTimer)
   if (import.meta.client) {
     document.documentElement.style.overflow = ''
     document.body.style.overflow = ''
@@ -201,10 +263,13 @@ onBeforeUnmount(() => {
         <span class="text-[12.5px] text-ink2 ml-auto">共 {{ total }} 个 · 已发布 {{ published }}</span>
         <button class="btn btn-sm btn-primary" @click="openCreate">新增站点</button>
       </div>
-      <form class="flex gap-2" @submit.prevent="search">
-        <input v-model="kw" class="field grow sm:max-w-[320px]" placeholder="搜索名称、网址或简介" />
+      <form class="flex flex-wrap gap-2" @submit.prevent="search">
+        <input v-model="kw" class="field grow sm:max-w-[280px]" placeholder="搜索名称、网址或简介" />
+        <input v-model="from" type="date" class="field !w-auto" aria-label="开始日期" />
+        <span class="self-center text-[12px] text-ink3">至</span>
+        <input v-model="to" type="date" class="field !w-auto" aria-label="结束日期" />
         <button class="btn shrink-0" type="submit">搜索</button>
-        <button v-if="kw || category || status" type="button" class="btn btn-ghost shrink-0" @click="kw = ''; category = ''; status = ''; search()">重置</button>
+        <button v-if="kw || category || status || from || to" type="button" class="btn btn-ghost shrink-0" @click="resetFilters">重置</button>
       </form>
       <p v-if="msg" class="text-[13px] text-ink2">{{ msg }}</p>
     </div>
@@ -213,34 +278,62 @@ onBeforeUnmount(() => {
     <div v-else-if="!items.length" class="card p-8 text-center text-ink2 text-[13px]">
       暂无目录站点，点击「新增站点」或到「链接发现」批量导入。
     </div>
-    <div v-else class="card overflow-hidden divide-y divide-line">
-      <div v-for="e in items" :key="e.id" class="p-3.5 sm:p-4">
-        <div class="flex items-start gap-3">
-          <SiteIcon :src="e.icon || iconOf(e.url)" :name="e.name" :url="e.url" class="w-9 h-9 rounded-lg shrink-0 text-[13px]" />
-          <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-1.5 flex-wrap">
-              <span class="font-medium text-[13.5px]">{{ e.name }}</span>
-              <span class="chip !text-[10px]">{{ e.category }}</span>
-              <span v-if="e.featured" class="chip !text-[10px]">推荐</span>
-              <span class="chip !text-[10px]" :class="{ 'text-success': e.status === 'published' }">{{ e.status === 'published' ? '已发布' : '已隐藏' }}</span>
-              <span v-if="!e.detail_enabled" class="chip !text-[10px]">无详情页</span>
+    <template v-else>
+      <div class="card p-3 flex flex-wrap items-center gap-2 mb-3">
+        <label class="flex items-center gap-2 text-[12.5px] text-ink2 cursor-pointer">
+          <input type="checkbox" class="w-4 h-4 accent-current" :checked="allSelected" @change="toggleAll" />
+          本页全选
+        </label>
+        <span class="text-[12.5px] text-ink2">已选 {{ selected.size }} 个</span>
+        <div class="flex-1" />
+        <button class="btn btn-sm btn-primary" :disabled="!selected.size || bulkActing" @click="bulk('publish')">批量发布</button>
+        <button class="btn btn-sm btn-ghost" :disabled="!selected.size || bulkActing" @click="bulk('hide')">批量隐藏</button>
+      </div>
+      <div class="card overflow-hidden divide-y divide-line">
+        <div v-for="e in items" :key="e.id" class="p-3.5 sm:p-4">
+          <div class="flex items-start gap-3">
+            <input
+              type="checkbox"
+              class="w-4 h-4 mt-1 shrink-0 accent-current"
+              :checked="selected.has(Number(e.id))"
+              :aria-label="`选择 ${e.name}`"
+              @change="toggleSelect(Number(e.id))"
+            />
+            <SiteIcon :src="e.icon || iconOf(e.url)" :name="e.name" :url="e.url" class="w-9 h-9 rounded-lg shrink-0 text-[13px]" />
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="font-medium text-[13.5px]">{{ e.name }}</span>
+                <span class="chip !text-[10px]">{{ e.category }}</span>
+                <span v-if="e.featured" class="chip !text-[10px]">推荐</span>
+                <span class="chip !text-[10px]" :class="{ 'text-success': e.status === 'published' }">{{ e.status === 'published' ? '已发布' : '已隐藏' }}</span>
+                <span v-if="!e.detail_enabled" class="chip !text-[10px]">无详情页</span>
+              </div>
+              <a :href="e.url" target="_blank" rel="noopener" class="block text-[11.5px] text-ink2 truncate hover:text-ink">{{ e.url }}</a>
+              <p v-if="e.description" class="text-[11.5px] text-ink3 mt-0.5 line-clamp-1">{{ e.description }}</p>
             </div>
-            <a :href="e.url" target="_blank" rel="noopener" class="block text-[11.5px] text-ink2 truncate hover:text-ink">{{ e.url }}</a>
-            <p v-if="e.description" class="text-[11.5px] text-ink3 mt-0.5 line-clamp-1">{{ e.description }}</p>
+          </div>
+          <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-line">
+            <NuxtLink v-if="e.detail_enabled" :to="`/site/${e.id}.html`" target="_blank" class="btn btn-sm btn-ghost">查看详情</NuxtLink>
+            <a v-else :href="e.url" target="_blank" rel="noopener" class="btn btn-sm btn-ghost">访问官网</a>
+            <button class="btn btn-sm" @click="openEdit(e)">编辑</button>
+            <button class="btn btn-sm btn-ghost" @click="act(e, 'status')">{{ e.status === 'published' ? '隐藏' : '发布' }}</button>
+            <div class="flex-1" />
+            <button class="btn btn-sm btn-ghost text-danger" @click="act(e, 'delete')">删除</button>
           </div>
         </div>
-        <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-line">
-          <NuxtLink v-if="e.detail_enabled" :to="`/site/${e.id}.html`" target="_blank" class="btn btn-sm btn-ghost">查看详情</NuxtLink>
-          <a v-else :href="e.url" target="_blank" rel="noopener" class="btn btn-sm btn-ghost">访问官网</a>
-          <button class="btn btn-sm" @click="openEdit(e)">编辑</button>
-          <button class="btn btn-sm btn-ghost" @click="act(e, 'status')">{{ e.status === 'published' ? '隐藏' : '发布' }}</button>
-          <div class="flex-1" />
-          <button class="btn btn-sm btn-ghost text-danger" @click="act(e, 'delete')">删除</button>
-        </div>
       </div>
-    </div>
+    </template>
 
     <AdminPager :page="page" :total="total" :size="size" @change="go" />
+
+    <Teleport to="body">
+      <div
+        v-if="toast"
+        class="fixed left-1/2 bottom-6 z-[80] w-[calc(100%-2rem)] max-w-[520px] -translate-x-1/2 rounded-xl border bg-bg px-4 py-3 text-[12.5px] shadow-soft"
+        :class="toastKind === 'err' ? 'border-danger text-danger' : 'border-line text-success'"
+        role="status"
+      >{{ toast }}</div>
+    </Teleport>
 
     <div v-if="editing" class="fixed inset-0 z-50 sm:flex sm:items-center sm:justify-center sm:p-4">
       <div class="absolute inset-0 bg-black/50 backdrop-blur-[2px]" @click="editing = null" />

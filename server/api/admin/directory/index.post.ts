@@ -25,6 +25,41 @@ export default defineEventHandler(async (event) => {
     return { ok: true, status }
   }
 
+  if (action === 'bulk') {
+    const ids = Array.isArray(body?.ids)
+      ? [...new Set(body.ids.map(Number).filter((n: number) => Number.isInteger(n) && n > 0))]
+      : []
+    const op = String(body?.op || '')
+    if (!ids.length) throw createError({ statusCode: 400, statusMessage: '请选择目录站点' })
+    if (ids.length > 200) throw createError({ statusCode: 400, statusMessage: '单次最多处理 200 个站点' })
+    if (op !== 'publish' && op !== 'hide') throw createError({ statusCode: 400, statusMessage: '未知批量操作' })
+
+    const [rows]: any = await db.query(
+      `SELECT id FROM directory_entries WHERE id IN (${ids.map(() => '?').join(',')})`,
+      ids
+    )
+    const existing = new Set<number>(rows.map((row: any) => Number(row.id)))
+    const status = op === 'publish' ? 'published' : 'hidden'
+    let updated = 0
+    let skipped = 0
+    let errors = 0
+
+    for (const id of ids) {
+      if (!existing.has(id)) {
+        skipped++
+        continue
+      }
+      try {
+        await db.execute('UPDATE directory_entries SET status = ? WHERE id = ?', [status, id])
+        updated++
+      } catch {
+        errors++
+      }
+    }
+
+    return { ok: true, updated, skipped, errors }
+  }
+
   if (action === 'bulk-create') {
     const list = Array.isArray(body?.items) ? body.items.slice(0, 100) : []
     let created = 0

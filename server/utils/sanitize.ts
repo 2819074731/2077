@@ -10,6 +10,18 @@ export function cleanText(value: unknown, max: number, multiline = false): strin
   return s.slice(0, max)
 }
 
+export function cleanDate(value: unknown): string {
+  const s = String(value ?? '').trim()
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s)
+  if (!m) return ''
+  const y = Number(m[1])
+  const mo = Number(m[2])
+  const d = Number(m[3])
+  const dt = new Date(Date.UTC(y, mo - 1, d))
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return ''
+  return s
+}
+
 export function safeIcon(value: unknown): string {
   const s = String(value ?? '').trim()
   if (!s) return ''

@@ -1,4 +1,5 @@
 import { getSiteCategories } from '../../../utils/categories'
+import { cleanDate } from '../../../utils/sanitize'
 
 export default defineEventHandler(async (event) => {
   await requireAdmin(event)
@@ -7,7 +8,9 @@ export default defineEventHandler(async (event) => {
   const size = Math.min(100, Math.max(1, Number(q.size) || 20))
   const offset = (page - 1) * size
   const category = String(q.category || '').trim().slice(0, 60)
-  const status = String(q.status || '').trim()
+  const status = String(q.status || '').trim().slice(0, 20)
+  const from = cleanDate(q.from)
+  const to = cleanDate(q.to)
   const kw = String(q.q || '').trim().slice(0, 60)
 
   const db = useDb()
@@ -15,6 +18,8 @@ export default defineEventHandler(async (event) => {
   const params: any[] = []
   if (category) { where.push('category = ?'); params.push(category) }
   if (status) { where.push('status = ?'); params.push(status) }
+  if (from) { where.push('created_at >= ?'); params.push(`${from} 00:00:00`) }
+  if (to) { where.push('created_at <= ?'); params.push(`${to} 23:59:59`) }
   if (kw) { where.push('(name LIKE ? OR url LIKE ? OR description LIKE ?)'); params.push(`%${kw}%`, `%${kw}%`, `%${kw}%`) }
   const clause = where.length ? 'WHERE ' + where.join(' AND ') : ''
 
