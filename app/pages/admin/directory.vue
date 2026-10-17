@@ -58,6 +58,9 @@ const tdkScope = ref<'all' | 'category' | 'batch'>('all')
 const tdkCategory = ref('')
 const tdkBatchSize = ref(6)
 const tdkProgress = ref('')
+const tdkOpen = ref(false)
+const opsOpen = ref(false)
+const linkProgress = ref('')
 const tdkModes: Array<{ v: 'all' | 'category' | 'batch'; l: string }> = [
   { v: 'all', l: '全部' },
   { v: 'category', l: '按分类' },
@@ -160,7 +163,6 @@ function fmtTime(value?: string | null) {
 
 async function maintainNow() {
   if (maintainRunning.value) return
-  if (!confirm('立即执行完整巡检？会检查到期链接并补全缺失 TDK，可能需要几分钟。')) return
   maintainRunning.value = true
   try {
     const d: any = await $fetch('/api/admin/maintenance', { method: 'POST' })
@@ -213,27 +215,23 @@ async function batchTdk() {
     showToast(err?.data?.statusMessage || err?.data?.message || '批量补全失败', 'err')
   } finally {
     tdkRunning.value = false
-    tdkProgress.value = ''
   }
 }
 
-async function fixAllMissing() {
-  if (tdkRunning.value || !tdkMissing.value) return
-  if (!confirm(`补全全部 ${tdkMissing.value} 个缺失 TDK？将逐个访问官网抓取标题、描述与关键词，可能需要几分钟。`)) return
+function openTdk() {
   tdkScope.value = 'all'
-  await batchTdk()
+  tdkCategory.value = category.value || ''
+  tdkProgress.value = ''
+  tdkOpen.value = true
 }
 
-function openTools() {
-  const el = document.querySelector<HTMLDetailsElement>('details.tools-panel')
-  if (!el) return
-  el.open = true
-  el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+function openOps() {
+  linkProgress.value = ''
+  opsOpen.value = true
 }
 
 async function pushSearch() {
   if (pushRunning.value) return
-  if (!confirm('向 IndexNow 与百度推送全部已发布页面？')) return
   pushRunning.value = true
   try {
     const d: any = await $fetch('/api/admin/seo/push', { method: 'POST', body: { scope: 'all' } })
@@ -252,6 +250,7 @@ async function pushSearch() {
 async function checkLinks() {
   if (linkRunning.value) return
   linkRunning.value = true
+  linkProgress.value = '准备巡检…'
   let checked = 0
   let broken = 0
   try {
@@ -259,12 +258,14 @@ async function checkLinks() {
       const d: any = await $fetch('/api/admin/directory/check-links', { method: 'POST', body: { limit: 8 } })
       checked += Number(d.checked || 0)
       broken += Number(d.broken || 0)
+      linkProgress.value = `已检查 ${checked} 个，异常 ${broken} 个，待检 ${Number(d.remaining || 0)} 个`
       if (!d.checked || Number(d.remaining || 0) === 0) break
     }
     showToast(`链接巡检完成：检查 ${checked} 个${broken ? `，异常 ${broken} 个` : ''}`, broken ? 'err' : 'ok')
     await load()
   } catch (err: any) {
-    showToast(err?.data?.statusMessage || err?.data?.message || '链接巡检失败', 'err')
+    linkProgress.value = err?.data?.statusMessage || err?.data?.message || '链接巡检失败'
+    showToast(linkProgress.value, 'err')
   } finally {
     linkRunning.value = false
   }
@@ -387,14 +388,19 @@ function iconOf(url: string) {
   try { return `/api/icon?url=${encodeURIComponent(new URL(url).hostname)}` } catch { return '' }
 }
 
-watch(editing, (v) => {
+const modalOpen = computed(() => !!(editing.value || tdkOpen.value || opsOpen.value))
+
+watch(modalOpen, (v) => {
   if (!import.meta.client) return
   document.documentElement.style.overflow = v ? 'hidden' : ''
   document.body.style.overflow = v ? 'hidden' : ''
 })
 
 function onKey(e: KeyboardEvent) {
-  if (e.key === 'Escape') editing.value = null
+  if (e.key !== 'Escape') return
+  if (editing.value) editing.value = null
+  else if (tdkOpen.value) tdkOpen.value = false
+  else if (opsOpen.value) opsOpen.value = false
 }
 
 onMounted(async () => {
@@ -438,7 +444,6 @@ onBeforeUnmount(() => {
             链接异常 <span class="opacity-70">{{ linkBroken }}</span>
           </button>
           <span class="text-[12.5px] text-ink2 sm:ml-auto">共 {{ total }} 个 · 已发布 {{ published }}</span>
-          <button class="btn btn-sm btn-primary" @click="openCreate">新增站点</button>
         </div>
         <form class="flex flex-wrap items-center gap-2" @submit.prevent="search">
           <input v-model="kw" class="field grow min-w-[180px] sm:max-w-[320px]" placeholder="搜索名称、网址或简介" />
@@ -453,54 +458,18 @@ onBeforeUnmount(() => {
             </div>
           </details>
           <button v-if="kw || category || status || missingOnly || brokenOnly || from || to" type="button" class="btn btn-sm btn-ghost shrink-0" @click="resetFilters">重置</button>
+          <div class="flex flex-wrap items-center gap-2 sm:ml-auto">
+            <button type="button" class="btn btn-sm" @click="openTdk">
+              TDK 补全
+              <span class="text-[11px]" :class="tdkMissing ? 'text-warning' : 'text-ink3'">{{ tdkMissing }}</span>
+            </button>
+            <button type="button" class="btn btn-sm" @click="openOps">巡检与推送</button>
+            <button type="button" class="btn btn-sm btn-primary" @click="openCreate">新增站点</button>
+          </div>
         </form>
       </div>
 
-      <details class="card group tools-panel">
-        <summary class="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2.5 cursor-pointer select-none list-none">
-          <span class="text-[12.5px] font-medium text-ink">巡检与批量工具</span>
-          <span v-if="maintenance" class="text-[12px] text-ink3">自动巡检每日 {{ maintenance.schedule }}</span>
-          <span class="text-[12px]" :class="tdkMissing ? 'text-warning' : 'text-success'">TDK 缺失 {{ tdkMissing }}</span>
-          <span class="text-[12px]" :class="linkBroken ? 'text-warning' : 'text-success'">链接异常 {{ linkBroken }}</span>
-          <span class="text-[12px] text-ink3 hidden sm:inline">{{ maintenance?.last ? `最近 ${fmtTime(maintenance.last.at)}` : '尚未巡检' }}</span>
-          <svg class="ml-auto transition-transform group-open:rotate-180" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6" /></svg>
-        </summary>
-        <div class="px-3 pb-3 pt-2 border-t border-line flex flex-col gap-2.5">
-          <div v-if="maintenance" class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-ink2">
-            <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="maintenance.broken ? 'bg-warning' : 'bg-success'" />
-            <span>{{ maintenance.last ? `最近巡检 ${fmtTime(maintenance.last.at)}` : '自动巡检尚未运行' }}</span>
-            <span v-if="maintenance.dueLinks" class="text-ink3">· 待检 {{ maintenance.dueLinks }}</span>
-            <button class="btn btn-sm btn-ghost ml-auto" :disabled="maintainRunning || linkRunning || tdkRunning" @click="maintainNow">{{ maintainRunning ? '全量巡检中…' : '立即巡检' }}</button>
-          </div>
-          <div class="flex flex-wrap items-center gap-2">
-            <span class="text-[12.5px] font-medium text-ink">批量补 TDK</span>
-            <div class="flex gap-1 p-0.5 rounded-lg bg-bg border border-line">
-              <button
-                v-for="m in tdkModes"
-                :key="m.v"
-                class="h-7 px-2.5 rounded-md text-[12px] whitespace-nowrap transition-colors"
-                :class="tdkScope === m.v ? 'bg-ink text-bg font-medium' : 'text-ink2 hover:text-ink'"
-                :disabled="tdkRunning"
-                @click="tdkScope = m.v"
-              >{{ m.l }}</button>
-            </div>
-            <select v-if="tdkScope === 'category'" v-model="tdkCategory" class="field !w-auto max-w-[180px]" :disabled="tdkRunning">
-              <option value="">选择分类</option>
-              <option v-for="c in filterCategories" :key="c.category" :value="c.category">{{ c.category }}（{{ c.n }}）</option>
-            </select>
-            <input v-if="tdkScope === 'batch'" v-model.number="tdkBatchSize" type="number" min="1" max="50" class="field !w-20" :disabled="tdkRunning" aria-label="补全数量" />
-            <button class="btn btn-sm btn-primary" :disabled="tdkRunning || (tdkScope === 'category' && !tdkCategory)" @click="batchTdk">{{ tdkRunning ? '补全中…' : '开始补全' }}</button>
-            <span v-if="tdkProgress" class="text-[12px] text-ink3">{{ tdkProgress }}</span>
-          </div>
-          <div class="flex flex-wrap items-center gap-2 text-[12px] text-ink3">
-            <button class="btn btn-sm" :disabled="linkRunning" @click="checkLinks">{{ linkRunning ? '巡检中…' : '巡检链接' }}</button>
-            <button class="btn btn-sm" :disabled="pushRunning" @click="pushSearch">{{ pushRunning ? '推送中…' : '推送搜索' }}</button>
-            <span>链接巡检与搜索推送不会影响列表操作</span>
-          </div>
-        </div>
-      </details>
-
-      <p v-if="missingOnly" class="text-[12px] text-warning">当前只显示缺 TDK 的站点，行内已标出「缺标题 / 缺描述 / 缺关键词」。</p>
+      <p v-if="missingOnly" class="text-[12px] text-warning">当前只显示缺 TDK 的 {{ total }} 个站点，点「TDK 补全」统一处理。</p>
       <p v-else-if="brokenOnly" class="text-[12px] text-warning">当前只显示链接异常的站点，行内显示返回的 HTTP 状态码。</p>
       <p v-if="msg" class="text-[13px] text-ink2">{{ msg }}</p>
     </div>
@@ -510,16 +479,7 @@ onBeforeUnmount(() => {
       {{ missingOnly ? '当前没有缺 TDK 的站点。' : brokenOnly ? '当前没有链接异常的站点。' : '暂无目录站点，点击「新增站点」或到「链接发现」批量导入。' }}
     </div>
     <template v-else>
-      <div v-if="missingOnly" class="card p-3 mb-3 flex flex-wrap items-center gap-2">
-        <div class="min-w-0 flex-1">
-          <p class="text-[13px] font-medium">缺 TDK {{ total }} 个</p>
-          <p class="text-[11.5px] text-ink3">标题、描述、关键词任一为空。可批量重新抓取；抓不到的需点站点名进入编辑手动填写。</p>
-        </div>
-        <button class="btn btn-sm btn-primary shrink-0" :disabled="tdkRunning" @click="fixAllMissing">{{ tdkRunning ? '补全中…' : '补全缺失 TDK' }}</button>
-        <button class="btn btn-sm shrink-0" @click="openTools">调整范围</button>
-      </div>
-      <div v-if="tdkProgress" class="text-[12px] text-ink3 mb-2">{{ tdkProgress }}</div>
-      <div class="card p-3 flex flex-wrap items-center gap-2 mb-3">
+      <div class="flex flex-wrap items-center gap-2 px-1 mb-2">
         <label class="flex items-center gap-2 text-[12.5px] text-ink2 cursor-pointer">
           <input type="checkbox" class="w-4 h-4 accent-current" :checked="allSelected" @change="toggleAll" />
           本页全选
@@ -578,6 +538,102 @@ onBeforeUnmount(() => {
         role="status"
       >{{ toast }}</div>
     </Teleport>
+
+    <div v-if="tdkOpen" role="dialog" aria-modal="true" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+      <div class="absolute inset-0 bg-black/50 backdrop-blur-[2px]" @click="tdkOpen = false" />
+      <div class="relative w-full sm:max-w-[540px] max-h-[92dvh] flex flex-col bg-card border-t sm:border border-line rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden">
+        <div class="shrink-0 flex items-center gap-2 px-4 h-14 border-b border-line">
+          <div class="min-w-0 flex-1">
+            <h2 class="font-semibold text-[15px]">TDK 补全</h2>
+            <p class="text-[11px] text-ink3">标题、描述、关键词任一为空即视为缺失</p>
+          </div>
+          <button class="btn btn-sm btn-ghost btn-icon-sm" aria-label="关闭" @click="tdkOpen = false">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12" /></svg>
+          </button>
+        </div>
+        <div class="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 flex flex-col gap-4">
+          <p class="text-[13px] text-ink2">当前缺 TDK <span class="font-semibold" :class="tdkMissing ? 'text-warning' : 'text-success'">{{ tdkMissing }}</span> 个。</p>
+          <div>
+            <p class="text-[12px] text-ink2 mb-1.5">补全范围</p>
+            <div class="flex gap-1 p-1 rounded-xl bg-card2 border border-line">
+              <button
+                v-for="m in tdkModes"
+                :key="m.v"
+                class="flex-1 h-8 rounded-lg text-[12.5px] whitespace-nowrap transition-colors"
+                :class="tdkScope === m.v ? 'bg-ink text-bg font-medium' : 'text-ink2 hover:text-ink'"
+                :disabled="tdkRunning"
+                @click="tdkScope = m.v"
+              >{{ m.l }}</button>
+            </div>
+          </div>
+          <select v-if="tdkScope === 'category'" v-model="tdkCategory" class="field" :disabled="tdkRunning">
+            <option value="">选择分类</option>
+            <option v-for="c in filterCategories" :key="c.category" :value="c.category">{{ c.category }}（{{ c.n }}）</option>
+          </select>
+          <label v-if="tdkScope === 'batch'" class="flex items-center gap-2 text-[12.5px] text-ink2">
+            每批处理
+            <input v-model.number="tdkBatchSize" type="number" min="1" max="50" class="field !w-20" :disabled="tdkRunning" />
+            个
+          </label>
+          <div v-if="tdkProgress" class="rounded-xl border border-line bg-bg px-3 py-2.5 text-[12px] text-ink2">{{ tdkProgress }}</div>
+          <p class="text-[11.5px] text-ink3">补全会访问官网抓取标题、描述与关键词。受站点防护限制抓不到时，请到列表中逐条编辑。</p>
+        </div>
+        <div class="shrink-0 flex gap-2 px-4 py-3 border-t border-line pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-3">
+          <button class="btn btn-primary flex-1" :disabled="tdkRunning || (tdkScope === 'category' && !tdkCategory)" @click="batchTdk">{{ tdkRunning ? '补全中…' : '开始补全' }}</button>
+          <button class="btn flex-1" @click="tdkOpen = false">关闭</button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="opsOpen" role="dialog" aria-modal="true" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+      <div class="absolute inset-0 bg-black/50 backdrop-blur-[2px]" @click="opsOpen = false" />
+      <div class="relative w-full sm:max-w-[560px] max-h-[92dvh] flex flex-col bg-card border-t sm:border border-line rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden">
+        <div class="shrink-0 flex items-center gap-2 px-4 h-14 border-b border-line">
+          <div class="min-w-0 flex-1">
+            <h2 class="font-semibold text-[15px]">巡检与推送</h2>
+            <p class="text-[11px] text-ink3">自动巡检每日 {{ maintenance?.schedule || '04:10' }}{{ maintenance?.last ? ` · 最近 ${fmtTime(maintenance.last.at)}` : ' · 尚未运行' }}</p>
+          </div>
+          <button class="btn btn-sm btn-ghost btn-icon-sm" aria-label="关闭" @click="opsOpen = false">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12" /></svg>
+          </button>
+        </div>
+        <div class="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 flex flex-col gap-4">
+          <div class="flex flex-wrap gap-x-5 gap-y-1.5 text-[12.5px] text-ink2">
+            <span>TDK 缺失 <b :class="tdkMissing ? 'text-warning' : 'text-success'">{{ tdkMissing }}</b></span>
+            <span>链接异常 <b :class="linkBroken ? 'text-warning' : 'text-success'">{{ linkBroken }}</b></span>
+            <span>待检链接 <b>{{ maintenance?.dueLinks || 0 }}</b></span>
+          </div>
+          <div class="rounded-xl border border-line divide-y divide-line">
+            <div class="flex items-center gap-3 p-3">
+              <div class="min-w-0 flex-1">
+                <p class="text-[13px] font-medium">全量巡检</p>
+                <p class="text-[11.5px] text-ink3">检查到期链接并补全缺失 TDK</p>
+              </div>
+              <button class="btn btn-sm btn-primary shrink-0" :disabled="maintainRunning || linkRunning || pushRunning" @click="maintainNow">{{ maintainRunning ? '巡检中…' : '立即执行' }}</button>
+            </div>
+            <div class="flex items-center gap-3 p-3">
+              <div class="min-w-0 flex-1">
+                <p class="text-[13px] font-medium">链接巡检</p>
+                <p class="text-[11.5px] text-ink3">逐条访问官网，记录异常状态码</p>
+              </div>
+              <button class="btn btn-sm shrink-0" :disabled="maintainRunning || linkRunning || pushRunning" @click="checkLinks">{{ linkRunning ? '巡检中…' : '开始巡检' }}</button>
+            </div>
+            <div class="flex items-center gap-3 p-3">
+              <div class="min-w-0 flex-1">
+                <p class="text-[13px] font-medium">搜索推送</p>
+                <p class="text-[11.5px] text-ink3">向 IndexNow 与百度提交已发布页面</p>
+              </div>
+              <button class="btn btn-sm shrink-0" :disabled="maintainRunning || linkRunning || pushRunning" @click="pushSearch">{{ pushRunning ? '推送中…' : '开始推送' }}</button>
+            </div>
+          </div>
+          <div v-if="linkProgress" class="rounded-xl border border-line bg-bg px-3 py-2.5 text-[12px] text-ink2">{{ linkProgress }}</div>
+          <p class="text-[11.5px] text-ink3">任务在后台执行，可关闭弹窗，完成后右下角会显示结果。</p>
+        </div>
+        <div class="shrink-0 flex gap-2 px-4 py-3 border-t border-line pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-3">
+          <button class="btn flex-1" @click="opsOpen = false">关闭</button>
+        </div>
+      </div>
+    </div>
 
     <div v-if="editing" role="dialog" aria-modal="true" class="fixed inset-0 z-50 sm:flex sm:items-center sm:justify-center sm:p-4">
       <div class="absolute inset-0 bg-black/50 backdrop-blur-[2px]" @click="editing = null" />
