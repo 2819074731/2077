@@ -2,6 +2,7 @@
 import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
 import { iconFor, hostOf } from '~/data/nav'
 import { parseBookmarksHtml } from '#shared/bookmarks'
+import { SITE_CATEGORIES } from '#shared/categories'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
@@ -180,8 +181,13 @@ async function fetchMetaSilent(l: ALink) {
     applyMeta(l, d.meta)
   } catch {}
 }
+function isSharedCategory(name: string): boolean {
+  return (SITE_CATEGORIES as readonly string[]).includes(name)
+}
 function addGroup() {
-  groups.value.push({ name: '新分组', links: [] })
+  const used = new Set(groups.value.map(g => g.name))
+  const name = SITE_CATEGORIES.find(c => !used.has(c)) || '其他'
+  groups.value.push({ name, links: [] })
   view.value = 'group'
   activeGroup.value = groups.value.length - 1
   linkKw.value = ''
@@ -586,7 +592,10 @@ onBeforeUnmount(() => {
           <div class="flex flex-col gap-3">
             <div class="flex flex-col gap-2">
               <div class="flex items-center gap-2">
-                <input v-model="active.name" class="field flex-1 sm:!max-w-[240px] font-medium" placeholder="分组名称" />
+                <select v-model="active.name" class="field flex-1 sm:!max-w-[240px] font-medium">
+                  <option v-if="!isSharedCategory(active.name)" :value="active.name">{{ active.name }}（旧分类）</option>
+                  <option v-for="c in SITE_CATEGORIES" :key="c" :value="c">{{ c }}</option>
+                </select>
                 <span class="chip shrink-0">{{ active.links.length }} 条</span>
               </div>
               <div class="flex flex-wrap items-center gap-2">

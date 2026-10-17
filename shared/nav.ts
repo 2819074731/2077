@@ -75,7 +75,7 @@ export const DEFAULT_GROUPS: NavGroup[] = [
     { id: 'l40', name: '腾讯视频', url: 'https://v.qq.com' },
     { id: 'l41', name: '爱奇艺', url: 'https://www.iqiyi.com' }
   ]},
-  { id: 'g-cloud', name: '云与控制台', links: [
+  { id: 'g-cloud', name: '云服务', links: [
     { id: 'l42', name: 'Cloudflare', url: 'https://dash.cloudflare.com' },
     { id: 'l43', name: 'Vercel', url: 'https://vercel.com/dashboard' },
     { id: 'l44', name: '阿里云', url: 'https://home.console.aliyun.com' },

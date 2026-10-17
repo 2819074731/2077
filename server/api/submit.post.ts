@@ -1,10 +1,8 @@
 import { normalizeSiteUrl } from '../utils/site'
 import { cleanText, safeIcon } from '../utils/sanitize'
 import { rateLimit } from '../utils/rateLimit'
-import { DEFAULT_GROUPS, urlKey } from '#shared/nav'
-import { DIRECTORY_CATEGORIES } from '#shared/directory'
-
-const NAV_GROUPS = [...DEFAULT_GROUPS.map(g => g.name), '其他']
+import { urlKey } from '#shared/nav'
+import { SITE_CATEGORIES } from '#shared/categories'
 
 export default defineEventHandler(async (event) => {
   const length = Number(getRequestHeader(event, 'content-length') || 0)
@@ -23,9 +21,8 @@ export default defineEventHandler(async (event) => {
   if (!name) throw createError({ statusCode: 400, statusMessage: '请填写站点名称' })
   const u = normalizeSiteUrl(String(body?.url || ''))
   const target = String(body?.target || '') === 'directory' ? 'directory' : 'nav'
-  const allowed: readonly string[] = target === 'directory' ? DIRECTORY_CATEGORIES : NAV_GROUPS
   const groupRaw = cleanText(body?.group, 60)
-  const group = allowed.includes(groupRaw) ? groupRaw : ''
+  const group = (SITE_CATEGORIES as readonly string[]).includes(groupRaw) ? groupRaw : ''
 
   const user = await getSessionUser(event)
   const db = useDb()

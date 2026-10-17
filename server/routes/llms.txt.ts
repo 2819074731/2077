@@ -1,4 +1,4 @@
-import { DIRECTORY_CATEGORIES } from '#shared/directory'
+import { SITE_CATEGORIES } from '#shared/categories'
 
 export default defineEventHandler(async (event) => {
   const siteUrl = useRuntimeConfig().public.siteUrl
@@ -45,9 +45,9 @@ export default defineEventHandler(async (event) => {
 
   lines.push(
     '',
-    '## 可提交分类',
+    '## 可提交分类（首页导航与分类目录共用）',
     '',
-    ...DIRECTORY_CATEGORIES.map(c => `- ${c}`),
+    ...SITE_CATEGORIES.map(c => `- ${c}`),
     '',
     '## 数据',
     '',

@@ -11,7 +11,7 @@ const RULES: Array<{ group: string; words: string[] }> = [
   { group: '开发工具', words: ['github', 'gitlab', 'gitee', 'stackoverflow', 'npmjs', 'pypi', 'docker', 'kubernetes', 'vercel', 'netlify', 'cloudflare', 'postman', 'jetbrains', 'vscode', 'developer', '编程', '开发', '代码', 'api 文档'] },
   { group: '社区资讯', words: ['reddit', 'hacker news', 'v2ex', 'zhihu', 'juejin', 'sspai', '36kr', '少数派', '知乎', '掘金', '社区', '论坛', '资讯'] },
   { group: '影音娱乐', words: ['youtube', 'bilibili', 'netflix', 'spotify', 'twitch', '音乐', '视频', '电影', '影视', '动漫', '游戏'] },
-  { group: '云与控制台', words: ['aws', 'azure', 'cloud.google', 'aliyun', 'aliyun.com', 'tencent cloud', 'cloud.tencent', 'console', '控制台', '云服务', '服务器'] },
+  { group: '云服务', words: ['aws', 'azure', 'cloud.google', 'aliyun', 'aliyun.com', 'tencent cloud', 'cloud.tencent', 'console', '控制台', '云服务', '服务器'] },
   { group: '运维监控', words: ['uptime', 'statuspage', 'grafana', 'prometheus', '监控', '状态页', '运维'] },
   { group: '学习文档', words: ['mdn', 'w3schools', 'coursera', 'wikipedia', 'docs', '文档', '教程', '课程', '学习'] },
   { group: '效率工具', words: ['notion', 'obsidian', 'figma', 'canva', 'trello', 'todoist', 'calendar', 'drive.google', '效率', '笔记', '待办'] },

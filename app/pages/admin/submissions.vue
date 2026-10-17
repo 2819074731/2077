@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
+import { SITE_CATEGORIES, DEFAULT_CATEGORY, isSiteCategory } from '#shared/categories'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
@@ -10,14 +11,13 @@ const status = ref('pending')
 const kw = ref('')
 const loading = ref(false)
 const msg = ref('')
+const msgKind = ref<'ok' | 'err'>('ok')
 const size = 20
 
-const navGroups = ref<string[]>([])
-const dirCategories = ref<string[]>([])
 const reviewing = ref<any>(null)
-const mode = ref<'nav' | 'directory'>('nav')
-const groupName = ref('')
-const category = ref('')
+const toNav = ref(false)
+const toDirectory = ref(false)
+const category = ref<string>(DEFAULT_CATEGORY)
 const acting = ref(false)
 
 useSeoMeta({ title: '收录审核 · 2077 管理后台', robots: 'noindex' })
@@ -36,47 +36,50 @@ async function load() {
   }
 }
 
-async function loadOptions() {
-  try {
-    const d: any = await $fetch('/api/admin/nav')
-    navGroups.value = (d.groups || []).map((g: any) => g.name)
-  } catch {}
-  try {
-    const d: any = await $fetch('/api/admin/directory?size=1')
-    dirCategories.value = (d.categories || []).map((c: any) => c.category)
-  } catch {}
+function openReview(item: any) {
+  reviewing.value = item
+  toNav.value = item.target !== 'directory'
+  toDirectory.value = item.target === 'directory'
+  category.value = isSiteCategory(item.grp) ? item.grp : DEFAULT_CATEGORY
+  msg.value = ''
+  msgKind.value = 'ok'
 }
 
-function openReview(item: any, target: 'nav' | 'directory') {
-  reviewing.value = item
-  mode.value = target
-  groupName.value = item.grp || navGroups.value[0] || '收录站点'
-  category.value = item.grp || (dirCategories.value.includes('其他') ? '其他' : dirCategories.value[0]) || '其他'
-  msg.value = ''
+function flash(text: string, kind: 'ok' | 'err' = 'ok') {
+  msg.value = text
+  msgKind.value = kind
+  setTimeout(() => { if (msg.value === text) msg.value = '' }, 2200)
 }
 
 async function confirmApprove() {
   const item = reviewing.value
   if (!item || acting.value) return
+  if (!toNav.value && !toDirectory.value) {
+    msg.value = '请至少选择一个收录位置'
+    msgKind.value = 'err'
+    return
+  }
   acting.value = true
   msg.value = ''
   try {
-    await $fetch('/api/admin/submissions', {
+    const d: any = await $fetch('/api/admin/submissions', {
       method: 'POST',
       body: {
         id: item.id,
         action: 'approve',
-        target: mode.value,
-        group: groupName.value,
+        targets: { nav: toNav.value, directory: toDirectory.value },
         category: category.value
       }
     })
     reviewing.value = null
-    msg.value = mode.value === 'directory' ? '已收录到分类目录' : '已收录到首页导航'
-    setTimeout(() => (msg.value = ''), 1800)
+    const places: string[] = []
+    if (toNav.value) places.push(d.nav === 'exists' ? '首页导航（已存在）' : '首页导航')
+    if (toDirectory.value) places.push(d.directory === 'exists' ? '分类目录（已存在）' : '分类目录')
+    flash(`已收录到${places.join(' + ')}`)
     await load()
   } catch (e: any) {
     msg.value = e?.data?.statusMessage || e?.data?.message || '操作失败'
+    msgKind.value = 'err'
   } finally {
     acting.value = false
   }
@@ -87,18 +90,15 @@ async function reject(item: any) {
   msg.value = ''
   try {
     await $fetch('/api/admin/submissions', { method: 'POST', body: { id: item.id, action: 'reject' } })
-    msg.value = '已拒绝'
-    setTimeout(() => (msg.value = ''), 1600)
+    flash('已拒绝')
     await load()
   } catch (e: any) {
     msg.value = e?.data?.statusMessage || e?.data?.message || '操作失败'
+    msgKind.value = 'err'
   }
 }
 
-onMounted(() => {
-  load()
-  loadOptions()
-})
+onMounted(load)
 
 const filters = [
   { v: 'pending', label: '待审核' },
@@ -111,6 +111,11 @@ function setStatus(v: string) { status.value = v; page.value = 1; load() }
 function go(p: number) { page.value = p; load() }
 function statusText(s: string) {
   return s === 'pending' ? '待审核' : s === 'approved' ? '已收录' : '已拒绝'
+}
+function targetText(item: any) {
+  if (item.target === 'both') return '首页 + 目录'
+  const label = item.target === 'directory' ? '目录' : '导航'
+  return item.status === 'pending' ? `申请${label}` : `${label}收录`
 }
 function iconOf(url: string) {
   try { return `/api/icon?url=${encodeURIComponent(new URL(url).hostname)}` } catch { return '' }
@@ -137,7 +142,7 @@ function iconOf(url: string) {
         <input v-model="kw" class="field grow sm:max-w-[280px]" placeholder="搜索名称或网址" />
         <button class="btn shrink-0" type="submit">搜索</button>
       </form>
-      <p v-if="msg" class="text-[13px] text-ink2">{{ msg }}</p>
+      <p v-if="msg" class="text-[13px]" :class="msgKind === 'err' ? 'text-danger' : 'text-success'">{{ msg }}</p>
     </div>
 
     <div v-if="loading" class="card p-8 text-center text-ink2 text-[13px]">加载中…</div>
@@ -150,7 +155,7 @@ function iconOf(url: string) {
             <div class="flex items-center gap-1.5 flex-wrap">
               <span class="font-medium text-[14px]">{{ it.name }}</span>
               <span class="chip !text-[10px]" :class="{ 'text-warning': it.status === 'pending', 'text-success': it.status === 'approved' }">{{ statusText(it.status) }}</span>
-              <span class="chip !text-[10px]">{{ it.target === 'directory' ? '申请目录' : '申请导航' }}</span>
+              <span class="chip !text-[10px]">{{ targetText(it) }}</span>
               <span v-if="it.grp" class="chip !text-[10px]">{{ it.grp }}</span>
             </div>
             <a :href="it.url" target="_blank" rel="noopener nofollow" class="block text-[12.5px] text-ink2 hover:text-ink truncate mt-0.5">{{ it.url }}</a>
@@ -158,8 +163,7 @@ function iconOf(url: string) {
           </div>
         </div>
         <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-line">
-          <button v-if="it.status !== 'approved'" class="btn btn-sm btn-primary" @click="openReview(it, 'nav')">收录到导航</button>
-          <button v-if="it.status !== 'approved'" class="btn btn-sm" @click="openReview(it, 'directory')">收录到目录</button>
+          <button v-if="it.status !== 'approved'" class="btn btn-sm btn-primary" @click="openReview(it)">审核收录</button>
           <a :href="it.url" target="_blank" rel="noopener nofollow" class="btn btn-sm btn-ghost">访问网站</a>
           <div class="flex-1" />
           <button v-if="it.status !== 'rejected'" class="btn btn-sm btn-ghost text-danger" @click="reject(it)">拒绝</button>
@@ -171,28 +175,47 @@ function iconOf(url: string) {
 
     <Teleport to="body">
       <div v-if="reviewing" class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" @click.self="!acting && (reviewing = null)">
-        <div class="w-full sm:max-w-[480px] bg-card border border-line rounded-t-2xl sm:rounded-2xl p-4 sm:p-5">
+        <div class="w-full sm:max-w-[480px] bg-card border border-line rounded-t-2xl sm:rounded-2xl p-4 sm:p-5 max-h-[92vh] overflow-y-auto">
           <div class="flex items-center gap-2 mb-3">
             <h3 class="font-semibold text-[15px]">收录「{{ reviewing.name }}」</h3>
             <div class="flex-1" />
             <button class="btn btn-sm btn-ghost" :disabled="acting" @click="reviewing = null">关闭</button>
           </div>
-          <div class="grid grid-cols-2 gap-2 mb-3">
-            <button class="btn justify-center" :class="mode === 'nav' ? 'btn-primary' : 'btn-ghost'" @click="mode = 'nav'">首页导航</button>
-            <button class="btn justify-center" :class="mode === 'directory' ? 'btn-primary' : 'btn-ghost'" @click="mode = 'directory'">分类目录</button>
+
+          <p class="text-[12.5px] text-ink2 mb-2.5">选择收录位置，可同时收录到首页导航和分类目录。</p>
+          <div class="flex flex-col gap-2 mb-4">
+            <label
+              class="flex items-start gap-3 rounded-xl border p-3 cursor-pointer transition-colors"
+              :class="toNav ? 'border-ink bg-accentsoft' : 'border-line bg-card'"
+            >
+              <input v-model="toNav" type="checkbox" class="mt-0.5 w-4 h-4 shrink-0 accent-current" />
+              <span class="min-w-0">
+                <span class="block text-[13.5px] font-medium">收录到首页导航</span>
+                <span class="block text-[12px] leading-5 text-ink2 mt-0.5">加入首页「{{ category }}」分组，分组不存在时自动创建。</span>
+              </span>
+            </label>
+            <label
+              class="flex items-start gap-3 rounded-xl border p-3 cursor-pointer transition-colors"
+              :class="toDirectory ? 'border-ink bg-accentsoft' : 'border-line bg-card'"
+            >
+              <input v-model="toDirectory" type="checkbox" class="mt-0.5 w-4 h-4 shrink-0 accent-current" />
+              <span class="min-w-0">
+                <span class="block text-[13.5px] font-medium">收录到分类目录</span>
+                <span class="block text-[12px] leading-5 text-ink2 mt-0.5">生成独立详情页，并自动进入 sitemap。</span>
+              </span>
+            </label>
           </div>
-          <label class="block text-[12.5px] text-ink2 mb-1">{{ mode === 'directory' ? '目录分类' : '目标分组' }}</label>
-          <input v-if="mode === 'nav'" v-model="groupName" class="field" list="nav-groups" placeholder="选择或输入分组名" />
-          <input v-else v-model="category" class="field" list="dir-categories" placeholder="选择或输入分类名" />
-          <datalist id="nav-groups"><option v-for="g in navGroups" :key="g" :value="g" /></datalist>
-          <datalist id="dir-categories"><option v-for="c in dirCategories" :key="c" :value="c" /></datalist>
-          <p class="text-[11.5px] text-ink3 mt-2">
-            {{ mode === 'directory' ? '将生成独立详情页 /site/{id}.html，并自动进入 sitemap。' : '将加入首页对应分组，不生成详情页。' }}
-          </p>
-          <p v-if="msg" class="text-[12.5px] text-danger mt-2">{{ msg }}</p>
+
+          <label class="block text-[12.5px] text-ink2 mb-1">收录分类（首页与目录共用）</label>
+          <select v-model="category" class="field">
+            <option v-for="c in SITE_CATEGORIES" :key="c" :value="c">{{ c }}</option>
+          </select>
+          <p class="text-[11.5px] text-ink3 mt-2">首页导航与分类目录使用同一套分类，审核后仍可在各自后台调整位置。</p>
+          <p v-if="msg" class="text-[12.5px] mt-2" :class="msgKind === 'err' ? 'text-danger' : 'text-success'">{{ msg }}</p>
+
           <div class="flex gap-2 mt-4">
             <button class="btn flex-1" :disabled="acting" @click="reviewing = null">取消</button>
-            <button class="btn btn-primary flex-1" :disabled="acting" @click="confirmApprove">{{ acting ? '处理中…' : '确认收录' }}</button>
+            <button class="btn btn-primary flex-1" :disabled="acting || (!toNav && !toDirectory)" @click="confirmApprove">{{ acting ? '处理中…' : '确认收录' }}</button>
           </div>
         </div>
       </div>

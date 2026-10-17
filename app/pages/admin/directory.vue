@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue'
-import { DIRECTORY_CATEGORIES } from '#shared/directory'
+import { SITE_CATEGORIES } from '#shared/categories'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
@@ -40,9 +40,9 @@ const formError = ref('')
 useSeoMeta({ title: '分类目录 · 2077 管理后台', robots: 'noindex' })
 
 const categoryOptions = computed(() => {
-  const seen = new Set<string>(DIRECTORY_CATEGORIES)
+  const seen = new Set<string>(SITE_CATEGORIES)
   const extra = categories.value.map((c: any) => String(c.category)).filter((c) => c && !seen.has(c))
-  return [...DIRECTORY_CATEGORIES, ...extra]
+  return [...SITE_CATEGORIES, ...extra]
 })
 
 const filterCategories = computed(() => categories.value.filter((c: any) => Number(c.n) > 0))
@@ -261,10 +261,9 @@ onBeforeUnmount(() => {
                 </label>
                 <label class="flex flex-col gap-1">
                   <span class="text-[12px] text-ink2">分类</span>
-                  <input v-model="editing.category" class="field" list="dir-categories" placeholder="例如 开发工具" maxlength="60" />
-                  <datalist id="dir-categories">
-                    <option v-for="c in categoryOptions" :key="c" :value="c" />
-                  </datalist>
+                  <select v-model="editing.category" class="field">
+                    <option v-for="c in categoryOptions" :key="c" :value="c">{{ c }}</option>
+                  </select>
                 </label>
                 <div class="flex flex-col gap-1">
                   <span class="text-[12px] text-ink2">图标地址（留空自动抓取）</span>

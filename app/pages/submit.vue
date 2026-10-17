@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { DIRECTORY_CATEGORIES } from '#shared/directory'
+import { SITE_CATEGORIES } from '#shared/categories'
 
 const siteUrl = useRuntimeConfig().public.siteUrl
 const canonicalUrl = `${siteUrl}/submit`
@@ -20,7 +20,7 @@ const faqs = [
   },
   {
     q: '首页导航和分类目录有什么区别？',
-    a: '首页导航审核更严格，只展示精选站点；分类目录按主题长期收录，符合条件的站点会生成独立详情页并进入站点地图。'
+    a: '首页导航与分类目录共用同一套网站分类。首页导航审核更严格，只展示精选站点；分类目录按主题长期收录，符合条件的站点会生成独立详情页并进入站点地图。'
   },
   {
     q: '提示网站已提交过怎么办？',
@@ -85,13 +85,10 @@ const fetching = ref(false)
 const err = ref('')
 const ok = ref(false)
 
-const NAV_GROUPS = ['开发工具', 'AI 与模型', '社区资讯', '影音娱乐', '云与控制台', '运维监控', '学习文档', '效率工具', '购物生活', '社交平台', '其他']
-const groupOptions = computed(() => form.value.target === 'directory' ? DIRECTORY_CATEGORIES : NAV_GROUPS)
 const metaLoaded = computed(() => !!(form.value.title || form.value.description || form.value.keywords))
 
 function chooseTarget(target: 'nav' | 'directory') {
   form.value.target = target
-  form.value.group = ''
 }
 
 function validUrl(raw: string): boolean {
@@ -211,10 +208,10 @@ async function submit() {
               <input v-model="form.name" class="field !h-11 sm:!h-[38px]" placeholder="例如 GitHub" maxlength="80" />
             </label>
             <label class="flex flex-col gap-1.5">
-              <span class="text-[13.5px] font-medium">{{ form.target === 'directory' ? '目录分类' : '首页分组' }}</span>
+              <span class="text-[13.5px] font-medium">网站分类</span>
               <select v-model="form.group" class="field !h-11 sm:!h-[38px]">
                 <option value="">由站长决定</option>
-                <option v-for="g in groupOptions" :key="g" :value="g">{{ g }}</option>
+                <option v-for="g in SITE_CATEGORIES" :key="g" :value="g">{{ g }}</option>
               </select>
             </label>
           </div>

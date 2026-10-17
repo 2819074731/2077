@@ -155,10 +155,9 @@ loadCategories()
         <span class="text-[12.5px] text-ink2">已选 {{ selected.size }} / {{ items.length }}</span>
         <div class="hidden sm:block flex-1" />
         <div class="flex gap-2 w-full sm:w-auto">
-          <input v-model="category" class="field flex-1 sm:!w-40 !h-9 sm:!h-8 text-[16px] sm:text-[13px]" list="discover-categories" placeholder="导入分类" />
-          <datalist id="discover-categories">
-            <option v-for="c in categories" :key="c" :value="c" />
-          </datalist>
+          <select v-model="category" class="field flex-1 sm:!w-40 !h-9 sm:!h-8 text-[16px] sm:text-[13px]">
+            <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
+          </select>
           <button class="btn btn-sm btn-primary shrink-0" :disabled="!selected.size || importing" @click="importSelected">
             {{ importing ? '导入中…' : `导入所选（${selected.size}）` }}
           </button>

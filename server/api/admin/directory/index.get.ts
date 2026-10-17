@@ -1,4 +1,4 @@
-import { DIRECTORY_CATEGORIES } from '#shared/directory'
+import { SITE_CATEGORIES } from '#shared/categories'
 
 export default defineEventHandler(async (event) => {
   await requireAdmin(event)
@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
     params
   )
   const counts = new Map<string, any>(cats.map((c: any) => [String(c.category), c]))
-  const categories: { category: string; n: number; published: number }[] = DIRECTORY_CATEGORIES.map((name) => {
+  const categories: { category: string; n: number; published: number }[] = SITE_CATEGORIES.map((name) => {
     const c: any = counts.get(name)
     counts.delete(name)
     return { category: name, n: Number(c?.n || 0), published: Number(c?.published || 0) }
