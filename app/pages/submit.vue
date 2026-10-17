@@ -123,6 +123,13 @@ async function fetchMeta() {
   }
 }
 
+function resetForm() {
+  form.value = { url: '', name: '', title: '', description: '', keywords: '', icon: '', group: '', target: 'nav', _trap: '' }
+  err.value = ''
+  ok.value = false
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
 async function submit() {
   err.value = ''
   const name = form.value.name.trim()
@@ -168,7 +175,8 @@ async function submit() {
           我们已收到你的收录申请，通常会在 1-3 个工作日内完成审核。审核期间请勿重复提交。
         </p>
         <div class="flex flex-wrap justify-center gap-2 mt-6">
-          <NuxtLink to="/" class="btn btn-primary">返回首页</NuxtLink>
+          <button type="button" class="btn btn-primary" @click="resetForm">继续提交</button>
+          <NuxtLink to="/" class="btn">返回首页</NuxtLink>
           <NuxtLink to="/site" class="btn">浏览分类目录</NuxtLink>
         </div>
       </div>
