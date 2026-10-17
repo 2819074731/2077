@@ -93,8 +93,6 @@ let checkSeq = 0
 let copyTimer: any = null
 
 const metaLoaded = computed(() => !!(form.value.title || form.value.description || form.value.keywords))
-const groupValue = computed(() => form.value.group.trim())
-const groupUnmatched = computed(() => !!groupValue.value && !siteCategories.value.includes(groupValue.value))
 const checkHint = computed(() => {
   if (!check.value) return ''
   if (check.value.exists && check.value.inDirectory) return '该站点已提交过，且已收录在分类目录'
@@ -218,7 +216,7 @@ async function submit() {
   if (!name || !raw) { err.value = '请填写站点名称和网址'; return }
   if (!validUrl(raw)) { err.value = '请输入有效的 http/https 网址'; return }
   loading.value = true
-  const group = siteCategories.value.includes(groupValue.value) ? groupValue.value : ''
+  const group = siteCategories.value.includes(form.value.group) ? form.value.group : ''
   try {
     const d: any = await $fetch('/api/submit', {
       method: 'POST',
@@ -322,19 +320,11 @@ async function submit() {
             </label>
             <label class="flex flex-col gap-1.5">
               <span class="text-[13.5px] font-medium">网站分类</span>
-              <input
-                v-model="form.group"
-                class="field !h-11 sm:!h-[38px]"
-                list="submit-categories"
-                placeholder="搜索或留空，由站长决定"
-                maxlength="60"
-                autocomplete="off"
-              />
-              <datalist id="submit-categories">
-                <option v-for="g in siteCategories" :key="g" :value="g" />
-              </datalist>
-              <span class="text-[12px] leading-5 text-ink2">可输入分类名称，留空表示由站长决定。</span>
-              <p v-if="groupUnmatched" class="text-[12px] leading-5 text-warning">未匹配到现有分类，本次将按「由站长决定」提交。</p>
+              <select v-model="form.group" class="field !h-11 sm:!h-[38px] cursor-pointer">
+                <option value="">由站长决定</option>
+                <option v-for="g in siteCategories" :key="g" :value="g">{{ g }}</option>
+              </select>
+              <span class="text-[12px] leading-5 text-ink2">选择站点分类，留空表示由站长决定。</span>
             </label>
           </div>
         </section>
