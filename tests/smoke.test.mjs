@@ -90,3 +90,18 @@ test('目录热门接口可用', async () => {
   assert.ok(data.items.length <= 4)
   if (data.items.length) assert.equal(typeof data.items[0].hits, 'number')
 })
+
+test('校园分类与导航可用', async () => {
+  const [cats, dir, site] = await Promise.all([
+    get('/api/categories'),
+    get('/api/directory?category=' + encodeURIComponent('校园') + '&size=1'),
+    get('/api/site')
+  ])
+  assert.equal(cats.status, 200)
+  assert.ok((await cats.json()).categories.includes('校园'))
+  assert.equal(dir.status, 200)
+  assert.ok(Number((await dir.json()).total) >= 40)
+  assert.equal(site.status, 200)
+  const group = (await site.json()).groups.find((g) => g.name === '校园')
+  assert.ok(group && group.links.length >= 10)
+})

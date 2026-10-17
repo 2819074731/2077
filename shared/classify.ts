@@ -14,6 +14,7 @@ const RULES: Array<{ group: string; words: string[] }> = [
   { group: '影音娱乐', words: ['youtube', 'bilibili', 'netflix', 'spotify', 'twitch', '音乐', '视频', '电影', '影视', '动漫', '游戏'] },
   { group: '云服务', words: ['aws', 'azure', 'cloud.google', 'aliyun', 'aliyun.com', 'tencent cloud', 'cloud.tencent', 'console', '控制台', '云服务', '服务器'] },
   { group: '运维监控', words: ['uptime', 'statuspage', 'grafana', 'prometheus', '监控', '状态页', '运维'] },
+  { group: '校园', words: ['edu.cn', '大学', '学院', '高校', 'university', '招生', '本科'] },
   { group: '学习文档', words: ['mdn', 'w3schools', 'coursera', 'wikipedia', 'docs', '文档', '教程', '课程', '学习'] },
   { group: '效率工具', words: ['notion', 'obsidian', 'figma', 'canva', 'trello', 'todoist', 'calendar', 'drive.google', '效率', '笔记', '待办'] },
   { group: '购物生活', words: ['taobao', 'tmall', 'jd.com', 'amazon', 'meituan', '淘宝', '天猫', '京东', '美团', '购物', '生活'] },
