@@ -43,7 +43,10 @@ export function normalizeSiteUrl(input: string): URL {
   if (u.protocol !== 'http:' && u.protocol !== 'https:') {
     throw createError({ statusCode: 400, statusMessage: '仅支持 http/https 网址' })
   }
-  const host = u.hostname.toLowerCase()
+  if (u.username || u.password) {
+    throw createError({ statusCode: 400, statusMessage: '网址不能包含账号密码' })
+  }
+  const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, '')
   if (host === 'localhost' || host.endsWith('.local') || host.endsWith('.internal')) {
     throw createError({ statusCode: 400, statusMessage: '不支持的地址' })
   }

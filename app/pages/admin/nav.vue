@@ -76,16 +76,22 @@ function normalizeUrl(input: string): string {
 }
 
 const allLinks = computed(() => [...groups.value.flatMap(g => g.links), ...recommended.value])
-const duplicateKeys = computed(() => {
+function keysWithDuplicates(list: ALink[]): Set<string> {
   const counts = new Map<string, number>()
-  for (const l of allLinks.value) {
+  for (const l of list) {
     const k = normalizeKey(l.url)
     if (!k) continue
     counts.set(k, (counts.get(k) || 0) + 1)
   }
   return new Set(Array.from(counts.entries()).filter(([, n]) => n > 1).map(([k]) => k))
-})
-const duplicateCount = computed(() => allLinks.value.filter(l => duplicateKeys.value.has(normalizeKey(l.url))).length)
+}
+const groupLinks = computed(() => groups.value.flatMap(g => g.links))
+const duplicateKeys = computed(() => keysWithDuplicates(groupLinks.value))
+const recDuplicateKeys = computed(() => keysWithDuplicates(recommended.value))
+const duplicateCount = computed(() =>
+  groupLinks.value.filter(l => duplicateKeys.value.has(normalizeKey(l.url))).length
+  + recommended.value.filter(l => recDuplicateKeys.value.has(normalizeKey(l.url))).length
+)
 const invalidCount = computed(() => allLinks.value.filter(l => !l.name.trim() || !/^https?:\/\//i.test(l.url.trim())).length)
 const dirty = computed(() => JSON.stringify({ groups: groups.value, recommended: recommended.value }) !== snapshot.value)
 
@@ -124,6 +130,17 @@ function healthOf(l: ALink): HealthInfo | undefined {
 function isDup(l: ALink) {
   return duplicateKeys.value.has(normalizeKey(l.url))
 }
+function isRecDup(l: ALink) {
+  return recDuplicateKeys.value.has(normalizeKey(l.url))
+}
+const editorDup = computed(() => {
+  const ed = linkEditor.value
+  if (!ed) return false
+  const key = normalizeKey(ed.draft.url)
+  if (!key) return false
+  const pool = ed.kind === 'recommended' ? recommended.value : groupLinks.value
+  return pool.some(l => l !== ed.original && normalizeKey(l.url) === key)
+})
 function healthText(l: ALink): string {
   const h = healthOf(l)
   if (!h) return ''
@@ -487,7 +504,7 @@ onBeforeUnmount(() => {
           </div>
           <p class="text-[12px] text-ink2 mt-1">
             {{ groups.length }} 个分组 · {{ allLinks.length }} 条链接
-            <span v-if="duplicateCount" class="text-warning">· {{ duplicateCount }} 条重复网址</span>
+            <span v-if="duplicateCount" class="text-warning" title="分组内、推荐内分别检测；同一网址同时出现在分组和推荐中属于正常置顶配置">· {{ duplicateCount }} 条重复网址</span>
             <span v-if="invalidCount" class="text-danger">· {{ invalidCount }} 条待补全</span>
           </p>
         </div>
@@ -653,7 +670,7 @@ onBeforeUnmount(() => {
                 <span class="min-w-0 flex-1">
                   <span class="flex items-center gap-1.5">
                     <span class="text-[13px] font-medium truncate" :class="!l.name && 'text-ink3'">{{ l.name || '未命名站点' }}</span>
-                    <span v-if="isDup(l)" class="shrink-0 text-[9.5px] leading-none px-1 py-0.5 rounded bg-warning/15 text-warning">重复</span>
+                    <span v-if="isRecDup(l)" class="shrink-0 text-[9.5px] leading-none px-1 py-0.5 rounded bg-warning/15 text-warning">重复</span>
                     <span v-if="healthOf(l)" class="w-1.5 h-1.5 rounded-full shrink-0" :class="healthOf(l)!.status && healthOf(l)!.status < 400 ? 'bg-success' : 'bg-danger'" :title="healthText(l)" />
                   </span>
                   <span class="block text-[11px] text-ink3 truncate leading-tight mt-0.5">{{ l.url || '未填写网址' }}</span>
@@ -713,7 +730,7 @@ onBeforeUnmount(() => {
               <input v-model="linkEditor.draft.icon" class="field" placeholder="https://.../icon.png" />
             </label>
 
-            <p v-if="isDup(linkEditor.draft)" class="text-[11.5px] text-warning">该网址与其他条目重复</p>
+            <p v-if="editorDup" class="text-[11.5px] text-warning">该网址与{{ linkEditor.kind === 'recommended' ? '其他推荐站点' : '其他导航条目' }}重复</p>
             <p v-if="healthText(linkEditor.draft)" class="text-[11.5px] text-ink3">{{ healthText(linkEditor.draft) }}</p>
 
             <div class="flex flex-wrap items-center gap-1.5 pt-1">

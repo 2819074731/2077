@@ -2,12 +2,84 @@
 import { computed, ref } from 'vue'
 import { DIRECTORY_CATEGORIES } from '#shared/directory'
 
+const siteUrl = useRuntimeConfig().public.siteUrl
+const canonicalUrl = `${siteUrl}/submit`
+
+const faqs = [
+  {
+    q: '提交后多久能审核完成？',
+    a: '通常 1-3 个工作日完成审核。收录结果以站内状态为准，审核期间无需重复提交。'
+  },
+  {
+    q: '收录网站需要付费吗？',
+    a: '不需要。2077 导航的首页导航与分类目录均为免费收录，不收取任何费用。'
+  },
+  {
+    q: '哪些网站更容易通过审核？',
+    a: '合法合规、可正常访问、内容原创或对用户有长期价值的网站更容易通过。采集站、镜像站、恶意跳转和弹窗站点不会被收录。'
+  },
+  {
+    q: '首页导航和分类目录有什么区别？',
+    a: '首页导航审核更严格，只展示精选站点；分类目录按主题长期收录，符合条件的站点会生成独立详情页并进入站点地图。'
+  },
+  {
+    q: '提示网站已提交过怎么办？',
+    a: '说明该网址已在审核队列或已经收录，请勿重复提交。如需更新信息，可在原提交审核完成后再补充。'
+  }
+]
+
 useSeoMeta({
-  title: '提交收录 · 2077 导航',
-  description: '提交你的网站收录到 2077 导航，支持一键抓取标题、描述与图标。'
+  title: '提交网站收录 · 免费网址提交 | 2077 导航',
+  description: '免费提交网站到 2077 导航，可选择首页精选导航或分类网站目录。支持一键抓取标题、描述、关键词与图标，人工审核后收录。',
+  keywords: '提交网站,网址提交,网站收录,免费收录,网址导航,分类目录,2077 导航',
+  ogTitle: '提交网站收录 · 2077 导航',
+  ogDescription: '免费提交网站到 2077 导航，支持首页精选导航与分类网站目录，人工审核后收录。',
+  ogType: 'website',
+  ogUrl: canonicalUrl,
+  twitterCard: 'summary'
 })
 
-const form = ref({ url: '', name: '', title: '', description: '', keywords: '', icon: '', group: '', target: 'nav' })
+useHead(() => ({
+  link: [{ rel: 'canonical', href: canonicalUrl }],
+  script: [{
+    type: 'application/ld+json',
+    innerHTML: JSON.stringify({
+      '@context': 'https://schema.org',
+      '@graph': [
+        {
+          '@type': 'WebPage',
+          '@id': `${canonicalUrl}#webpage`,
+          url: canonicalUrl,
+          name: '提交网站收录 · 2077 导航',
+          description: '免费提交网站到 2077 导航，支持首页精选导航与分类网站目录。',
+          inLanguage: 'zh-CN',
+          isPartOf: { '@id': `${siteUrl}/#website` }
+        },
+        {
+          '@type': 'BreadcrumbList',
+          '@id': `${canonicalUrl}#breadcrumb`,
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: '首页', item: siteUrl + '/' },
+            { '@type': 'ListItem', position: 2, name: '提交收录', item: canonicalUrl }
+          ]
+        },
+        {
+          '@type': 'FAQPage',
+          mainEntity: faqs.map(f => ({
+            '@type': 'Question',
+            name: f.q,
+            acceptedAnswer: { '@type': 'Answer', text: f.a }
+          }))
+        }
+      ]
+    })
+  }]
+}))
+
+const form = ref({
+  url: '', name: '', title: '', description: '', keywords: '', icon: '', group: '',
+  target: 'nav', _trap: ''
+})
 const loading = ref(false)
 const fetching = ref(false)
 const err = ref('')
@@ -15,18 +87,30 @@ const ok = ref(false)
 
 const NAV_GROUPS = ['开发工具', 'AI 与模型', '社区资讯', '影音娱乐', '云与控制台', '运维监控', '学习文档', '效率工具', '购物生活', '社交平台', '其他']
 const groupOptions = computed(() => form.value.target === 'directory' ? DIRECTORY_CATEGORIES : NAV_GROUPS)
+const metaLoaded = computed(() => !!(form.value.title || form.value.description || form.value.keywords))
 
 function chooseTarget(target: 'nav' | 'directory') {
   form.value.target = target
   form.value.group = ''
 }
 
+function validUrl(raw: string): boolean {
+  try {
+    const u = new URL(/^https?:\/\//i.test(raw) ? raw : 'https://' + raw)
+    return u.protocol === 'http:' || u.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 async function fetchMeta() {
   err.value = ''
-  if (!form.value.url.trim()) { err.value = '请先填写网址'; return }
+  const raw = form.value.url.trim()
+  if (!raw) { err.value = '请先填写网址'; return }
+  if (!validUrl(raw)) { err.value = '请输入有效的 http/https 网址'; return }
   fetching.value = true
   try {
-    const d: any = await $fetch('/api/meta', { method: 'POST', body: { url: form.value.url } })
+    const d: any = await $fetch('/api/meta', { method: 'POST', body: { url: raw } })
     const m = d.meta
     form.value.title = m.title || ''
     form.value.description = m.description || ''
@@ -43,13 +127,17 @@ async function fetchMeta() {
 
 async function submit() {
   err.value = ''
-  if (!form.value.name.trim() || !form.value.url.trim()) { err.value = '请填写站点名称和网址'; return }
+  const name = form.value.name.trim()
+  const raw = form.value.url.trim()
+  if (!name || !raw) { err.value = '请填写站点名称和网址'; return }
+  if (!validUrl(raw)) { err.value = '请输入有效的 http/https 网址'; return }
   loading.value = true
   try {
-    await $fetch('/api/submit', { method: 'POST', body: form.value })
+    await $fetch('/api/submit', { method: 'POST', body: { ...form.value, name, url: raw } })
     ok.value = true
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   } catch (e: any) {
-    err.value = e?.data?.statusMessage || e?.data?.message || '提交失败'
+    err.value = e?.data?.statusMessage || e?.data?.message || '提交失败，请稍后再试'
   } finally {
     loading.value = false
   }
@@ -57,98 +145,205 @@ async function submit() {
 </script>
 
 <template>
-  <div class="max-w-wrap mx-auto px-4 py-12 flex justify-center">
-    <div class="w-full max-w-[560px] animate-fade-up">
-      <header class="mb-6 text-center">
-        <h1 class="text-2xl font-bold tracking-tight">提交收录</h1>
-        <p class="text-ink2 text-[13.5px] mt-1.5">推荐你的网站加入 2077 导航，可选择首页导航或分类目录。填写网址后点「一键获取」，自动抓取标题、描述与图标。</p>
+  <div class="max-w-wrap mx-auto px-4 py-8 sm:py-12">
+    <div class="mx-auto w-full max-w-[720px] animate-fade-up">
+      <header class="mb-6 sm:mb-8">
+        <span class="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full bg-card2 border border-line text-[12px] font-medium text-ink2">
+          <span class="w-1.5 h-1.5 rounded-full bg-success" />
+          免费收录 · 人工审核
+        </span>
+        <h1 class="mt-3 text-[26px] sm:text-[32px] leading-tight font-bold tracking-tight">提交网站收录</h1>
+        <p class="mt-2.5 text-[14px] sm:text-[14.5px] leading-7 text-ink2">
+          推荐你的网站加入 2077 导航。可选择首页精选导航或
+          <NuxtLink to="/site" class="font-medium text-ink underline decoration-line2 underline-offset-4 hover:decoration-ink">分类网站目录</NuxtLink>，
+          审核通过后即可被用户访问和搜索。
+        </p>
+        <p class="mt-1.5 text-[13px] leading-6 text-ink2">填写网址后点「一键获取」，自动抓取标题、描述、关键词与图标，也可以手动修改。</p>
       </header>
 
-      <div v-if="ok" class="card p-8 text-center">
-        <div class="grid place-items-center w-12 h-12 rounded-2xl bg-card2 mx-auto mb-3">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5" /></svg>
+      <div v-if="ok" class="card p-7 sm:p-9 text-center">
+        <div class="grid place-items-center w-14 h-14 rounded-2xl bg-card2 border border-line mx-auto mb-4">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5" /></svg>
         </div>
-        <h2 class="font-semibold text-lg">提交成功</h2>
-        <p class="text-ink2 text-[13px] mt-1 mb-5">我们会在审核后收录你的站点，感谢推荐。</p>
-        <NuxtLink to="/" class="btn btn-primary">返回首页</NuxtLink>
+        <h2 class="font-semibold text-xl">提交成功</h2>
+        <p class="text-ink2 text-[13.5px] leading-6 mt-2 max-w-[420px] mx-auto">
+          我们已收到你的收录申请，通常会在 1-3 个工作日内完成审核。审核期间请勿重复提交。
+        </p>
+        <div class="flex flex-wrap justify-center gap-2 mt-6">
+          <NuxtLink to="/" class="btn btn-primary">返回首页</NuxtLink>
+          <NuxtLink to="/site" class="btn">浏览分类目录</NuxtLink>
+        </div>
       </div>
 
-      <form v-else class="card p-6 flex flex-col gap-3.5" @submit.prevent="submit">
-        <div class="flex flex-col gap-1.5">
-          <label class="text-[13px] font-medium">网址 <span class="text-danger">*</span></label>
-          <div class="flex gap-2">
-            <input v-model="form.url" class="field grow" placeholder="https://example.com" @keyup.enter.prevent="fetchMeta" />
-            <button type="button" class="btn shrink-0" :disabled="fetching" @click="fetchMeta">
-              <svg v-if="!fetching" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8" /><path d="M21 3v5h-5" /></svg>
-              {{ fetching ? '抓取中…' : '一键获取' }}
-            </button>
-          </div>
-        </div>
+      <form v-else class="card p-4 sm:p-7 flex flex-col gap-6" novalidate @submit.prevent="submit">
+        <input v-model="form._trap" type="text" class="hidden" tabindex="-1" autocomplete="off" aria-hidden="true" />
 
-        <div class="flex flex-col gap-1.5">
-          <label class="text-[13px] font-medium">收录方式</label>
-          <div class="grid grid-cols-2 gap-2">
+        <section class="flex flex-col gap-3.5">
+          <div class="flex items-center gap-2">
+            <span class="grid place-items-center w-6 h-6 rounded-lg bg-ink text-bg text-[12px] font-semibold">1</span>
+            <h2 class="font-semibold text-[15px]">网站信息</h2>
+          </div>
+
+          <label class="flex flex-col gap-1.5">
+            <span class="text-[13.5px] font-medium">网址 <span class="text-danger">*</span></span>
+            <div class="flex flex-col sm:flex-row gap-2">
+              <input
+                v-model="form.url"
+                class="field grow !h-11 sm:!h-[38px]"
+                placeholder="https://example.com"
+                inputmode="url"
+                autocapitalize="off"
+                spellcheck="false"
+                maxlength="500"
+                @keyup.enter.prevent="fetchMeta"
+              />
+              <button type="button" class="btn shrink-0 !h-11 sm:!h-[38px]" :disabled="fetching" @click="fetchMeta">
+                <svg v-if="!fetching" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8" /><path d="M21 3v5h-5" /></svg>
+                {{ fetching ? '抓取中…' : '一键获取' }}
+              </button>
+            </div>
+            <span class="text-[12px] leading-5 text-ink2">仅支持公开可访问的 http/https 网址，单次提交一个站点。</span>
+          </label>
+
+          <div class="grid sm:grid-cols-2 gap-3.5">
+            <label class="flex flex-col gap-1.5">
+              <span class="text-[13.5px] font-medium">站点名称 <span class="text-danger">*</span></span>
+              <input v-model="form.name" class="field !h-11 sm:!h-[38px]" placeholder="例如 GitHub" maxlength="80" />
+            </label>
+            <label class="flex flex-col gap-1.5">
+              <span class="text-[13.5px] font-medium">{{ form.target === 'directory' ? '目录分类' : '首页分组' }}</span>
+              <select v-model="form.group" class="field !h-11 sm:!h-[38px]">
+                <option value="">由站长决定</option>
+                <option v-for="g in groupOptions" :key="g" :value="g">{{ g }}</option>
+              </select>
+            </label>
+          </div>
+        </section>
+
+        <div class="h-px bg-line" />
+
+        <section class="flex flex-col gap-3">
+          <div class="flex items-center gap-2">
+            <span class="grid place-items-center w-6 h-6 rounded-lg bg-ink text-bg text-[12px] font-semibold">2</span>
+            <h2 class="font-semibold text-[15px]">选择收录方式</h2>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             <button
               type="button"
-              class="btn justify-start !h-auto py-2.5"
-              :class="form.target === 'nav' ? 'btn-primary' : 'btn-ghost'"
+              class="rounded-xl border p-3.5 text-left transition-colors"
+              :class="form.target === 'nav' ? 'border-ink bg-accentsoft' : 'border-line bg-card hover:border-line2'"
+              :aria-pressed="form.target === 'nav'"
               @click="chooseTarget('nav')"
             >
-              <span class="text-left">
-                <span class="block text-[13px] font-medium">首页导航</span>
-                <span class="block text-[11px] opacity-70 mt-0.5">审核标准较高，仅收录优质站点</span>
+              <span class="flex items-center justify-between gap-2">
+                <span class="text-[14px] font-semibold">首页导航</span>
+                <span class="w-4 h-4 rounded-full border grid place-items-center shrink-0" :class="form.target === 'nav' ? 'border-ink bg-ink' : 'border-line2'">
+                  <span v-if="form.target === 'nav'" class="w-1.5 h-1.5 rounded-full bg-bg" />
+                </span>
               </span>
+              <span class="block text-[12.5px] leading-5 text-ink2 mt-1.5">进入首页精选分组，审核标准较高，只展示优质站点。</span>
             </button>
             <button
               type="button"
-              class="btn justify-start !h-auto py-2.5"
-              :class="form.target === 'directory' ? 'btn-primary' : 'btn-ghost'"
+              class="rounded-xl border p-3.5 text-left transition-colors"
+              :class="form.target === 'directory' ? 'border-ink bg-accentsoft' : 'border-line bg-card hover:border-line2'"
+              :aria-pressed="form.target === 'directory'"
               @click="chooseTarget('directory')"
             >
-              <span class="text-left">
-                <span class="block text-[13px] font-medium">分类目录</span>
-                <span class="block text-[11px] opacity-70 mt-0.5">收录到分类目录</span>
+              <span class="flex items-center justify-between gap-2">
+                <span class="text-[14px] font-semibold">分类目录</span>
+                <span class="w-4 h-4 rounded-full border grid place-items-center shrink-0" :class="form.target === 'directory' ? 'border-ink bg-ink' : 'border-line2'">
+                  <span v-if="form.target === 'directory'" class="w-1.5 h-1.5 rounded-full bg-bg" />
+                </span>
               </span>
+              <span class="block text-[12.5px] leading-5 text-ink2 mt-1.5">按主题长期收录，符合条件会生成独立详情页并进入站点地图。</span>
             </button>
           </div>
-          <p class="text-[11.5px] text-ink3 mt-0.5">首页导航审核标准较高，优先收录原创、长期稳定运营的站点。</p>
-        </div>
+        </section>
 
-        <div class="grid sm:grid-cols-2 gap-3.5">
-          <div class="flex flex-col gap-1.5">
-            <label class="text-[13px] font-medium">站点名称 <span class="text-danger">*</span></label>
-            <input v-model="form.name" class="field" placeholder="例如 GitHub" />
+        <div class="h-px bg-line" />
+
+        <section class="flex flex-col gap-3.5">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="grid place-items-center w-6 h-6 rounded-lg bg-ink text-bg text-[12px] font-semibold">3</span>
+            <h2 class="font-semibold text-[15px]">SEO 信息</h2>
+            <span class="chip !text-[11px]">选填，可自动抓取</span>
+            <span v-if="metaLoaded" class="text-[11.5px] text-success">已获取 TDK</span>
           </div>
-          <div class="flex flex-col gap-1.5">
-            <label class="text-[13px] font-medium">{{ form.target === 'directory' ? '目录分类' : '分组' }}</label>
-            <select v-model="form.group" class="field">
-              <option value="">未指定</option>
-              <option v-for="g in groupOptions" :key="g" :value="g">{{ g }}</option>
-            </select>
+
+          <label class="flex flex-col gap-1.5">
+            <span class="text-[13.5px] font-medium">标题（Title）</span>
+            <input v-model="form.title" class="field !h-11 sm:!h-[38px]" placeholder="自动抓取，可修改" maxlength="200" />
+          </label>
+          <label class="flex flex-col gap-1.5">
+            <span class="flex items-center justify-between gap-2">
+              <span class="text-[13.5px] font-medium">描述（Description）</span>
+              <span class="text-[11.5px] text-ink3">{{ form.description.length }}/500</span>
+            </span>
+            <textarea v-model="form.description" class="field !h-24 py-2.5 resize-y leading-6" placeholder="一两句话介绍网站内容与用途" maxlength="500" />
+          </label>
+          <label class="flex flex-col gap-1.5">
+            <span class="text-[13.5px] font-medium">关键词（Keywords）</span>
+            <input v-model="form.keywords" class="field !h-11 sm:!h-[38px]" placeholder="导航,工具,资源" maxlength="300" />
+          </label>
+
+          <div v-if="form.icon" class="flex items-center gap-3 rounded-xl border border-line bg-card2 px-3 py-2.5 text-[13px] text-ink2">
+            <SiteIcon :src="form.icon" :name="form.name" :url="form.url" class="w-8 h-8 rounded-lg shrink-0" />
+            <span class="min-w-0 truncate">已获取站点图标，提交后由站长最终确认</span>
           </div>
+        </section>
+
+        <div class="rounded-xl border border-line bg-card2 p-3.5 flex items-start gap-2.5">
+          <svg class="shrink-0 mt-0.5" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" /><path d="m9 12 2 2 4-4" /></svg>
+          <p class="text-[12.5px] leading-6 text-ink2">
+            提交内容会经过格式过滤与人工审核。请勿提交恶意跳转、弹窗广告、侵权或违法违规内容，否则将被拒绝收录。
+          </p>
         </div>
 
-        <div class="flex flex-col gap-1.5">
-          <label class="text-[13px] font-medium">标题（TDK · Title）</label>
-          <input v-model="form.title" class="field" placeholder="自动抓取，可修改" />
-        </div>
-        <div class="flex flex-col gap-1.5">
-          <label class="text-[13px] font-medium">描述（TDK · Description）</label>
-          <textarea v-model="form.description" class="field !h-auto py-2 resize-none" rows="2" placeholder="自动抓取，可修改" />
-        </div>
-        <div class="flex flex-col gap-1.5">
-          <label class="text-[13px] font-medium">关键词（TDK · Keywords）</label>
-          <input v-model="form.keywords" class="field" placeholder="自动抓取，可修改" />
-        </div>
+        <p v-if="err" class="text-[13px] leading-6 text-danger rounded-xl border border-danger bg-card2 px-3.5 py-2.5" role="alert" aria-live="polite">{{ err }}</p>
 
-        <div v-if="form.icon" class="flex items-center gap-3 text-[13px] text-ink2">
-          <img :src="form.icon" alt="icon" class="w-6 h-6 rounded" referrerpolicy="no-referrer" />
-          <span class="truncate">已获取站点图标</span>
-        </div>
-
-        <p v-if="err" class="text-[13px] text-danger">{{ err }}</p>
-        <button class="btn btn-primary h-10 mt-1" :disabled="loading">{{ loading ? '提交中…' : '提交收录' }}</button>
+        <button class="btn btn-primary h-11 w-full text-[14.5px]" type="submit" :disabled="loading || fetching">
+          {{ loading ? '提交中…' : '提交收录' }}
+        </button>
       </form>
+
+      <section class="card p-5 sm:p-7 mt-6" aria-labelledby="submit-guide-title">
+        <h2 id="submit-guide-title" class="font-semibold text-[17px]">收录说明</h2>
+        <div class="grid sm:grid-cols-2 gap-4 sm:gap-5 mt-4">
+          <div>
+            <h3 class="text-[13.5px] font-medium">审核时间</h3>
+            <p class="text-[13px] leading-6 text-ink2 mt-1">通常 1-3 个工作日完成审核，无需重复提交。</p>
+          </div>
+          <div>
+            <h3 class="text-[13.5px] font-medium">收录标准</h3>
+            <p class="text-[13px] leading-6 text-ink2 mt-1">网站需合法合规、可正常访问，并提供原创或有长期价值的内容。</p>
+          </div>
+          <div>
+            <h3 class="text-[13.5px] font-medium">首页导航与分类目录</h3>
+            <p class="text-[13px] leading-6 text-ink2 mt-1">首页导航展示精选站点；分类目录按主题长期收录并支持独立详情页。</p>
+          </div>
+          <div>
+            <h3 class="text-[13.5px] font-medium">关于重复提交</h3>
+            <p class="text-[13px] leading-6 text-ink2 mt-1">同一网址只保留一条记录，重复提交会被自动拦截。</p>
+          </div>
+        </div>
+
+        <div class="mt-6 pt-5 border-t border-line flex flex-col gap-3">
+          <h2 class="font-semibold text-[17px]">常见问题</h2>
+          <div v-for="f in faqs" :key="f.q">
+            <h3 class="text-[13.5px] font-medium">{{ f.q }}</h3>
+            <p class="text-[13px] leading-6 text-ink2 mt-1">{{ f.a }}</p>
+          </div>
+        </div>
+
+        <p class="text-[12.5px] leading-6 text-ink2 mt-5">
+          也可以先浏览
+          <NuxtLink to="/site" class="text-ink underline decoration-line2 underline-offset-4 hover:decoration-ink">分类目录</NuxtLink>
+          和
+          <NuxtLink to="/sitemap" class="text-ink underline decoration-line2 underline-offset-4 hover:decoration-ink">站点地图</NuxtLink>
+          ，确认网站是否已经收录。
+        </p>
+      </section>
     </div>
   </div>
 </template>

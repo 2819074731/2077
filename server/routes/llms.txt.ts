@@ -1,3 +1,5 @@
+import { DIRECTORY_CATEGORIES } from '#shared/directory'
+
 export default defineEventHandler(async (event) => {
   const siteUrl = useRuntimeConfig().public.siteUrl
   const db = useDb()
@@ -25,8 +27,11 @@ export default defineEventHandler(async (event) => {
     '',
     '- 首页导航：审核标准较高，只展示精选站点。',
     '- 分类目录：按分类长期收录，符合条件的站点会生成独立详情页。',
+    '- 提交入口：' + siteUrl + '/submit，免费提交，通常 1-3 个工作日完成人工审核。',
+    '- 收录标准：网站需合法合规、可正常访问，并提供原创或有长期价值的内容；拒绝采集站、镜像站、恶意跳转和弹窗站点。',
+    '- 同一网址只保留一条记录，重复提交会被自动拦截。',
     '',
-    '## 分类',
+    '## 已收录分类',
     ''
   ]
 
@@ -39,6 +44,10 @@ export default defineEventHandler(async (event) => {
   }
 
   lines.push(
+    '',
+    '## 可提交分类',
+    '',
+    ...DIRECTORY_CATEGORIES.map(c => `- ${c}`),
     '',
     '## 数据',
     '',

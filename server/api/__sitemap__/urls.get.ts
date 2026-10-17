@@ -11,6 +11,7 @@ export default defineEventHandler(async () => {
   const urls: any[] = [
     { loc: '/', changefreq: 'daily', priority: 1 },
     { loc: '/site', changefreq: 'daily', priority: 0.9 },
+    { loc: '/submit', changefreq: 'monthly', priority: 0.6 },
     { loc: '/sitemap', changefreq: 'weekly', priority: 0.5 }
   ]
   for (const c of cats) {

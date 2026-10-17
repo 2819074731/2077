@@ -22,7 +22,7 @@ export function isPrivateIp(ip: string): boolean {
 }
 
 export function isPrivateHost(host: string): boolean {
-  const h = String(host || '').toLowerCase()
+  const h = String(host || '').toLowerCase().replace(/^\[|\]$/g, '')
   if (!h) return true
   if (h === 'localhost' || h.endsWith('.localhost') || h.endsWith('.local') || h.endsWith('.internal')) return true
   return isIP(h) ? isPrivateIp(h) : false

@@ -1,4 +1,5 @@
 import { normalizeSiteUrl } from './site'
+import { cleanText, safeIcon } from './sanitize'
 
 export interface DirectoryEntry {
   id?: number
@@ -30,20 +31,20 @@ export function iconForUrl(url: string): string {
 }
 
 export function sanitizeDirectoryEntry(input: any): DirectoryEntry {
-  const name = String(input?.name || '').trim().slice(0, 80)
+  const name = cleanText(input?.name, 80)
   if (!name) throw createError({ statusCode: 400, statusMessage: '请填写站点名称' })
   const u = normalizeSiteUrl(String(input?.url || ''))
-  const icon = String(input?.icon || '').trim().slice(0, 500) || iconForUrl(u.toString())
+  const icon = safeIcon(input?.icon) || iconForUrl(u.toString())
   const status = String(input?.status || 'published') === 'hidden' ? 'hidden' : 'published'
   return {
     name,
     url: u.toString().slice(0, 500),
     icon,
-    category: String(input?.category || '其他').trim().slice(0, 60) || '其他',
-    title: String(input?.title || '').trim().slice(0, 200),
-    description: String(input?.description || '').trim().slice(0, 500),
-    keywords: String(input?.keywords || '').trim().slice(0, 300),
-    content: String(input?.content || '').trim().slice(0, 20000),
+    category: cleanText(input?.category, 60) || '其他',
+    title: cleanText(input?.title, 200),
+    description: cleanText(input?.description, 500),
+    keywords: cleanText(input?.keywords, 300),
+    content: cleanText(input?.content, 20000, true),
     featured: input?.featured ? 1 : 0,
     sort: Math.max(0, Math.min(9999, Number(input?.sort) || 0)),
     status,
