@@ -25,6 +25,8 @@ interface Entry {
 const items = ref<Entry[]>([])
 const total = ref(0)
 const published = ref(0)
+const tdkMissing = ref(0)
+const linkBroken = ref(0)
 const categories = ref<any[]>([])
 const siteCategories = ref<string[]>([])
 const page = ref(1)
@@ -101,6 +103,8 @@ async function load() {
     items.value = d.items || []
     total.value = d.total || 0
     published.value = d.published || 0
+    tdkMissing.value = Number(d.tdkMissing || 0)
+    linkBroken.value = Number(d.linkBroken || 0)
     categories.value = d.categories || []
     maintenance.value = d.maintenance || null
     selected.value = new Set()
@@ -344,6 +348,14 @@ async function act(e: Entry, action: string) {
   }
 }
 
+function tdkIssues(e: Entry) {
+  const out: string[] = []
+  if (!String(e.title || '').trim()) out.push('缺标题')
+  if (!String(e.description || '').trim()) out.push('缺描述')
+  if (!String(e.keywords || '').trim()) out.push('缺关键词')
+  return out
+}
+
 function iconOf(url: string) {
   try { return `/api/icon?url=${encodeURIComponent(new URL(url).hostname)}` } catch { return '' }
 }
@@ -377,75 +389,98 @@ onBeforeUnmount(() => {
 <template>
   <div class="animate-fade-up">
     <div class="flex flex-col gap-3 mb-4">
-      <div class="flex flex-wrap items-center gap-2">
-        <div class="flex gap-1 p-1 rounded-xl bg-card2 border border-line overflow-x-auto">
-          <button
-            v-for="f in [{ v: '', l: '全部' }, { v: 'published', l: '已发布' }, { v: 'hidden', l: '已隐藏' }]"
-            :key="f.v"
-            class="h-8 px-3 rounded-lg text-[12.5px] whitespace-nowrap transition-colors"
-            :class="status === f.v ? 'bg-ink text-bg font-medium' : 'text-ink2 hover:text-ink'"
-            @click="status = f.v; search()"
-          >{{ f.l }}</button>
+      <div class="card p-3 flex flex-col gap-2.5">
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="flex gap-1 p-1 rounded-xl bg-card2 border border-line overflow-x-auto">
+            <button
+              v-for="f in [{ v: '', l: '全部' }, { v: 'published', l: '已发布' }, { v: 'hidden', l: '已隐藏' }]"
+              :key="f.v"
+              class="h-8 px-3 rounded-lg text-[12.5px] whitespace-nowrap transition-colors"
+              :class="status === f.v ? 'bg-ink text-bg font-medium' : 'text-ink2 hover:text-ink'"
+              @click="status = f.v; search()"
+            >{{ f.l }}</button>
+          </div>
+          <select v-model="category" class="field !w-auto max-w-[180px]" @change="search">
+            <option value="">全部分类</option>
+            <option v-for="c in filterCategories" :key="c.category" :value="c.category">{{ c.category }}（{{ c.n }}）</option>
+          </select>
+          <button class="btn btn-sm" :class="missingOnly ? 'btn-primary' : 'btn-ghost'" @click="missingOnly = !missingOnly; brokenOnly = false; search()">
+            缺 TDK <span class="opacity-70">{{ tdkMissing }}</span>
+          </button>
+          <button class="btn btn-sm" :class="brokenOnly ? 'btn-primary' : 'btn-ghost'" @click="brokenOnly = !brokenOnly; missingOnly = false; search()">
+            链接异常 <span class="opacity-70">{{ linkBroken }}</span>
+          </button>
+          <span class="text-[12.5px] text-ink2 sm:ml-auto">共 {{ total }} 个 · 已发布 {{ published }}</span>
+          <button class="btn btn-sm btn-primary" @click="openCreate">新增站点</button>
         </div>
-        <select v-model="category" class="field !w-auto max-w-[180px]" @change="search">
-          <option value="">全部分类</option>
-          <option v-for="c in filterCategories" :key="c.category" :value="c.category">{{ c.category }}（{{ c.n }}）</option>
-        </select>
-        <button class="btn btn-sm" :class="missingOnly ? 'btn-primary' : 'btn-ghost'" @click="missingOnly = !missingOnly; search()">缺 TDK</button>
-        <button class="btn btn-sm" :class="brokenOnly ? 'btn-primary' : 'btn-ghost'" @click="brokenOnly = !brokenOnly; search()">链接异常</button>
-        <span class="text-[12.5px] text-ink2 ml-auto">共 {{ total }} 个 · 已发布 {{ published }}</span>
-        <button class="btn btn-sm" :disabled="linkRunning" @click="checkLinks">{{ linkRunning ? '巡检中…' : '巡检链接' }}</button>
-        <button class="btn btn-sm" :disabled="pushRunning" @click="pushSearch">{{ pushRunning ? '推送中…' : '推送搜索' }}</button>
-        <button class="btn btn-sm btn-primary" @click="openCreate">新增站点</button>
+        <form class="flex flex-wrap items-center gap-2" @submit.prevent="search">
+          <input v-model="kw" class="field grow min-w-[180px] sm:max-w-[320px]" placeholder="搜索名称、网址或简介" />
+          <button class="btn btn-sm shrink-0" type="submit">搜索</button>
+          <details class="relative shrink-0">
+            <summary class="btn btn-sm btn-ghost list-none cursor-pointer select-none">日期筛选</summary>
+            <div class="mt-2 flex flex-wrap items-center gap-2 sm:absolute sm:right-0 sm:top-full sm:z-20 sm:mt-2 sm:rounded-xl sm:border sm:border-line sm:bg-card sm:p-3 sm:shadow-soft">
+              <input v-model="from" type="date" class="field !w-auto" aria-label="开始日期" />
+              <span class="text-[12px] text-ink3">至</span>
+              <input v-model="to" type="date" class="field !w-auto" aria-label="结束日期" />
+              <button class="btn btn-sm" type="submit">应用</button>
+            </div>
+          </details>
+          <button v-if="kw || category || status || missingOnly || brokenOnly || from || to" type="button" class="btn btn-sm btn-ghost shrink-0" @click="resetFilters">重置</button>
+        </form>
       </div>
-      <div v-if="maintenance" class="flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-xl border border-line bg-card2/60 px-3 py-2 text-[12px] text-ink2" :title="maintenance.last ? `上次检查 ${maintenance.last.link?.checked || 0} 个链接，发现 ${maintenance.last.link?.broken || 0} 个异常；TDK 更新 ${maintenance.last.tdk?.updated || 0} 个` : '自动巡检尚未执行'">
-        <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="maintenance.broken ? 'bg-warning' : 'bg-success'" />
-        <span class="font-medium text-ink">自动巡检</span>
-        <span>每日 {{ maintenance.schedule }}</span>
-        <span class="text-ink3">·</span>
-        <span>{{ maintenance.last ? `最近 ${fmtTime(maintenance.last.at)}` : '尚未运行' }}</span>
-        <span class="text-ink3">·</span>
-        <span :class="maintenance.broken ? 'text-warning' : 'text-success'">链接异常 {{ maintenance.broken }}</span>
-        <span class="text-ink3">·</span>
-        <span :class="maintenance.missing ? 'text-warning' : 'text-success'">TDK 缺失 {{ maintenance.missing }}</span>
-        <span v-if="maintenance.dueLinks" class="text-ink3">· 待检 {{ maintenance.dueLinks }}</span>
-        <button class="btn btn-sm btn-ghost ml-auto" :disabled="maintainRunning || linkRunning || tdkRunning" @click="maintainNow">{{ maintainRunning ? '全量巡检中…' : '立即巡检' }}</button>
-      </div>
-      <div class="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-card2/40 px-3 py-2.5">
-        <span class="text-[12.5px] font-medium text-ink">批量补 TDK</span>
-        <div class="flex gap-1 p-0.5 rounded-lg bg-bg border border-line">
-          <button
-            v-for="m in tdkModes"
-            :key="m.v"
-            class="h-7 px-2.5 rounded-md text-[12px] whitespace-nowrap transition-colors"
-            :class="tdkScope === m.v ? 'bg-ink text-bg font-medium' : 'text-ink2 hover:text-ink'"
-            :disabled="tdkRunning"
-            @click="tdkScope = m.v"
-          >{{ m.l }}</button>
+
+      <details class="card group">
+        <summary class="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2.5 cursor-pointer select-none list-none">
+          <span class="text-[12.5px] font-medium text-ink">巡检与批量工具</span>
+          <span v-if="maintenance" class="text-[12px] text-ink3">自动巡检每日 {{ maintenance.schedule }}</span>
+          <span class="text-[12px]" :class="tdkMissing ? 'text-warning' : 'text-success'">TDK 缺失 {{ tdkMissing }}</span>
+          <span class="text-[12px]" :class="linkBroken ? 'text-warning' : 'text-success'">链接异常 {{ linkBroken }}</span>
+          <span class="text-[12px] text-ink3 hidden sm:inline">{{ maintenance?.last ? `最近 ${fmtTime(maintenance.last.at)}` : '尚未巡检' }}</span>
+          <svg class="ml-auto transition-transform group-open:rotate-180" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6" /></svg>
+        </summary>
+        <div class="px-3 pb-3 pt-2 border-t border-line flex flex-col gap-2.5">
+          <div v-if="maintenance" class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-ink2">
+            <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="maintenance.broken ? 'bg-warning' : 'bg-success'" />
+            <span>{{ maintenance.last ? `最近巡检 ${fmtTime(maintenance.last.at)}` : '自动巡检尚未运行' }}</span>
+            <span v-if="maintenance.dueLinks" class="text-ink3">· 待检 {{ maintenance.dueLinks }}</span>
+            <button class="btn btn-sm btn-ghost ml-auto" :disabled="maintainRunning || linkRunning || tdkRunning" @click="maintainNow">{{ maintainRunning ? '全量巡检中…' : '立即巡检' }}</button>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-[12.5px] font-medium text-ink">批量补 TDK</span>
+            <div class="flex gap-1 p-0.5 rounded-lg bg-bg border border-line">
+              <button
+                v-for="m in tdkModes"
+                :key="m.v"
+                class="h-7 px-2.5 rounded-md text-[12px] whitespace-nowrap transition-colors"
+                :class="tdkScope === m.v ? 'bg-ink text-bg font-medium' : 'text-ink2 hover:text-ink'"
+                :disabled="tdkRunning"
+                @click="tdkScope = m.v"
+              >{{ m.l }}</button>
+            </div>
+            <select v-if="tdkScope === 'category'" v-model="tdkCategory" class="field !w-auto max-w-[180px]" :disabled="tdkRunning">
+              <option value="">选择分类</option>
+              <option v-for="c in filterCategories" :key="c.category" :value="c.category">{{ c.category }}（{{ c.n }}）</option>
+            </select>
+            <input v-if="tdkScope === 'batch'" v-model.number="tdkBatchSize" type="number" min="1" max="50" class="field !w-20" :disabled="tdkRunning" aria-label="补全数量" />
+            <button class="btn btn-sm btn-primary" :disabled="tdkRunning || (tdkScope === 'category' && !tdkCategory)" @click="batchTdk">{{ tdkRunning ? '补全中…' : '开始补全' }}</button>
+            <span v-if="tdkProgress" class="text-[12px] text-ink3">{{ tdkProgress }}</span>
+          </div>
+          <div class="flex flex-wrap items-center gap-2 text-[12px] text-ink3">
+            <button class="btn btn-sm" :disabled="linkRunning" @click="checkLinks">{{ linkRunning ? '巡检中…' : '巡检链接' }}</button>
+            <button class="btn btn-sm" :disabled="pushRunning" @click="pushSearch">{{ pushRunning ? '推送中…' : '推送搜索' }}</button>
+            <span>链接巡检与搜索推送不会影响列表操作</span>
+          </div>
         </div>
-        <select v-if="tdkScope === 'category'" v-model="tdkCategory" class="field !w-auto max-w-[180px]" :disabled="tdkRunning">
-          <option value="">选择分类</option>
-          <option v-for="c in filterCategories" :key="c.category" :value="c.category">{{ c.category }}（{{ c.n }}）</option>
-        </select>
-        <input v-if="tdkScope === 'batch'" v-model.number="tdkBatchSize" type="number" min="1" max="50" class="field !w-20" :disabled="tdkRunning" aria-label="补全数量" />
-        <button class="btn btn-sm btn-primary" :disabled="tdkRunning || (tdkScope === 'category' && !tdkCategory)" @click="batchTdk">{{ tdkRunning ? '补全中…' : '开始补全' }}</button>
-        <span v-if="tdkProgress" class="text-[12px] text-ink3">{{ tdkProgress }}</span>
-        <span v-else class="text-[12px] text-ink3">全部：循环处理所有缺失；按分类：只补所选分类；指定数量：单次补 N 个</span>
-      </div>
-      <form class="flex flex-wrap gap-2" @submit.prevent="search">
-        <input v-model="kw" class="field grow sm:max-w-[280px]" placeholder="搜索名称、网址或简介" />
-        <input v-model="from" type="date" class="field !w-auto" aria-label="开始日期" />
-        <span class="self-center text-[12px] text-ink3">至</span>
-        <input v-model="to" type="date" class="field !w-auto" aria-label="结束日期" />
-        <button class="btn shrink-0" type="submit">搜索</button>
-        <button v-if="kw || category || status || missingOnly || brokenOnly || from || to" type="button" class="btn btn-ghost shrink-0" @click="resetFilters">重置</button>
-      </form>
+      </details>
+
+      <p v-if="missingOnly" class="text-[12px] text-warning">当前只显示缺 TDK 的站点，行内已标出「缺标题 / 缺描述 / 缺关键词」。</p>
+      <p v-else-if="brokenOnly" class="text-[12px] text-warning">当前只显示链接异常的站点，行内显示返回的 HTTP 状态码。</p>
       <p v-if="msg" class="text-[13px] text-ink2">{{ msg }}</p>
     </div>
 
     <div v-if="loading" class="card p-8 text-center text-ink2 text-[13px]">加载中…</div>
     <div v-else-if="!items.length" class="card p-8 text-center text-ink2 text-[13px]">
-      暂无目录站点，点击「新增站点」或到「链接发现」批量导入。
+      {{ missingOnly ? '当前没有缺 TDK 的站点。' : brokenOnly ? '当前没有链接异常的站点。' : '暂无目录站点，点击「新增站点」或到「链接发现」批量导入。' }}
     </div>
     <template v-else>
       <div class="card p-3 flex flex-wrap items-center gap-2 mb-3">
@@ -476,6 +511,7 @@ onBeforeUnmount(() => {
                 <span v-if="e.featured" class="chip !text-[10px]">推荐</span>
                 <span class="chip !text-[10px]" :class="{ 'text-success': e.status === 'published' }">{{ e.status === 'published' ? '已发布' : '已隐藏' }}</span>
                 <span v-if="!e.detail_enabled" class="chip !text-[10px]">无详情页</span>
+                <span v-for="b in tdkIssues(e)" :key="b" class="chip !text-[10px] text-warning">{{ b }}</span>
                 <span v-if="e.http_status && e.http_status >= 400" class="chip !text-[10px] text-danger">HTTP {{ e.http_status }}</span>
               </div>
               <a :href="e.url" target="_blank" rel="noopener" class="block text-[11.5px] text-ink2 truncate hover:text-ink">{{ e.url }}</a>

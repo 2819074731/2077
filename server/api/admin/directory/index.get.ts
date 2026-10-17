@@ -24,12 +24,20 @@ export default defineEventHandler(async (event) => {
   if (from) { where.push('created_at >= ?'); params.push(`${from} 00:00:00`) }
   if (to) { where.push('created_at <= ?'); params.push(`${to} 23:59:59`) }
   if (kw) { where.push('(name LIKE ? OR url LIKE ? OR description LIKE ?)'); params.push(`%${kw}%`, `%${kw}%`, `%${kw}%`) }
-  if (missing) where.push("(COALESCE(title, '') = '' OR COALESCE(description, '') = '')")
+  if (missing) where.push("(COALESCE(title, '') = '' OR COALESCE(description, '') = '' OR COALESCE(keywords, '') = '')")
   if (broken) where.push('(http_status IS NOT NULL AND http_status >= 400 AND http_status NOT IN (401, 403, 412, 429))')
   const clause = where.length ? 'WHERE ' + where.join(' AND ') : ''
 
   const [[count]]: any = await db.query(`SELECT COUNT(*) AS n FROM directory_entries ${clause}`, params)
   const [[pub]]: any = await db.query("SELECT COUNT(*) AS n FROM directory_entries WHERE status = 'published'")
+  const [[tdkMissing]]: any = await db.query(
+    `SELECT COUNT(*) AS n FROM directory_entries WHERE status = 'published'
+     AND (COALESCE(title, '') = '' OR COALESCE(description, '') = '' OR COALESCE(keywords, '') = '')`
+  )
+  const [[linkBroken]]: any = await db.query(
+    `SELECT COUNT(*) AS n FROM directory_entries WHERE status = 'published'
+     AND http_status IS NOT NULL AND http_status >= 400 AND http_status NOT IN (401, 403, 412, 429)`
+  )
   const [cats]: any = await db.query(
     `SELECT category, COUNT(*) AS n, SUM(status = 'published') AS published
      FROM directory_entries GROUP BY category ORDER BY n DESC, category ASC`
@@ -56,6 +64,8 @@ export default defineEventHandler(async (event) => {
     items: rows,
     total: Number(count?.n || 0),
     published: Number(pub?.n || 0),
+    tdkMissing: Number(tdkMissing?.n || 0),
+    linkBroken: Number(linkBroken?.n || 0),
     categories,
     maintenance,
     page,

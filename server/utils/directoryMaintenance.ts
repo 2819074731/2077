@@ -8,7 +8,7 @@ const TDK_TTL_DAYS = 7
 const LINK_CONCURRENCY = 4
 const TDK_CONCURRENCY = 3
 const BROKEN_FILTER = "status = 'published' AND http_status IS NOT NULL AND http_status >= 400 AND http_status NOT IN (401, 403, 412, 429)"
-const MISSING_FILTER = "status = 'published' AND (COALESCE(title, '') = '' OR COALESCE(description, '') = '')"
+const MISSING_FILTER = "status = 'published' AND (COALESCE(title, '') = '' OR COALESCE(description, '') = '' OR COALESCE(keywords, '') = '')"
 
 let running = false
 
@@ -102,7 +102,7 @@ export async function fillTdkBatch(limit = 6, options: { category?: string } = {
      FROM directory_entries
      WHERE status = 'published'
        AND (tdk_checked_at IS NULL OR tdk_checked_at < DATE_SUB(NOW(), INTERVAL ${TDK_TTL_DAYS} DAY))
-       AND (COALESCE(title, '') = '' OR COALESCE(description, '') = '')
+       AND (COALESCE(title, '') = '' OR COALESCE(description, '') = '' OR COALESCE(keywords, '') = '')
        ${scope}
      ORDER BY (COALESCE(description, '') = '') DESC, id ASC
      LIMIT ${size}`,
@@ -140,7 +140,7 @@ export async function fillTdkBatch(limit = 6, options: { category?: string } = {
     `SELECT COUNT(*) AS n FROM directory_entries
      WHERE status = 'published'
        AND (tdk_checked_at IS NULL OR tdk_checked_at < DATE_SUB(NOW(), INTERVAL ${TDK_TTL_DAYS} DAY))
-       AND (COALESCE(title, '') = '' OR COALESCE(description, '') = '')
+       AND (COALESCE(title, '') = '' OR COALESCE(description, '') = '' OR COALESCE(keywords, '') = '')
        ${scope}`,
     params
   )
@@ -165,8 +165,8 @@ export async function getMaintenanceStatus(): Promise<any> {
        COUNT(*) AS total,
        SUM(checked_at IS NULL OR checked_at < DATE_SUB(NOW(), INTERVAL ${LINK_TTL_DAYS} DAY)) AS due_links,
        SUM(http_status IS NOT NULL AND http_status >= 400 AND http_status NOT IN (401, 403, 412, 429)) AS broken,
-       SUM(COALESCE(title, '') = '' OR COALESCE(description, '') = '') AS missing,
-       SUM((COALESCE(title, '') = '' OR COALESCE(description, '') = '')
+       SUM(COALESCE(title, '') = '' OR COALESCE(description, '') = '' OR COALESCE(keywords, '') = '') AS missing,
+       SUM((COALESCE(title, '') = '' OR COALESCE(description, '') = '' OR COALESCE(keywords, '') = '')
          AND (tdk_checked_at IS NULL OR tdk_checked_at < DATE_SUB(NOW(), INTERVAL ${TDK_TTL_DAYS} DAY))) AS due_tdk
      FROM directory_entries WHERE status = 'published'`
   )
