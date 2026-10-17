@@ -8,7 +8,14 @@ export const ENGINES: Engine[] = [
   { id: 'google', name: 'Google', url: 'https://www.google.com/search?q=%s' },
   { id: 'baidu', name: '百度', url: 'https://www.baidu.com/s?wd=%s' },
   { id: 'ddg', name: 'DuckDuckGo', url: 'https://duckduckgo.com/?q=%s' },
-  { id: 'github', name: 'GitHub', url: 'https://github.com/search?q=%s' }
+  { id: 'github', name: 'GitHub', url: 'https://github.com/search?q=%s' },
+  { id: 'bilibili', name: '哔哩哔哩', url: 'https://search.bilibili.com/all?keyword=%s' },
+  { id: 'zhihu', name: '知乎', url: 'https://www.zhihu.com/search?type=content&q=%s' },
+  { id: 'weibo', name: '微博', url: 'https://s.weibo.com/weibo?q=%s' },
+  { id: 'xiaohongshu', name: '小红书', url: 'https://www.xiaohongshu.com/search_result?keyword=%s' },
+  { id: 'douyin', name: '抖音', url: 'https://www.douyin.com/search/%s' },
+  { id: 'douban', name: '豆瓣', url: 'https://www.douban.com/search?q=%s' },
+  { id: 'youtube', name: 'YouTube', url: 'https://www.youtube.com/results?search_query=%s' }
 ]
 
 export const DEFAULT_ENGINE = 'bing'

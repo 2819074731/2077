@@ -58,7 +58,7 @@ function go() {
       </button>
       <div
         v-if="enginesOpen"
-        class="absolute z-30 top-full left-0 mt-2 w-44 card p-1.5 animate-fade-up"
+        class="absolute z-30 top-full left-0 mt-2 w-44 card p-1.5 max-h-[60vh] overflow-y-auto animate-fade-up"
       >
         <button
           v-for="e in allEngines()"
