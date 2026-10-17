@@ -1,7 +1,9 @@
 import { setDefaultResultOrder } from 'node:dns'
+import { setDefaultAutoSelectFamily } from 'node:net'
 
 try {
   setDefaultResultOrder('ipv4first')
+  setDefaultAutoSelectFamily(false)
 } catch {}
 
 const WMO: Record<number, { label: string; icon: string }> = {
