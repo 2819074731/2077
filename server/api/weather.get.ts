@@ -20,6 +20,6 @@ export default defineEventHandler(async (event) => {
   const weather = await getWeather(lat, lon)
   if (!weather) throw createError({ statusCode: 502, message: '天气服务暂不可用' })
 
-  setHeader(event, 'Cache-Control', 'public, max-age=600')
+  setHeader(event, 'Cache-Control', 'private, max-age=600')
   return { place, located, ...weather }
 })

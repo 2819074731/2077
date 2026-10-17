@@ -72,44 +72,74 @@ async function fetchJson(url: string, timeout = 6000): Promise<any> {
   }
 }
 
-/** 通过清秋 IP 接口定位（不传 ip 时使用调用方来源 IP）。 */
+const ipCache = new Map<string, { data: IpLocation | null; at: number }>()
+const IP_TTL = 1000 * 60 * 60 * 6
+const IP_FAIL_TTL = 1000 * 60 * 5
+
+/** 通过清秋 IP 接口定位（不传 ip 时使用调用方来源 IP），结果缓存 6 小时。 */
 export async function locateByIp(ip?: string): Promise<IpLocation | null> {
+  const cacheKey = ip || 'self'
+  const hit = ipCache.get(cacheKey)
+  if (hit) {
+    const ttl = hit.data ? IP_TTL : IP_FAIL_TTL
+    if (Date.now() - hit.at < ttl) return hit.data
+  }
   const url = ip ? `https://api.hk0.cc/api/ip?ip=${encodeURIComponent(ip)}` : 'https://api.hk0.cc/api/ip'
   const d = await fetchJson(url)
   const loc = d?.data?.location
   const coord = d?.data?.coordinate
-  if (!loc || !Array.isArray(coord) || coord.length < 2) return null
-  const [lon, lat] = coord
-  if (typeof lat !== 'number' || typeof lon !== 'number') return null
-  return {
-    lat,
-    lon,
-    city: String(loc.city || ''),
-    province: String(loc.province || ''),
-    country: String(loc.country || '')
+  let out: IpLocation | null = null
+  if (loc && Array.isArray(coord) && coord.length >= 2) {
+    const [lon, lat] = coord
+    if (typeof lat === 'number' && typeof lon === 'number') {
+      out = {
+        lat,
+        lon,
+        city: String(loc.city || ''),
+        province: String(loc.province || ''),
+        country: String(loc.country || '')
+      }
+    }
   }
+  if (ipCache.size >= 500) ipCache.delete(ipCache.keys().next().value as string)
+  ipCache.set(cacheKey, { data: out, at: Date.now() })
+  return out
 }
 
-/** 城市名 → 经纬度（open-meteo geocoding，中文优先）。 */
+const geoCache = new Map<string, { data: GeoResult | null; at: number }>()
+const GEO_TTL = 1000 * 60 * 60 * 24
+const GEO_FAIL_TTL = 1000 * 60 * 5
+
+/** 城市名 → 经纬度（open-meteo geocoding，中文优先），结果缓存 24 小时。 */
 export async function geocodeCity(name: string): Promise<GeoResult | null> {
   const q = String(name || '').trim()
   if (!q) return null
+  const cacheKey = q.toLowerCase()
+  const hit = geoCache.get(cacheKey)
+  if (hit) {
+    const ttl = hit.data ? GEO_TTL : GEO_FAIL_TTL
+    if (Date.now() - hit.at < ttl) return hit.data
+  }
   const d = await fetchJson(
     `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=zh&format=json`
   )
   const r = d?.results?.[0]
-  if (!r) return null
-  return {
-    name: String(r.name || q),
-    lat: Number(r.latitude),
-    lon: Number(r.longitude),
-    admin1: r.admin1 ? String(r.admin1) : '',
-    country: r.country ? String(r.country) : ''
-  }
+  const out: GeoResult | null = r
+    ? {
+        name: String(r.name || q),
+        lat: Number(r.latitude),
+        lon: Number(r.longitude),
+        admin1: r.admin1 ? String(r.admin1) : '',
+        country: r.country ? String(r.country) : ''
+      }
+    : null
+  if (geoCache.size >= 500) geoCache.delete(geoCache.keys().next().value as string)
+  geoCache.set(cacheKey, { data: out, at: Date.now() })
+  return out
 }
 
 const weatherCache = new Map<string, { data: any; at: number }>()
-const WEATHER_TTL = 1000 * 60 * 10
+const WEATHER_TTL = 1000 * 60 * 30
 
 export async function getWeather(lat: number, lon: number): Promise<any | null> {
   const key = `${lat.toFixed(3)},${lon.toFixed(3)}`

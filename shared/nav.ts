@@ -130,6 +130,17 @@ export const DEFAULT_GROUPS: NavGroup[] = [
 /** 首页内联展示的分组数量，其余进入抽屉菜单。 */
 export const INLINE_GROUP_COUNT = 4
 
+/** 比较网址是否指向同一站点：忽略协议大小写、hash 与末尾斜杠。 */
+export function urlKey(url: string): string {
+  try {
+    const u = new URL(String(url || '').trim())
+    u.hash = ''
+    return (u.origin + u.pathname + u.search).replace(/\/+$/, '')
+  } catch {
+    return ''
+  }
+}
+
 export function hostOf(url: string): string {
   try {
     return new URL(url).hostname

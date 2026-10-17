@@ -1,4 +1,4 @@
-import { DEFAULT_GROUPS, DEFAULT_ENGINE, ENGINES, RECOMMENDED_LINKS, INLINE_GROUP_COUNT, type NavGroup, type Engine } from '~/data/nav'
+import { DEFAULT_GROUPS, DEFAULT_ENGINE, ENGINES, INLINE_GROUP_COUNT, urlKey, type NavGroup, type Engine } from '~/data/nav'
 const uid = () => 'x' + Math.random().toString(36).slice(2, 10)
 const LS_GROUPS = 'my2077.groups'
 const LS_FREQ = 'my2077.freq'
@@ -34,7 +34,8 @@ export function useNav() {
   const diy = useState<boolean>('nav-diy', () => false)
   const syncMsg = useState<string>('nav-sync-msg', () => '')
   const freq = useState<FreqMap>('nav-freq', () => ({}))
-  const recommended = useState<{ name: string; url: string; icon?: string }[]>('nav-recommended', () => RECOMMENDED_LINKS.map(l => ({ name: l.name, url: l.url })))
+  const recommended = useState<{ name: string; url: string; icon?: string }[]>('nav-recommended', () => [])
+  const siteConfig = useState<any>('nav-site-config', () => null)
   /** 首页当前分类：null = 全部；否则只展示该分组。 */
   const activeCat = useState<string | null>('nav-active-cat', () => null)
   const engineId = useState<string>('nav-engine', () => DEFAULT_ENGINE)
@@ -48,6 +49,22 @@ export function useNav() {
     if (!user.value) return
     clearTimeout(syncTimer)
     syncTimer = setTimeout(() => pushToCloud(), 900)
+  }
+
+  function applySite(d: any, opts: { groups?: boolean } = {}) {
+    if (!d || typeof d !== 'object') return
+    siteConfig.value = d
+    if (opts.groups && Array.isArray(d.groups) && d.groups.length) {
+      groups.value = d.groups.map((g: any, gi: number) => ({
+        id: 's' + gi,
+        name: g.name,
+        recommended: !!g.recommended,
+        links: (g.links || []).map((l: any, li: number) => ({ id: 's' + gi + '_' + li, name: l.name, url: l.url, icon: l.icon }))
+      }))
+    }
+    if (Array.isArray(d.recommended)) {
+      recommended.value = d.recommended.map((l: any) => ({ name: l.name, url: l.url, icon: l.icon }))
+    }
   }
 
   const loadLocal = async () => {
@@ -69,18 +86,12 @@ export function useNav() {
       if (ce) customEngine.value = JSON.parse(ce)
     } catch {}
     try {
-      const d: any = await $fetch('/api/site')
-      if (!hasLocal && Array.isArray(d?.groups) && d.groups.length) {
-        groups.value = d.groups.map((g: any, gi: number) => ({
-          id: 's' + gi,
-          name: g.name,
-          recommended: !!g.recommended,
-          links: (g.links || []).map((l: any, li: number) => ({ id: 's' + gi + '_' + li, name: l.name, url: l.url, icon: l.icon }))
-        }))
+      let d: any = siteConfig.value
+      if (!d) {
+        d = await $fetch('/api/site')
+        siteConfig.value = d
       }
-      if (Array.isArray(d?.recommended) && d.recommended.length) {
-        recommended.value = d.recommended.map((l: any) => ({ name: l.name, url: l.url, icon: l.icon }))
-      }
+      applySite(d, { groups: !hasLocal })
     } catch {}
   }
 
@@ -107,28 +118,29 @@ export function useNav() {
 
   /** 该链接是否被站长推荐。 */
   function isFeatured(url: string): boolean {
-    return recommended.value.some(r => r.url === url)
+    const k = urlKey(url)
+    return !!k && recommended.value.some(r => urlKey(r.url) === k)
   }
 
   /** 分类内排序：推荐链接置顶，其余保持原有顺序（稳定）。 */
   function orderLinks<T extends { url: string }>(links: T[]): T[] {
-    const pool = new Set(recommended.value.map(r => r.url))
+    const pool = new Set(recommended.value.map(r => urlKey(r.url)).filter(Boolean))
     if (!pool.size) return links
     const featured: T[] = []
     const rest: T[] = []
-    for (const l of links) (pool.has(l.url) ? featured : rest).push(l)
+    for (const l of links) (pool.has(urlKey(l.url)) ? featured : rest).push(l)
     return [...featured, ...rest]
   }
 
   /** 用户个人常用站点：仅按点击频次排序，独立于推荐。 */
   function frequentList(limit = 12) {
     const seen = new Set<string>()
-    for (const r of recommended.value) seen.add(r.url)
+    for (const r of recommended.value) seen.add(urlKey(r.url))
     const map = new Map<string, { name: string; url: string; count: number }>()
     for (const g of groups.value) {
       for (const l of g.links) {
         const c = freq.value[l.url] || 0
-        if (c <= 0) continue
+        if (c <= 0 || seen.has(urlKey(l.url))) continue
         const prev = map.get(l.url)
         if (!prev || c > prev.count) map.set(l.url, { name: l.name, url: l.url, count: c })
       }
@@ -225,6 +237,7 @@ export function useNav() {
     activeCat,
     engineId,
     customEngine,
+    applySite,
     loadLocal,
     pullFromCloud,
     pushToCloud,

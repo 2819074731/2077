@@ -586,19 +586,22 @@ async function revokeOthers() {
     </section>
 
     <section v-if="tab === 'links'" role="tabpanel" class="card p-4 sm:p-6">
-      <div class="flex items-start gap-2.5">
-        <span class="h-4 w-1 mt-1 rounded-full accent-bar shrink-0" />
-        <div class="min-w-0 flex-1">
-          <div class="flex items-center gap-2 flex-wrap">
-            <h2 class="font-semibold">我的云端网址</h2>
-            <span class="chip">{{ links.length }}</span>
+      <div class="flex flex-col sm:flex-row sm:items-start gap-3">
+        <div class="flex items-start gap-2.5 min-w-0 flex-1">
+          <span class="h-4 w-1 mt-1 rounded-full accent-bar shrink-0" />
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2 flex-wrap">
+              <h2 class="font-semibold">我的云端网址</h2>
+              <span class="chip">{{ links.length }}</span>
+              <span class="text-[11.5px] text-ink3">{{ publicCount }} 条公开 · {{ links.length - publicCount }} 条私密</span>
+            </div>
+            <p class="text-[12.5px] sm:text-[13px] text-ink2 mt-0.5">公开的网址会展示在你的个人主页，最多保存 50 条。</p>
           </div>
-          <p class="text-[12.5px] sm:text-[13px] text-ink2 mt-0.5">公开的网址会展示在你的个人主页，最多保存 50 条。</p>
         </div>
-        <div class="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-          <button class="btn btn-sm btn-ghost" @click="bookmarkInput?.click()">导入书签</button>
-          <button class="btn btn-sm btn-ghost" @click="openPaste">粘贴导入</button>
-          <button class="btn btn-sm" @click="addRow">+ 添加</button>
+        <div class="grid grid-cols-3 sm:flex items-center gap-2 shrink-0 w-full sm:w-auto">
+          <button class="btn btn-sm btn-ghost w-full sm:w-auto" @click="bookmarkInput?.click()">导入书签</button>
+          <button class="btn btn-sm btn-ghost w-full sm:w-auto" @click="openPaste">粘贴导入</button>
+          <button class="btn btn-sm w-full sm:w-auto" @click="addRow">+ 添加</button>
           <input ref="bookmarkInput" type="file" accept="text/html,.html,.htm" class="hidden" @change="importBookmarks" />
         </div>
       </div>
@@ -638,7 +641,7 @@ async function revokeOthers() {
           <div
             v-for="(l, i) in links"
             :key="i"
-            class="rounded-xl border p-3 sm:px-2.5 sm:py-2 flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-2 transition-colors"
+            class="rounded-xl border p-3 sm:px-3 sm:py-2.5 flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-2 transition-colors"
             :class="invalidIdx.includes(i) ? 'border-danger bg-card2' : 'border-line bg-card2 sm:border-transparent sm:bg-transparent'"
           >
             <div class="flex items-center gap-2 sm:contents">
@@ -697,7 +700,7 @@ async function revokeOthers() {
           </div>
         </div>
 
-        <div class="sticky bottom-0 z-10 -mx-4 sm:-mx-6 -mb-4 sm:-mb-6 mt-5 flex items-center gap-3 rounded-b-2xl border-t border-line bg-bg px-4 sm:px-6 py-3 backdrop-blur">
+        <div class="sticky bottom-0 z-10 -mx-4 sm:-mx-6 -mb-4 sm:-mb-6 mt-5 flex items-center gap-3 rounded-b-2xl border-t border-line bg-bg px-4 sm:px-6 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-3 backdrop-blur">
           <div class="min-w-0 flex-1">
             <p v-if="importBusy" class="text-[12.5px] text-ink2">正在抓取名称 {{ importDone }}/{{ importTotal }}</p>
             <p v-else-if="duplicateIdx.size" class="text-[12.5px] text-warning">{{ duplicateIdx.size }} 条重复网址，请先处理</p>

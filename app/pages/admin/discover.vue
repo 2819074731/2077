@@ -12,6 +12,9 @@ const importing = ref(false)
 const msg = ref('')
 const error = ref('')
 const source = ref('')
+const runMode = ref<'external' | 'internal' | 'sitemap'>('external')
+const sitemaps = ref(0)
+const scanned = ref(0)
 const items = ref<Found[]>([])
 const selected = ref<Set<string>>(new Set())
 const category = ref('其他')
@@ -22,7 +25,7 @@ useSeoMeta({ title: '链接发现 · 2077 管理后台', robots: 'noindex' })
 const modes = [
   { v: 'external', l: '站外链接', d: '提取页面中指向其他域名的链接' },
   { v: 'internal', l: '站内链接', d: '提取同一域名下的页面地址' },
-  { v: 'sitemap', l: 'Sitemap', d: '读取 sitemap.xml 批量发现页面' }
+  { v: 'sitemap', l: 'Sitemap', d: '读取 sitemap 或 sitemap index，自动展开嵌套与 .gz' }
 ] as const
 
 const hostCount = computed(() => {
@@ -49,9 +52,14 @@ async function run() {
   items.value = []
   selected.value = new Set()
   source.value = ''
+  runMode.value = mode.value
+  sitemaps.value = 0
+  scanned.value = 0
   try {
     const d: any = await $fetch('/api/admin/discover', { method: 'POST', body: { url: target, mode: mode.value } })
     source.value = d.source || ''
+    sitemaps.value = Number(d.sitemaps || 0)
+    scanned.value = Number(d.scanned || 0)
     items.value = d.items || []
     msg.value = items.value.length ? `发现 ${items.value.length} 个未收录链接` : '没有发现新的链接'
   } catch (e: any) {
@@ -116,9 +124,9 @@ loadCategories()
         输入一个网址，从页面链接或 sitemap 中批量发现尚未收录的站点，勾选后直接导入分类目录。
       </p>
       <form class="flex flex-col gap-2" @submit.prevent="run">
-        <div class="flex gap-2">
+        <div class="flex flex-col sm:flex-row gap-2">
           <input v-model="url" class="field grow" placeholder="https://example.com 或 https://example.com/sitemap.xml" />
-          <button class="btn btn-primary shrink-0" type="submit" :disabled="loading">{{ loading ? '分析中…' : '开始分析' }}</button>
+          <button class="btn btn-primary w-full sm:w-auto shrink-0" type="submit" :disabled="loading">{{ loading ? '分析中…' : '开始分析' }}</button>
         </div>
         <div class="flex flex-wrap gap-2">
           <button
@@ -135,21 +143,26 @@ loadCategories()
       </form>
       <p v-if="error" class="text-[12.5px] text-danger mt-2">{{ error }}</p>
       <p v-else-if="msg" class="text-[12.5px] text-ink2 mt-2">{{ msg }}</p>
-      <p v-if="source" class="text-[11.5px] text-ink3 mt-1 break-all">来源：{{ source }}</p>
+      <p v-if="source" class="text-[11.5px] text-ink3 mt-1 break-all">
+        来源：{{ source }}
+        <span v-if="runMode === 'sitemap'"> · 读取 {{ sitemaps }} 个 sitemap / {{ scanned }} 个页面</span>
+      </p>
     </section>
 
     <template v-if="items.length">
       <div class="flex flex-wrap items-center gap-2 mb-3">
         <button class="btn btn-sm" @click="toggleAll">{{ allSelected ? '取消全选' : '全选' }}</button>
         <span class="text-[12.5px] text-ink2">已选 {{ selected.size }} / {{ items.length }}</span>
-        <div class="flex-1" />
-        <input v-model="category" class="field !w-auto !h-8 text-[13px]" list="discover-categories" placeholder="导入分类" />
-        <datalist id="discover-categories">
-          <option v-for="c in categories" :key="c" :value="c" />
-        </datalist>
-        <button class="btn btn-sm btn-primary" :disabled="!selected.size || importing" @click="importSelected">
-          {{ importing ? '导入中…' : `导入所选（${selected.size}）` }}
-        </button>
+        <div class="hidden sm:block flex-1" />
+        <div class="flex gap-2 w-full sm:w-auto">
+          <input v-model="category" class="field flex-1 sm:!w-40 !h-9 sm:!h-8 text-[16px] sm:text-[13px]" list="discover-categories" placeholder="导入分类" />
+          <datalist id="discover-categories">
+            <option v-for="c in categories" :key="c" :value="c" />
+          </datalist>
+          <button class="btn btn-sm btn-primary shrink-0" :disabled="!selected.size || importing" @click="importSelected">
+            {{ importing ? '导入中…' : `导入所选（${selected.size}）` }}
+          </button>
+        </div>
       </div>
 
       <div v-if="hostCount.length" class="flex flex-wrap gap-1.5 mb-3">

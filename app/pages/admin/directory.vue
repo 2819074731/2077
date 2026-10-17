@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
@@ -113,7 +113,28 @@ function iconOf(url: string) {
   try { return `/api/icon?url=${encodeURIComponent(new URL(url).hostname)}` } catch { return '' }
 }
 
-onMounted(load)
+watch(editing, (v) => {
+  if (!import.meta.client) return
+  document.documentElement.style.overflow = v ? 'hidden' : ''
+  document.body.style.overflow = v ? 'hidden' : ''
+})
+
+function onKey(e: KeyboardEvent) {
+  if (e.key === 'Escape') editing.value = null
+}
+
+onMounted(() => {
+  load()
+  window.addEventListener('keydown', onKey)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKey)
+  if (import.meta.client) {
+    document.documentElement.style.overflow = ''
+    document.body.style.overflow = ''
+  }
+})
 </script>
 
 <template>
@@ -177,75 +198,97 @@ onMounted(load)
 
     <AdminPager :page="page" :total="total" :size="size" @change="go" />
 
-    <div v-if="editing" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" @click.self="editing = null">
-      <div class="absolute inset-0 bg-black/45" @click="editing = null" />
-      <div class="relative w-full sm:max-w-[720px] max-h-[92vh] overflow-y-auto bg-card border border-line rounded-t-2xl sm:rounded-2xl shadow-xl">
-        <div class="sticky top-0 z-10 flex items-center gap-2 px-4 h-14 border-b border-line bg-card">
-          <h2 class="font-semibold text-[14px]">{{ editing.id ? '编辑目录站点' : '新增目录站点' }}</h2>
-          <div class="flex-1" />
-          <button class="btn btn-sm btn-ghost" @click="editing = null">关闭</button>
+    <div v-if="editing" class="fixed inset-0 z-50 sm:flex sm:items-center sm:justify-center sm:p-4">
+      <div class="absolute inset-0 bg-black/50 backdrop-blur-[2px]" @click="editing = null" />
+      <div class="relative w-full h-[100dvh] sm:h-auto sm:max-w-[720px] sm:max-h-[90vh] flex flex-col bg-card border-line sm:border sm:rounded-2xl shadow-xl overflow-hidden">
+        <div class="shrink-0 flex items-center gap-2 px-4 h-14 border-b border-line bg-card">
+          <div class="min-w-0 flex-1">
+            <h2 class="font-semibold text-[15px] truncate">{{ editing.id ? '编辑目录站点' : '新增目录站点' }}</h2>
+            <p class="text-[11px] text-ink3">{{ editing.id ? '修改后保存即可生效' : '带 * 的为必填项' }}</p>
+          </div>
+          <button class="btn btn-sm btn-ghost btn-icon-sm" aria-label="关闭" @click="editing = null">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12" /></svg>
+          </button>
         </div>
-        <form class="p-4 flex flex-col gap-3" @submit.prevent="save">
-          <div class="grid sm:grid-cols-2 gap-3">
-            <label class="flex flex-col gap-1">
-              <span class="text-[12px] text-ink2">站点名称 *</span>
-              <input v-model="editing.name" class="field" placeholder="例如 2077 导航" required />
-            </label>
-            <label class="flex flex-col gap-1">
-              <span class="text-[12px] text-ink2">网址 *</span>
-              <input v-model="editing.url" class="field" placeholder="https://example.com" required />
-            </label>
-            <label class="flex flex-col gap-1">
-              <span class="text-[12px] text-ink2">分类</span>
-              <input v-model="editing.category" class="field" list="dir-categories" placeholder="例如 开发工具" />
-              <datalist id="dir-categories">
-                <option v-for="c in categories" :key="c.category" :value="c.category" />
-              </datalist>
-            </label>
-            <label class="flex flex-col gap-1">
-              <span class="text-[12px] text-ink2">图标地址（留空自动抓取）</span>
-              <input v-model="editing.icon" class="field" placeholder="/api/icon?url=..." />
-            </label>
+        <form class="flex-1 min-h-0 flex flex-col" @submit.prevent="save">
+          <div class="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 flex flex-col gap-4">
+            <section class="flex flex-col gap-3">
+              <h3 class="text-[12px] font-semibold text-ink3 uppercase tracking-wider">基础信息</h3>
+              <div class="grid sm:grid-cols-2 gap-3">
+                <label class="flex flex-col gap-1">
+                  <span class="text-[12px] text-ink2">站点名称 *</span>
+                  <input v-model="editing.name" class="field" placeholder="例如 2077 导航" required maxlength="100" />
+                </label>
+                <label class="flex flex-col gap-1">
+                  <span class="text-[12px] text-ink2">网址 *</span>
+                  <input v-model="editing.url" class="field" placeholder="https://example.com" required inputmode="url" autocapitalize="off" spellcheck="false" />
+                </label>
+                <label class="flex flex-col gap-1">
+                  <span class="text-[12px] text-ink2">分类</span>
+                  <input v-model="editing.category" class="field" list="dir-categories" placeholder="例如 开发工具" maxlength="60" />
+                  <datalist id="dir-categories">
+                    <option v-for="c in categories" :key="c.category" :value="c.category" />
+                  </datalist>
+                </label>
+                <div class="flex flex-col gap-1">
+                  <span class="text-[12px] text-ink2">图标地址（留空自动抓取）</span>
+                  <div class="flex items-center gap-2">
+                    <SiteIcon :src="editing.icon || iconOf(editing.url)" :name="editing.name" :url="editing.url" class="w-9 h-9 rounded-lg shrink-0 text-[13px]" />
+                    <input v-model="editing.icon" class="field flex-1 min-w-0" placeholder="/api/icon?url=..." />
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="flex flex-col gap-3 pt-1">
+              <h3 class="text-[12px] font-semibold text-ink3 uppercase tracking-wider">SEO 与描述</h3>
+              <label class="flex flex-col gap-1">
+                <span class="text-[12px] text-ink2">SEO 标题（留空使用站点名称）</span>
+                <input v-model="editing.title" class="field" placeholder="不超过 200 字" maxlength="200" />
+              </label>
+              <label class="flex flex-col gap-1">
+                <span class="text-[12px] text-ink2">简介（用于列表与搜索描述）</span>
+                <textarea v-model="editing.description" class="field !h-20 py-2 resize-y" placeholder="一两句话介绍该站点" maxlength="500" />
+              </label>
+              <label class="flex flex-col gap-1">
+                <span class="text-[12px] text-ink2">关键词（逗号分隔）</span>
+                <input v-model="editing.keywords" class="field" placeholder="导航,工具,资源" maxlength="200" />
+              </label>
+              <label class="flex flex-col gap-1">
+                <span class="text-[12px] text-ink2">详情页正文（可选，支持换行）</span>
+                <textarea v-model="editing.content" class="field !h-28 py-2 resize-y" placeholder="补充介绍、使用说明等，将展示在详情页" />
+              </label>
+            </section>
+
+            <section class="flex flex-col gap-3 pt-1">
+              <h3 class="text-[12px] font-semibold text-ink3 uppercase tracking-wider">展示设置</h3>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 items-end">
+                <label class="flex flex-col gap-1">
+                  <span class="text-[12px] text-ink2">排序</span>
+                  <input v-model.number="editing.sort" type="number" min="0" max="9999" class="field" inputmode="numeric" />
+                </label>
+                <label class="flex flex-col gap-1">
+                  <span class="text-[12px] text-ink2">状态</span>
+                  <select v-model="editing.status" class="field">
+                    <option value="published">已发布</option>
+                    <option value="hidden">已隐藏</option>
+                  </select>
+                </label>
+                <label class="flex items-center gap-2 h-10 px-1">
+                  <input v-model="editing.featured" type="checkbox" :true-value="1" :false-value="0" class="w-4 h-4 accent-current" />
+                  <span class="text-[12.5px] text-ink2">设为推荐</span>
+                </label>
+                <label class="flex items-center gap-2 h-10 px-1">
+                  <input v-model="editing.detail_enabled" type="checkbox" :true-value="1" :false-value="0" class="w-4 h-4 accent-current" />
+                  <span class="text-[12.5px] text-ink2">启用详情页</span>
+                </label>
+              </div>
+            </section>
+
+            <p v-if="formError" class="text-[12.5px] text-danger">{{ formError }}</p>
           </div>
-          <label class="flex flex-col gap-1">
-            <span class="text-[12px] text-ink2">SEO 标题（留空使用站点名称）</span>
-            <input v-model="editing.title" class="field" placeholder="不超过 200 字" />
-          </label>
-          <label class="flex flex-col gap-1">
-            <span class="text-[12px] text-ink2">简介（用于列表与搜索描述）</span>
-            <textarea v-model="editing.description" class="field !h-20 py-2 resize-y" placeholder="一两句话介绍该站点" />
-          </label>
-          <label class="flex flex-col gap-1">
-            <span class="text-[12px] text-ink2">关键词（逗号分隔）</span>
-            <input v-model="editing.keywords" class="field" placeholder="导航,工具,资源" />
-          </label>
-          <label class="flex flex-col gap-1">
-            <span class="text-[12px] text-ink2">详情页正文（可选，支持换行）</span>
-            <textarea v-model="editing.content" class="field !h-32 py-2 resize-y" placeholder="补充介绍、使用说明等，将展示在详情页" />
-          </label>
-          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 items-end">
-            <label class="flex flex-col gap-1">
-              <span class="text-[12px] text-ink2">排序（越大越靠前）</span>
-              <input v-model.number="editing.sort" type="number" min="0" max="9999" class="field" />
-            </label>
-            <label class="flex flex-col gap-1">
-              <span class="text-[12px] text-ink2">状态</span>
-              <select v-model="editing.status" class="field">
-                <option value="published">已发布</option>
-                <option value="hidden">已隐藏</option>
-              </select>
-            </label>
-            <label class="flex items-center gap-2 h-[38px]">
-              <input v-model="editing.featured" type="checkbox" :true-value="1" :false-value="0" class="w-4 h-4 accent-current" />
-              <span class="text-[12.5px] text-ink2">设为推荐</span>
-            </label>
-            <label class="flex items-center gap-2 h-[38px]">
-              <input v-model="editing.detail_enabled" type="checkbox" :true-value="1" :false-value="0" class="w-4 h-4 accent-current" />
-              <span class="text-[12.5px] text-ink2">启用详情页</span>
-            </label>
-          </div>
-          <p v-if="formError" class="text-[12.5px] text-danger">{{ formError }}</p>
-          <div class="flex gap-2 pt-1">
+
+          <div class="shrink-0 flex gap-2 px-4 py-3 sm:py-4 border-t border-line bg-card pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-4">
             <button class="btn btn-primary flex-1 sm:flex-none sm:min-w-[120px]" type="submit" :disabled="saving">{{ saving ? '保存中…' : '保存' }}</button>
             <button class="btn flex-1 sm:flex-none" type="button" @click="editing = null">取消</button>
           </div>

@@ -42,7 +42,7 @@ export default <Partial<Config>>{
         }
       },
       animation: {
-        'fade-up': 'fade-up .5s cubic-bezier(.22,1,.36,1) both',
+        'fade-up': 'fade-up .5s cubic-bezier(.22,1,.36,1) backwards',
         float: 'float 7s ease-in-out infinite'
       }
     }

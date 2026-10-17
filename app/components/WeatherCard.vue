@@ -24,6 +24,12 @@ const cityInput = ref('')
 
 const LS_CITY = 'my2077.weather.city'
 const LS_COORD = 'my2077.weather.coord'
+const LS_CACHE = 'my2077.weather.cache'
+const CACHE_TTL = 30 * 60 * 1000
+
+interface CacheHit { at: number; data: WData }
+const memCache = new Map<string, CacheHit>()
+const inflight = new Map<string, Promise<WData>>()
 
 const isHeader = computed(() => props.variant === 'header')
 
@@ -37,16 +43,65 @@ const ICONS: Record<string, string> = {
   fog: 'M4 9a4.5 4.5 0 0 1 .3-9M5 14h14M4 18h12'
 }
 
-async function load(params: { city?: string; lat?: number; lon?: number } = {}) {
-  loading.value = true
+function cacheKeyOf(p: { city?: string; lat?: number; lon?: number } = {}) {
+  if (p.city) return 'city:' + p.city.trim().toLowerCase()
+  if (p.lat != null && p.lon != null) return `coord:${p.lat.toFixed(2)},${p.lon.toFixed(2)}`
+  return 'auto'
+}
+
+function readCache(key: string): CacheHit | null {
+  const mem = memCache.get(key)
+  if (mem) return mem
+  try {
+    const raw = localStorage.getItem(LS_CACHE)
+    if (!raw) return null
+    const o = JSON.parse(raw)
+    if (o?.key !== key || !o?.data) return null
+    const hit = { at: Number(o.at) || 0, data: o.data as WData }
+    memCache.set(key, hit)
+    return hit
+  } catch {
+    return null
+  }
+}
+
+function writeCache(key: string, d: WData) {
+  const hit = { at: Date.now(), data: d }
+  memCache.set(key, hit)
+  try { localStorage.setItem(LS_CACHE, JSON.stringify({ key, ...hit })) } catch {}
+}
+
+function requestWeather(url: string): Promise<WData> {
+  const running = inflight.get(url)
+  if (running) return running
+  const p = ($fetch(url) as Promise<WData>).finally(() => inflight.delete(url))
+  inflight.set(url, p)
+  return p
+}
+
+async function load(params: { city?: string; lat?: number; lon?: number } = {}, force = false) {
+  const key = cacheKeyOf(params)
+  if (!force) {
+    const hit = readCache(key)
+    if (hit) {
+      data.value = hit.data
+      err.value = ''
+      loading.value = false
+      if (Date.now() - hit.at < CACHE_TTL) return
+    }
+  }
+
+  const silent = !!data.value && !force
+  if (!silent) loading.value = true
   err.value = ''
   try {
     const qs = new URLSearchParams()
     if (params.city) qs.set('city', params.city)
     else if (params.lat != null && params.lon != null) { qs.set('lat', String(params.lat)); qs.set('lon', String(params.lon)) }
     const url = params.city ? `/api/weather/city?${qs}` : `/api/weather?${qs}`
-    const d = await $fetch(url) as WData
+    const d = await requestWeather(url)
     data.value = d
+    writeCache(key, d)
   } catch (e: any) {
     err.value = e?.data?.message || '天气加载失败'
   } finally {
@@ -54,15 +109,15 @@ async function load(params: { city?: string; lat?: number; lon?: number } = {}) 
   }
 }
 
-function detect() {
+function detect(force = false) {
   if (!import.meta.client) return
-  if (!('geolocation' in navigator)) { load(); return }
+  if (!('geolocation' in navigator)) { load({}, force); return }
   navigator.geolocation.getCurrentPosition(
     (pos) => {
       localStorage.setItem(LS_COORD, JSON.stringify([pos.coords.latitude, pos.coords.longitude]))
-      load({ lat: pos.coords.latitude, lon: pos.coords.longitude })
+      load({ lat: pos.coords.latitude, lon: pos.coords.longitude }, force)
     },
-    () => load(),
+    () => load({}, force),
     { timeout: 6000, maximumAge: 600000 }
   )
 }
@@ -72,13 +127,32 @@ function applyCity() {
   if (!c) return
   if (import.meta.client) { localStorage.setItem(LS_CITY, c); localStorage.removeItem(LS_COORD) }
   editing.value = false
-  load({ city: c })
+  load({ city: c }, true)
 }
 
 function useAuto() {
   if (import.meta.client) { localStorage.removeItem(LS_CITY); localStorage.removeItem(LS_COORD) }
   editing.value = false
-  detect()
+  detect(true)
+}
+
+let bootKey = ''
+let bootFresh = false
+if (import.meta.client) {
+  let p: { city?: string; lat?: number; lon?: number } | null = null
+  const savedCity = localStorage.getItem(LS_CITY)
+  const savedCoord = localStorage.getItem(LS_COORD)
+  if (savedCity) p = { city: savedCity }
+  else if (savedCoord) {
+    try { const [lat, lon] = JSON.parse(savedCoord); p = { lat, lon } } catch {}
+  }
+  bootKey = cacheKeyOf(p || {})
+  const hit = readCache(bootKey)
+  if (hit) {
+    data.value = hit.data
+    loading.value = false
+    bootFresh = Date.now() - hit.at < CACHE_TTL
+  }
 }
 
 onMounted(() => {
@@ -88,6 +162,7 @@ onMounted(() => {
   if (savedCoord) {
     try { const [lat, lon] = JSON.parse(savedCoord); load({ lat, lon }); return } catch {}
   }
+  if (bootKey === 'auto' && bootFresh) return
   detect()
 })
 </script>

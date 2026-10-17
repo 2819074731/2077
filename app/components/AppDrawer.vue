@@ -7,7 +7,6 @@ const { groups, activeCat, selectCat } = useNav()
 const { user } = useAuth()
 const { isMobile } = useDevice()
 
-const friendLinks = useState<{ name: string; url: string; desc?: string }[]>('nav-friends', () => [])
 
 function pickCat(id: string | null) {
   selectCat(id)
@@ -82,22 +81,6 @@ onBeforeUnmount(() => lockBody(false))
           </div>
         </div>
 
-        <div v-if="friendLinks.length" class="flex flex-col gap-2">
-          <div class="flex items-center gap-2">
-            <span class="h-3.5 w-1 rounded-full accent-bar" />
-            <span class="text-[13px] font-semibold">友情链接</span>
-          </div>
-          <div class="flex flex-wrap gap-1.5">
-            <a
-              v-for="f in friendLinks"
-              :key="f.url"
-              :href="f.url"
-              target="_blank"
-              rel="noopener nofollow"
-              class="inline-flex items-center h-8 px-3 rounded-lg bg-card border border-line text-[12.5px] text-ink2 hover:text-ink"
-            >{{ f.name }}</a>
-          </div>
-        </div>
       </div>
     </aside>
   </div>

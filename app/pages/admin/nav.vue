@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
 import { iconFor, hostOf } from '~/data/nav'
 import { parseBookmarksHtml } from '#shared/bookmarks'
 
@@ -33,6 +33,17 @@ const linkKw = ref('')
 const page = ref(1)
 const PAGE_SIZE = 20
 const snapshot = ref('')
+
+interface LinkEditor {
+  draft: ALink
+  original: ALink
+  list: ALink[]
+  groupName: string
+  kind: 'group' | 'recommended'
+  isNew: boolean
+  indexAtOpen: number
+}
+const linkEditor = ref<LinkEditor | null>(null)
 
 useSeoMeta({ title: '导航管理 · 2077 管理后台', robots: 'noindex' })
 
@@ -152,14 +163,6 @@ async function fetchMetaSilent(l: ALink) {
     applyMeta(l, d.meta)
   } catch {}
 }
-function onUrlBlur(l: ALink) {
-  const u = normalizeUrl(l.url)
-  if (!u) return
-  l.url = u
-  if (!l.icon) l.icon = iconFor(l.url)
-  if (!l.name) fetchMeta(l)
-}
-
 function addGroup() {
   groups.value.push({ name: '新分组', links: [] })
   view.value = 'group'
@@ -184,26 +187,75 @@ function moveGroup(d: number) {
 }
 function addLink() {
   if (!active.value) return
-  active.value.links.push({ name: '', url: '' })
+  const l: ALink = { name: '', url: '' }
+  active.value.links.push(l)
   linkKw.value = ''
-  page.value = Math.min(activePages.value, Math.ceil(active.value.links.length / PAGE_SIZE))
-}
-function removeLink(l: ALink, list: ALink[]) {
-  const i = list.indexOf(l)
-  if (i >= 0) list.splice(i, 1)
-}
-function moveLink(l: ALink, list: ALink[], d: number) {
-  const i = list.indexOf(l)
-  const j = i + d
-  if (i < 0 || j < 0 || j >= list.length) return
-  const [it] = list.splice(i, 1)
-  list.splice(j, 0, it)
+  page.value = Math.max(1, Math.ceil(active.value.links.length / PAGE_SIZE))
+  openLinkEditor(l, active.value.links, active.value.name, 'group', true)
 }
 function addRec() {
-  recommended.value.push({ name: '', url: '' })
+  const l: ALink = { name: '', url: '' }
+  recommended.value.push(l)
   view.value = 'recommended'
   linkKw.value = ''
-  page.value = Math.ceil(recommended.value.length / PAGE_SIZE)
+  page.value = Math.max(1, Math.ceil(recommended.value.length / PAGE_SIZE))
+  openLinkEditor(l, recommended.value, '推荐站点', 'recommended', true)
+}
+
+function openLinkEditor(l: ALink, list: ALink[], groupName: string, kind: 'group' | 'recommended', isNew = false) {
+  linkEditor.value = { draft: { ...l }, original: l, list, groupName, kind, isNew, indexAtOpen: list.indexOf(l) }
+}
+
+function closeLinkEditor() {
+  const ed = linkEditor.value
+  if (ed?.isNew) {
+    const i = ed.list.indexOf(ed.original)
+    if (i >= 0) ed.list.splice(i, 1)
+  } else if (ed) {
+    const i = ed.list.indexOf(ed.original)
+    if (i >= 0 && i !== ed.indexAtOpen) {
+      ed.list.splice(i, 1)
+      ed.list.splice(Math.min(ed.indexAtOpen, ed.list.length), 0, ed.original)
+    }
+  }
+  linkEditor.value = null
+}
+
+function saveLinkEditor() {
+  const ed = linkEditor.value
+  if (!ed) return
+  const name = ed.draft.name.trim()
+  const url = normalizeUrl(ed.draft.url) || ed.draft.url.trim()
+  if (!name) { flash('请填写站点名称', 'err'); return }
+  if (!/^https?:\/\//i.test(url)) { flash('请填写有效网址', 'err'); return }
+  Object.assign(ed.original, { name, url, icon: ed.draft.icon || iconFor(url) })
+  linkEditor.value = null
+  flash('已修改，点击「保存全部」后生效')
+}
+
+function editorMove(d: number) {
+  const ed = linkEditor.value
+  if (!ed) return
+  const i = ed.list.indexOf(ed.original)
+  const j = i + d
+  if (i < 0 || j < 0 || j >= ed.list.length) return
+  const [it] = ed.list.splice(i, 1)
+  ed.list.splice(j, 0, it)
+}
+
+function editorDelete() {
+  const ed = linkEditor.value
+  if (!ed) return
+  const label = ed.draft.name || hostOf(ed.draft.url) || '该站点'
+  if (!confirm(`确定删除「${label}」？保存全部后生效。`)) return
+  const i = ed.list.indexOf(ed.original)
+  if (i >= 0) ed.list.splice(i, 1)
+  linkEditor.value = null
+  flash('已删除，保存全部后生效')
+}
+
+function editorFetch() {
+  if (linkEditor.value) fetchMeta(linkEditor.value.draft)
 }
 
 async function loadHealth() {
@@ -400,11 +452,32 @@ function switchGroup(i: number) {
   linkKw.value = ''
 }
 
-onMounted(load)
+watch(linkEditor, (v) => {
+  if (!import.meta.client) return
+  document.documentElement.style.overflow = v ? 'hidden' : ''
+  document.body.style.overflow = v ? 'hidden' : ''
+})
+
+function onKey(e: KeyboardEvent) {
+  if (e.key === 'Escape' && linkEditor.value) closeLinkEditor()
+}
+
+onMounted(() => {
+  load()
+  window.addEventListener('keydown', onKey)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKey)
+  if (import.meta.client) {
+    document.documentElement.style.overflow = ''
+    document.body.style.overflow = ''
+  }
+})
 </script>
 
 <template>
-  <div class="animate-fade-up">
+  <div class="animate-fade-up pb-16 lg:pb-0">
     <section class="card p-3.5 mb-4">
       <div class="flex flex-col lg:flex-row lg:items-center gap-3">
         <div class="min-w-0 flex-1">
@@ -418,11 +491,11 @@ onMounted(load)
             <span v-if="invalidCount" class="text-danger">· {{ invalidCount }} 条待补全</span>
           </p>
         </div>
-        <div class="flex flex-wrap gap-2">
+        <div class="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
           <button class="btn btn-sm" @click="bookmarkInput?.click()">导入书签</button>
           <button class="btn btn-sm" @click="fileInput?.click()">导入 JSON</button>
           <button class="btn btn-sm" @click="exportJson">导出 JSON</button>
-          <button class="btn btn-sm btn-primary" :disabled="saving" @click="save">{{ saving ? '保存中…' : '保存全部' }}</button>
+          <button class="btn btn-sm btn-primary col-span-2 sm:col-auto" :disabled="saving" @click="save">{{ saving ? '保存中…' : '保存全部' }}</button>
           <input ref="fileInput" type="file" accept="application/json,.json" class="hidden" @change="importJson" />
           <input ref="bookmarkInput" type="file" accept="text/html,.html,.htm" class="hidden" @change="importBookmarks" />
         </div>
@@ -431,8 +504,37 @@ onMounted(load)
     </section>
 
     <div v-if="loading" class="card p-8 text-center text-ink2 text-[13px]">加载中…</div>
-    <div v-else class="grid lg:grid-cols-[250px_minmax(0,1fr)] gap-4 items-start">
-      <aside class="card p-2.5 lg:sticky lg:top-[72px]">
+    <template v-else>
+      <div class="lg:hidden flex gap-1 p-1 rounded-xl bg-card2 border border-line mb-3">
+        <button
+          class="flex-1 h-9 rounded-lg text-[13px] font-medium transition-colors"
+          :class="view === 'group' ? 'bg-ink text-bg' : 'text-ink2'"
+          @click="view = 'group'; page = 1; linkKw = ''"
+        >分组 <span class="text-[11px] opacity-70">{{ groups.length }}</span></button>
+        <button
+          class="flex-1 h-9 rounded-lg text-[13px] font-medium transition-colors"
+          :class="view === 'recommended' ? 'bg-ink text-bg' : 'text-ink2'"
+          @click="view = 'recommended'; page = 1; linkKw = ''"
+        >推荐站点 <span class="text-[11px] opacity-70">{{ recommended.length }}</span></button>
+      </div>
+
+      <div v-if="view === 'group'" class="lg:hidden mb-3">
+        <div class="flex gap-1.5 overflow-x-auto pb-1 -mx-0.5 px-0.5">
+          <button
+            v-for="item in filteredGroups"
+            :key="item.i"
+            class="shrink-0 h-9 px-3 rounded-lg border text-[12.5px] transition-colors"
+            :class="activeGroup === item.i ? 'bg-ink text-bg border-ink font-medium' : 'bg-card border-line text-ink2'"
+            @click="switchGroup(item.i)"
+          >
+            {{ item.g.name }} <span class="opacity-60">{{ item.g.links.length }}</span>
+          </button>
+          <button class="shrink-0 h-9 px-3 rounded-lg border border-dashed border-line text-[12.5px] text-ink2" @click="addGroup">+ 分组</button>
+        </div>
+      </div>
+
+      <div class="grid lg:grid-cols-[250px_minmax(0,1fr)] gap-4 items-start">
+      <aside class="hidden lg:block card p-2.5 lg:sticky lg:top-[72px]">
         <button
           class="w-full flex items-center gap-2 px-3 h-10 rounded-xl text-left text-[13px] font-medium mb-1.5"
           :class="view === 'recommended' ? 'bg-ink text-bg' : 'hover:bg-card2'"
@@ -465,17 +567,21 @@ onMounted(load)
       <section class="card p-3.5 sm:p-4 min-w-0">
         <template v-if="view === 'group' && active">
           <div class="flex flex-col gap-3">
-            <div class="flex flex-col sm:flex-row sm:items-center gap-2">
-              <input v-model="active.name" class="field sm:!max-w-[240px] font-medium" placeholder="分组名称" />
-              <label class="flex items-center gap-1.5 text-[12.5px] text-ink2 cursor-pointer">
-                <input v-model="active.recommended" type="checkbox" /> 首页优先展示
-              </label>
-              <span class="chip">{{ active.links.length }} 条</span>
-              <div class="flex-1" />
-              <div class="flex flex-wrap gap-1.5">
-                <button class="btn btn-sm" :disabled="activeGroup === 0" @click="moveGroup(-1)">上移分组</button>
-                <button class="btn btn-sm" :disabled="activeGroup === groups.length - 1" @click="moveGroup(1)">下移分组</button>
-                <button class="btn btn-sm btn-ghost text-danger" @click="removeGroup">删除分组</button>
+            <div class="flex flex-col gap-2">
+              <div class="flex items-center gap-2">
+                <input v-model="active.name" class="field flex-1 sm:!max-w-[240px] font-medium" placeholder="分组名称" />
+                <span class="chip shrink-0">{{ active.links.length }} 条</span>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <label class="flex items-center gap-1.5 text-[12.5px] text-ink2 cursor-pointer">
+                  <input v-model="active.recommended" type="checkbox" /> 首页优先展示
+                </label>
+                <div class="flex-1" />
+                <div class="grid grid-cols-3 gap-1.5 w-full sm:w-auto sm:flex">
+                  <button class="btn btn-sm" :disabled="activeGroup === 0" @click="moveGroup(-1)">上移</button>
+                  <button class="btn btn-sm" :disabled="activeGroup === groups.length - 1" @click="moveGroup(1)">下移</button>
+                  <button class="btn btn-sm btn-ghost text-danger" @click="removeGroup">删除</button>
+                </div>
               </div>
             </div>
 
@@ -494,24 +600,25 @@ onMounted(load)
             <div v-if="!activeFilteredLinks.length" class="py-10 text-center text-ink3 text-[13px] border border-dashed border-line rounded-xl">
               本组暂无链接，点击「添加链接」开始。
             </div>
-            <div v-else class="flex flex-col gap-2">
-              <div v-for="l in pagedLinks" :key="l" class="rounded-xl border border-line p-2.5">
-                <div class="flex flex-col sm:flex-row sm:items-center gap-2">
-                  <div class="flex items-center gap-2 min-w-0 sm:contents">
-                    <span class="grid place-items-center w-8 h-8 rounded-lg border border-line bg-card shrink-0">
-                      <img v-if="l.url" :src="l.icon || iconFor(l.url)" alt="" class="w-4 h-4 object-contain" loading="lazy" referrerpolicy="no-referrer" @error="hideImg" />
-                    </span>
+            <div v-else class="flex flex-col gap-1.5">
+              <div
+                v-for="l in pagedLinks"
+                :key="l"
+                class="group flex items-center gap-2 rounded-xl border border-line bg-card/40 pl-2 pr-1.5 py-1.5 cursor-pointer hover:border-line2 hover:bg-card2/60 transition-colors"
+                @click="openLinkEditor(l, active.links, active.name, 'group')"
+              >
+                <span class="grid place-items-center w-7 h-7 rounded-lg border border-line bg-card shrink-0">
+                  <img v-if="l.url" :src="l.icon || iconFor(l.url)" alt="" class="w-4 h-4 object-contain" loading="lazy" referrerpolicy="no-referrer" @error="hideImg" />
+                </span>
+                <span class="min-w-0 flex-1">
+                  <span class="flex items-center gap-1.5">
+                    <span class="text-[13px] font-medium truncate" :class="!l.name && 'text-ink3'">{{ l.name || '未命名站点' }}</span>
+                    <span v-if="isDup(l)" class="shrink-0 text-[9.5px] leading-none px-1 py-0.5 rounded bg-warning/15 text-warning">重复</span>
                     <span v-if="healthOf(l)" class="w-1.5 h-1.5 rounded-full shrink-0" :class="healthOf(l)!.status && healthOf(l)!.status < 400 ? 'bg-success' : 'bg-danger'" :title="healthText(l)" />
-                    <input v-model="l.name" class="field sm:!w-40" :class="isDup(l) ? '!border-warning' : ''" placeholder="名称" @blur="onUrlBlur(l)" />
-                  </div>
-                  <input v-model="l.url" class="field grow min-w-0" :class="isDup(l) ? '!border-warning' : ''" placeholder="https://..." :title="isDup(l) ? '重复网址' : ''" @blur="onUrlBlur(l)" />
-                  <div class="grid grid-cols-4 gap-1.5 sm:flex sm:gap-1">
-                    <button class="btn btn-sm btn-ghost" :disabled="fetching === l.url || !l.url" @click="fetchMeta(l)">抓取</button>
-                    <button class="btn btn-sm btn-ghost" @click="moveLink(l, active.links, -1)">上移</button>
-                    <button class="btn btn-sm btn-ghost" @click="moveLink(l, active.links, 1)">下移</button>
-                    <button class="btn btn-sm btn-ghost text-danger" @click="removeLink(l, active.links)">删除</button>
-                  </div>
-                </div>
+                  </span>
+                  <span class="block text-[11px] text-ink3 truncate leading-tight mt-0.5">{{ l.url || '未填写网址' }}</span>
+                </span>
+                <button class="btn btn-sm btn-ghost shrink-0 !h-8 !px-2.5" @click.stop="openLinkEditor(l, active.links, active.name, 'group')">编辑</button>
               </div>
             </div>
 
@@ -533,24 +640,25 @@ onMounted(load)
             </div>
             <input v-model="linkKw" class="field !h-8 sm:!max-w-[260px]" placeholder="筛选推荐站点" />
             <div v-if="!recFiltered.length" class="py-10 text-center text-ink3 text-[13px] border border-dashed border-line rounded-xl">暂无推荐站点</div>
-            <div v-else class="flex flex-col gap-2">
-              <div v-for="l in pagedRec" :key="l" class="rounded-xl border border-line p-2.5">
-                <div class="flex flex-col sm:flex-row sm:items-center gap-2">
-                  <div class="flex items-center gap-2 min-w-0 sm:contents">
-                    <span class="grid place-items-center w-8 h-8 rounded-lg border border-line bg-card shrink-0">
-                      <img v-if="l.url" :src="l.icon || iconFor(l.url)" alt="" class="w-4 h-4 object-contain" loading="lazy" referrerpolicy="no-referrer" @error="hideImg" />
-                    </span>
+            <div v-else class="flex flex-col gap-1.5">
+              <div
+                v-for="l in pagedRec"
+                :key="l"
+                class="group flex items-center gap-2 rounded-xl border border-line bg-card/40 pl-2 pr-1.5 py-1.5 cursor-pointer hover:border-line2 hover:bg-card2/60 transition-colors"
+                @click="openLinkEditor(l, recommended, '推荐站点', 'recommended')"
+              >
+                <span class="grid place-items-center w-7 h-7 rounded-lg border border-line bg-card shrink-0">
+                  <img v-if="l.url" :src="l.icon || iconFor(l.url)" alt="" class="w-4 h-4 object-contain" loading="lazy" referrerpolicy="no-referrer" @error="hideImg" />
+                </span>
+                <span class="min-w-0 flex-1">
+                  <span class="flex items-center gap-1.5">
+                    <span class="text-[13px] font-medium truncate" :class="!l.name && 'text-ink3'">{{ l.name || '未命名站点' }}</span>
+                    <span v-if="isDup(l)" class="shrink-0 text-[9.5px] leading-none px-1 py-0.5 rounded bg-warning/15 text-warning">重复</span>
                     <span v-if="healthOf(l)" class="w-1.5 h-1.5 rounded-full shrink-0" :class="healthOf(l)!.status && healthOf(l)!.status < 400 ? 'bg-success' : 'bg-danger'" :title="healthText(l)" />
-                    <input v-model="l.name" class="field sm:!w-40" :class="isDup(l) ? '!border-warning' : ''" placeholder="名称" @blur="onUrlBlur(l)" />
-                  </div>
-                  <input v-model="l.url" class="field grow min-w-0" :class="isDup(l) ? '!border-warning' : ''" placeholder="https://..." @blur="onUrlBlur(l)" />
-                  <div class="grid grid-cols-4 gap-1.5 sm:flex sm:gap-1">
-                    <button class="btn btn-sm btn-ghost" :disabled="fetching === l.url || !l.url" @click="fetchMeta(l)">抓取</button>
-                    <button class="btn btn-sm btn-ghost" @click="moveLink(l, recommended, -1)">上移</button>
-                    <button class="btn btn-sm btn-ghost" @click="moveLink(l, recommended, 1)">下移</button>
-                    <button class="btn btn-sm btn-ghost text-danger" @click="removeLink(l, recommended)">删除</button>
-                  </div>
-                </div>
+                  </span>
+                  <span class="block text-[11px] text-ink3 truncate leading-tight mt-0.5">{{ l.url || '未填写网址' }}</span>
+                </span>
+                <button class="btn btn-sm btn-ghost shrink-0 !h-8 !px-2.5" @click.stop="openLinkEditor(l, recommended, '推荐站点', 'recommended')">编辑</button>
               </div>
             </div>
             <AdminPager :page="page" :total="recFiltered.length" :size="PAGE_SIZE" @change="page = $event" />
@@ -559,6 +667,77 @@ onMounted(load)
 
         <div v-else class="py-12 text-center text-ink3 text-[13px]">请选择左侧分组</div>
       </section>
+      </div>
+    </template>
+
+    <div v-if="linkEditor" class="fixed inset-0 z-50 sm:flex sm:items-center sm:justify-center sm:p-4">
+      <div class="absolute inset-0 bg-black/50 backdrop-blur-[2px]" @click="closeLinkEditor" />
+      <div class="relative w-full h-[100dvh] sm:h-auto sm:max-w-[520px] sm:max-h-[90vh] flex flex-col bg-card border-line sm:border sm:rounded-2xl shadow-xl overflow-hidden">
+        <div class="shrink-0 flex items-center gap-2 px-4 h-14 border-b border-line bg-card">
+          <div class="min-w-0 flex-1">
+            <h2 class="font-semibold text-[15px] truncate">
+              {{ linkEditor.isNew ? '添加站点' : linkEditor.kind === 'recommended' ? '编辑推荐站点' : '编辑站点' }}
+            </h2>
+            <p class="text-[11px] text-ink3 truncate">{{ linkEditor.groupName }} · 修改后点「保存全部」生效</p>
+          </div>
+          <button type="button" class="btn btn-sm btn-ghost btn-icon-sm" aria-label="关闭" @click="closeLinkEditor">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12" /></svg>
+          </button>
+        </div>
+
+        <form class="flex-1 min-h-0 flex flex-col" @submit.prevent="saveLinkEditor">
+          <div class="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 flex flex-col gap-4">
+            <div class="flex items-center gap-3">
+              <span class="grid place-items-center w-11 h-11 rounded-xl border border-line bg-card shrink-0 overflow-hidden">
+                <img v-if="linkEditor.draft.url" :src="linkEditor.draft.icon || iconFor(linkEditor.draft.url)" alt="" class="w-6 h-6 object-contain" referrerpolicy="no-referrer" @error="hideImg" />
+                <span v-else class="text-[15px] font-bold text-ink3">{{ (linkEditor.draft.name || '?').slice(0, 1).toUpperCase() }}</span>
+              </span>
+              <div class="min-w-0 flex-1">
+                <p class="text-[13px] font-medium truncate">{{ linkEditor.draft.name || '未命名站点' }}</p>
+                <p class="text-[11px] text-ink3 truncate">{{ linkEditor.draft.url || '未填写网址' }}</p>
+              </div>
+            </div>
+
+            <label class="flex flex-col gap-1.5">
+              <span class="text-[12px] text-ink2">站点名称 *</span>
+              <input v-model="linkEditor.draft.name" class="field" placeholder="例如 GitHub" maxlength="60" autofocus />
+            </label>
+
+            <label class="flex flex-col gap-1.5">
+              <span class="text-[12px] text-ink2">网址 *</span>
+              <input v-model="linkEditor.draft.url" class="field" placeholder="https://..." inputmode="url" />
+            </label>
+
+            <label class="flex flex-col gap-1.5">
+              <span class="text-[12px] text-ink2">图标地址（可选，留空自动获取）</span>
+              <input v-model="linkEditor.draft.icon" class="field" placeholder="https://.../icon.png" />
+            </label>
+
+            <p v-if="isDup(linkEditor.draft)" class="text-[11.5px] text-warning">该网址与其他条目重复</p>
+            <p v-if="healthText(linkEditor.draft)" class="text-[11.5px] text-ink3">{{ healthText(linkEditor.draft) }}</p>
+
+            <div class="flex flex-wrap items-center gap-1.5 pt-1">
+              <button type="button" class="btn btn-sm" :disabled="!!fetching || !linkEditor.draft.url" @click="editorFetch">
+                {{ fetching ? '抓取中…' : '抓取站点信息' }}
+              </button>
+              <div class="flex-1" />
+              <button type="button" class="btn btn-sm btn-ghost" :disabled="linkEditor.list.indexOf(linkEditor.original) <= 0" @click="editorMove(-1)">上移</button>
+              <button type="button" class="btn btn-sm btn-ghost" :disabled="linkEditor.list.indexOf(linkEditor.original) >= linkEditor.list.length - 1" @click="editorMove(1)">下移</button>
+              <button v-if="!linkEditor.isNew" type="button" class="btn btn-sm btn-ghost text-danger" @click="editorDelete">删除</button>
+            </div>
+          </div>
+
+          <div class="shrink-0 flex items-center gap-2 px-4 py-3 border-t border-line bg-card pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-3">
+            <button type="button" class="btn flex-1 sm:flex-none" @click="closeLinkEditor">取消</button>
+            <button type="submit" class="btn btn-primary flex-1 sm:flex-none">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div v-if="dirty" class="lg:hidden fixed inset-x-0 bottom-0 z-30 flex items-center gap-2 border-t border-line bg-header/95 px-3 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur-xl">
+      <span class="text-[12px] text-warning flex-1">有未保存修改</span>
+      <button class="btn btn-sm btn-primary" :disabled="saving" @click="save">{{ saving ? '保存中…' : '保存全部' }}</button>
     </div>
   </div>
 </template>

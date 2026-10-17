@@ -2,7 +2,7 @@
 import { onMounted, computed, ref } from 'vue'
 import { DEFAULT_GROUPS, INLINE_GROUP_COUNT } from '~/data/nav'
 
-const { groups, diy, syncMsg, loadLocal, addGroup, resetAll, activeCat, visibleGroups } = useNav()
+const { groups, diy, syncMsg, loadLocal, applySite, addGroup, resetAll, activeCat, visibleGroups } = useNav()
 const { user, refresh } = useAuth()
 const { isMobile } = useDevice()
 
@@ -13,6 +13,9 @@ onMounted(async () => {
 })
 
 const siteUrl = useRuntimeConfig().public.siteUrl
+
+const { data: siteData } = await useFetch('/api/site', { key: 'site-config' })
+applySite(siteData.value, { groups: true })
 
 const { data: dirData } = await useFetch('/api/directory', { query: { size: 6 }, key: 'home-directory' })
 const directoryItems = computed<any[]>(() => (dirData.value as any)?.items || [])
