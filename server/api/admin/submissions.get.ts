@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
   const total = countRows[0]?.n || 0
 
   const [rows]: any = await db.query(
-    `SELECT id, user_id, name, url, icon, title, description, keywords, grp, status, created_at
+    `SELECT id, user_id, name, url, icon, title, description, keywords, grp, target, status, created_at
      FROM submissions ${clause} ORDER BY id DESC LIMIT ${size} OFFSET ${offset}`,
     params
   )

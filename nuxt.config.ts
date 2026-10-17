@@ -45,6 +45,7 @@ export default defineNuxtConfig({
   },
 
   sitemap: {
+    sources: ['/api/__sitemap__/urls'],
     exclude: ['/login', '/register', '/settings', '/admin', '/admin/**']
   },
 

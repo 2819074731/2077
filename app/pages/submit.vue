@@ -6,7 +6,7 @@ useSeoMeta({
   description: '提交你的网站收录到 2077 导航，支持一键抓取标题、描述与图标。'
 })
 
-const form = ref({ url: '', name: '', title: '', description: '', keywords: '', icon: '', group: '' })
+const form = ref({ url: '', name: '', title: '', description: '', keywords: '', icon: '', group: '', target: 'nav' })
 const loading = ref(false)
 const fetching = ref(false)
 const err = ref('')
@@ -78,13 +78,41 @@ async function submit() {
           </div>
         </div>
 
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[13px] font-medium">收录方式</label>
+          <div class="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              class="btn justify-start !h-auto py-2.5"
+              :class="form.target === 'nav' ? 'btn-primary' : 'btn-ghost'"
+              @click="form.target = 'nav'"
+            >
+              <span class="text-left">
+                <span class="block text-[13px] font-medium">首页导航</span>
+                <span class="block text-[11px] opacity-70 mt-0.5">展示在首页分类中</span>
+              </span>
+            </button>
+            <button
+              type="button"
+              class="btn justify-start !h-auto py-2.5"
+              :class="form.target === 'directory' ? 'btn-primary' : 'btn-ghost'"
+              @click="form.target = 'directory'"
+            >
+              <span class="text-left">
+                <span class="block text-[13px] font-medium">分类目录</span>
+                <span class="block text-[11px] opacity-70 mt-0.5">生成独立详情页，利于 SEO</span>
+              </span>
+            </button>
+          </div>
+        </div>
+
         <div class="grid sm:grid-cols-2 gap-3.5">
           <div class="flex flex-col gap-1.5">
             <label class="text-[13px] font-medium">站点名称 <span class="text-danger">*</span></label>
             <input v-model="form.name" class="field" placeholder="例如 GitHub" />
           </div>
           <div class="flex flex-col gap-1.5">
-            <label class="text-[13px] font-medium">分组</label>
+            <label class="text-[13px] font-medium">{{ form.target === 'directory' ? '目录分类' : '分组' }}</label>
             <select v-model="form.group" class="field">
               <option value="">未指定</option>
               <option v-for="g in GROUPS" :key="g" :value="g">{{ g }}</option>

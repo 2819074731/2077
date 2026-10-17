@@ -62,10 +62,10 @@ async function save() {
         <input v-model="l.name" class="field sm:!w-40" placeholder="站点名称" />
         <input v-model="l.url" class="field grow" placeholder="https://..." />
         <input v-model="l.desc" class="field sm:!w-48" placeholder="描述（可选）" />
-        <div class="flex gap-1 shrink-0">
-          <button class="btn btn-sm btn-ghost !px-2" :disabled="i === 0" @click="move(i, -1)">↑</button>
-          <button class="btn btn-sm btn-ghost !px-2" :disabled="i === links.length - 1" @click="move(i, 1)">↓</button>
-          <button class="btn btn-sm btn-ghost text-ink2 !px-2" @click="remove(i)">删</button>
+        <div class="flex gap-1.5 shrink-0 w-full sm:w-auto">
+          <button class="btn btn-sm btn-ghost flex-1 sm:flex-none" :disabled="i === 0" @click="move(i, -1)">上移</button>
+          <button class="btn btn-sm btn-ghost flex-1 sm:flex-none" :disabled="i === links.length - 1" @click="move(i, 1)">下移</button>
+          <button class="btn btn-sm btn-ghost text-ink2 flex-1 sm:flex-none" @click="remove(i)">删除</button>
         </div>
       </div>
     </div>

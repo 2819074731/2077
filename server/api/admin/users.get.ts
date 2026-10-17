@@ -5,10 +5,18 @@ export default defineEventHandler(async (event) => {
   const size = Math.min(100, Math.max(1, Number(q.size) || 20))
   const offset = (page - 1) * size
   const kw = String(q.q || '').trim()
+  const role = String(q.role || '').trim()
 
   const db = useDb()
-  const clause = kw ? 'WHERE email LIKE ? OR username LIKE ? OR nickname LIKE ? OR slug LIKE ?' : ''
-  const params = kw ? [`%${kw}%`, `%${kw}%`, `%${kw}%`, `%${kw}%`] : []
+  const where: string[] = []
+  const params: any[] = []
+  if (kw) {
+    where.push('(email LIKE ? OR username LIKE ? OR nickname LIKE ? OR slug LIKE ?)')
+    params.push(`%${kw}%`, `%${kw}%`, `%${kw}%`, `%${kw}%`)
+  }
+  if (role === 'admin') where.push('is_admin = 1')
+  if (role === 'user') where.push('is_admin = 0')
+  const clause = where.length ? 'WHERE ' + where.join(' AND ') : ''
 
   const [countRows]: any = await db.query(`SELECT COUNT(*) AS n FROM users ${clause}`, params)
   const total = countRows[0]?.n || 0

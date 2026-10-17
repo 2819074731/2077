@@ -121,6 +121,8 @@ const isDark = computed(() => colorMode.value === 'dark')
         <div class="flex items-center gap-3 flex-wrap">
           <span class="font-medium text-ink">2077 导航</span>
           <span class="opacity-40">·</span>
+          <NuxtLink to="/site" class="hover:text-ink">分类目录</NuxtLink>
+          <span class="opacity-40">·</span>
           <NuxtLink to="/submit" class="hover:text-ink">提交收录</NuxtLink>
           <div class="flex-1" />
           <SetHomeHint />

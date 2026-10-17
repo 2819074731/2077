@@ -28,8 +28,10 @@ module.exports = {
       script: '.output/server/index.mjs',
       interpreter: '/www/server/nodejs/v24.21.0/bin/node',
       cwd: __dirname,
-      instances: 1,
-      exec_mode: 'fork',
+      instances: 2,
+      exec_mode: 'cluster',
+      kill_timeout: 5000,
+      listen_timeout: 10000,
       env: {
         NODE_ENV: 'production',
         NODE_OPTIONS: '--no-network-family-autoselection',

@@ -9,12 +9,13 @@ export default defineEventHandler(async (event) => {
 
   const user = await getSessionUser(event)
   const db = useDb()
+  const target = String(body?.target || '') === 'directory' ? 'directory' : 'nav'
 
   const [dup]: any = await db.query('SELECT id FROM submissions WHERE url = ? LIMIT 1', [u.toString()])
   if (dup.length) throw createError({ statusCode: 409, statusMessage: '该站点已提交过' })
 
   await db.execute(
-    'INSERT INTO submissions (user_id, name, url, icon, title, description, keywords, grp, status) VALUES (?,?,?,?,?,?,?,?,?)',
+    'INSERT INTO submissions (user_id, name, url, icon, title, description, keywords, grp, target, status) VALUES (?,?,?,?,?,?,?,?,?,?)',
     [
       user?.id || null,
       name,
@@ -24,6 +25,7 @@ export default defineEventHandler(async (event) => {
       String(body?.description || '').slice(0, 500),
       String(body?.keywords || '').slice(0, 300),
       String(body?.group || '').slice(0, 60),
+      target,
       'pending'
     ]
   )

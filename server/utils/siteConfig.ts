@@ -9,7 +9,8 @@ interface SiteConfig {
 }
 
 let cache: { data: SiteConfig; at: number } | null = null
-const TTL = 1000 * 60 * 5
+// 多实例部署时各进程独立缓存，用较短 TTL 保证后台修改能快速同步到所有实例。
+const TTL = 5000
 
 /** 内置默认站点配置（未在后台配置时使用）。 */
 function builtinConfig(): SiteConfig {
