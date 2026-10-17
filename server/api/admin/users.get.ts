@@ -6,8 +6,8 @@ export default defineEventHandler(async (event) => {
   const page = Math.max(1, Number(q.page) || 1)
   const size = Math.min(100, Math.max(1, Number(q.size) || 20))
   const offset = (page - 1) * size
-  const kw = String(q.q || '').trim()
-  const role = String(q.role || '').trim()
+  const kw = String(q.q || '').trim().slice(0, 60)
+  const role = String(q.role || '').trim().slice(0, 10)
 
   const db = useDb()
   const where: string[] = []

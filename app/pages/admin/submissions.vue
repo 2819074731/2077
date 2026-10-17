@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { DEFAULT_CATEGORY } from '#shared/categories'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
@@ -9,11 +9,21 @@ const total = ref(0)
 const page = ref(1)
 const status = ref('pending')
 const kw = ref('')
+const category = ref('')
+const from = ref('')
+const to = ref('')
+const selected = ref<Set<number>>(new Set())
+const bulkActing = ref(false)
+const toast = ref('')
+const toastKind = ref<'ok' | 'err'>('ok')
+let toastTimer: ReturnType<typeof setTimeout> | null = null
 const loading = ref(false)
 const msg = ref('')
 const msgKind = ref<'ok' | 'err'>('ok')
 const size = 20
 const categories = ref<string[]>([DEFAULT_CATEGORY])
+
+const allSelected = computed(() => items.value.length > 0 && items.value.every((item) => selected.value.has(Number(item.id))))
 
 const editingItem = ref<any>(null)
 const mode = ref<'review' | 'edit'>('review')
@@ -36,10 +46,14 @@ async function load() {
   try {
     const qs = new URLSearchParams({ page: String(page.value), size: String(size) })
     if (status.value) qs.set('status', status.value)
+    if (category.value) qs.set('category', category.value)
+    if (from.value) qs.set('from', from.value)
+    if (to.value) qs.set('to', to.value)
     if (kw.value.trim()) qs.set('q', kw.value.trim())
     const d: any = await $fetch(`/api/admin/submissions?${qs}`)
     items.value = d.items
     total.value = d.total
+    selected.value = new Set()
   } finally {
     loading.value = false
   }
@@ -83,6 +97,60 @@ function flash(text: string, kind: 'ok' | 'err' = 'ok') {
   msg.value = text
   msgKind.value = kind
   setTimeout(() => { if (msg.value === text) msg.value = '' }, 2200)
+}
+
+function showToast(text: string, kind: 'ok' | 'err' = 'ok') {
+  toast.value = text
+  toastKind.value = kind
+  if (toastTimer) clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => { toast.value = '' }, 4800)
+}
+
+function resetFilters() {
+  kw.value = ''
+  category.value = ''
+  from.value = ''
+  to.value = ''
+  page.value = 1
+  load()
+}
+
+function toggleSelect(id: number) {
+  const next = new Set(selected.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  selected.value = next
+}
+
+function toggleAll() {
+  selected.value = allSelected.value ? new Set() : new Set(items.value.map((item) => Number(item.id)))
+}
+
+async function bulk(op: 'approve' | 'reject') {
+  if (bulkActing.value || !selected.value.size) return
+  const ids = [...selected.value]
+  const label = op === 'approve' ? '通过' : '拒绝'
+  if (!confirm(`确定${label}所选 ${ids.length} 条提交？`)) return
+  bulkActing.value = true
+  try {
+    const body: any = { action: 'bulk', ids, op }
+    if (op === 'approve') {
+      body.category = category.value || DEFAULT_CATEGORY
+      body.targets = { nav: true, directory: true }
+    }
+    const d: any = await $fetch('/api/admin/submissions', { method: 'POST', body })
+    const parts: string[] = []
+    if (d.approved) parts.push(`通过 ${d.approved} 条`)
+    if (d.rejected) parts.push(`拒绝 ${d.rejected} 条`)
+    if (d.skipped) parts.push(`跳过 ${d.skipped} 条`)
+    if (d.errors) parts.push(`失败 ${d.errors} 条`)
+    showToast(`批量处理完成：${parts.length ? parts.join('，') : '没有变更'}`, d.errors ? 'err' : 'ok')
+    await load()
+  } catch (e: any) {
+    showToast(e?.data?.statusMessage || e?.data?.message || '批量操作失败', 'err')
+  } finally {
+    bulkActing.value = false
+  }
 }
 
 async function saveEdit() {
@@ -169,6 +237,10 @@ onMounted(async () => {
   await load()
 })
 
+onBeforeUnmount(() => {
+  if (toastTimer) clearTimeout(toastTimer)
+})
+
 const filters = [
   { v: 'pending', label: '待审核' },
   { v: 'approved', label: '已收录' },
@@ -207,9 +279,17 @@ function iconOf(url: string) {
         <div class="flex-1" />
         <span class="text-[12.5px] text-ink2">共 {{ total }} 条</span>
       </div>
-      <form class="flex gap-2" @submit.prevent="page = 1; load()">
-        <input v-model="kw" class="field grow sm:max-w-[280px]" placeholder="搜索名称或网址" />
-        <button class="btn shrink-0" type="submit">搜索</button>
+      <form class="flex flex-wrap gap-2" @submit.prevent="page = 1; load()">
+        <input v-model="kw" class="field grow sm:max-w-[240px]" placeholder="搜索名称或网址" />
+        <select v-model="category" class="field !w-auto max-w-[170px]">
+          <option value="">全部分类</option>
+          <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
+        </select>
+        <input v-model="from" type="date" class="field !w-auto" aria-label="开始日期" />
+        <span class="self-center text-[12px] text-ink3">至</span>
+        <input v-model="to" type="date" class="field !w-auto" aria-label="结束日期" />
+        <button class="btn shrink-0" type="submit">筛选</button>
+        <button v-if="kw || category || from || to" type="button" class="btn btn-ghost shrink-0" @click="resetFilters">重置</button>
       </form>
       <p v-if="msg" class="text-[13px]" :class="msgKind === 'err' ? 'text-danger' : 'text-success'">{{ msg }}</p>
     </div>
@@ -217,8 +297,25 @@ function iconOf(url: string) {
     <div v-if="loading" class="card p-8 text-center text-ink2 text-[13px]">加载中…</div>
     <div v-else-if="!items.length" class="card p-8 text-center text-ink2 text-[13px]">暂无记录</div>
     <div v-else class="flex flex-col gap-3">
+      <div class="card p-3 flex flex-wrap items-center gap-2">
+        <label class="flex items-center gap-2 text-[12.5px] text-ink2 cursor-pointer">
+          <input type="checkbox" class="w-4 h-4 accent-current" :checked="allSelected" @change="toggleAll" />
+          本页全选
+        </label>
+        <span class="text-[12.5px] text-ink2">已选 {{ selected.size }} 条</span>
+        <div class="flex-1" />
+        <button class="btn btn-sm btn-primary" :disabled="!selected.size || bulkActing" @click="bulk('approve')">批量通过</button>
+        <button class="btn btn-sm btn-ghost text-danger" :disabled="!selected.size || bulkActing" @click="bulk('reject')">批量拒绝</button>
+      </div>
       <div v-for="it in items" :key="it.id" class="card p-4">
         <div class="flex items-start gap-3">
+          <input
+            type="checkbox"
+            class="w-4 h-4 mt-1 shrink-0 accent-current"
+            :checked="selected.has(Number(it.id))"
+            :aria-label="`选择 ${it.name}`"
+            @change="toggleSelect(Number(it.id))"
+          />
           <SiteIcon :src="it.icon || iconOf(it.url)" :name="it.name" :url="it.url" class="w-9 h-9 rounded-xl shrink-0 text-[13px]" />
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-1.5 flex-wrap">
@@ -243,6 +340,15 @@ function iconOf(url: string) {
     </div>
 
     <AdminPager :page="page" :total="total" :size="size" @change="go" />
+
+    <Teleport to="body">
+      <div
+        v-if="toast"
+        class="fixed left-1/2 bottom-6 z-[80] w-[calc(100%-2rem)] max-w-[520px] -translate-x-1/2 rounded-xl border bg-bg px-4 py-3 text-[12.5px] shadow-soft"
+        :class="toastKind === 'err' ? 'border-danger text-danger' : 'border-line text-success'"
+        role="status"
+      >{{ toast }}</div>
+    </Teleport>
 
     <Teleport to="body">
       <div v-if="editingItem" class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" @click.self="!acting && (editingItem = null)">
