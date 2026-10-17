@@ -34,7 +34,7 @@ function save() {
       target="_blank"
       rel="noopener"
       class="linkcard flex items-center gap-3 px-3.5 h-[58px] overflow-hidden"
-      @click="!diy && recordClick(link.url)"
+      @click="!diy && recordClick(link.url, link.name)"
     >
       <span class="grid place-items-center w-9 h-9 rounded-xl bg-card2 border border-line shrink-0 overflow-hidden">
         <img

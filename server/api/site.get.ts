@@ -1,7 +1,7 @@
-import { getSiteGroups } from '../utils/siteGroups'
+import { getSiteConfig } from '../utils/siteConfig'
 
 export default defineEventHandler(async (event) => {
-  const groups = await getSiteGroups()
+  const config = await getSiteConfig()
   setHeader(event, 'Cache-Control', 'public, max-age=300, stale-while-revalidate=600')
-  return { groups }
+  return config
 })

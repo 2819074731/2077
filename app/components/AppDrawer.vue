@@ -10,8 +10,8 @@ const { user } = useAuth()
 const overflowGroups = computed(() => groups.value.slice(INLINE_GROUP_COUNT))
 const isDark = computed(() => colorMode.value === 'dark')
 
-function go(url: string) {
-  recordClick(url)
+function go(url: string, name = '') {
+  recordClick(url, name)
   open.value = false
 }
 </script>
@@ -71,7 +71,7 @@ function go(url: string) {
                 target="_blank"
                 rel="noopener"
                 class="flex flex-col items-center gap-1.5 py-2.5 rounded-xl bg-card border border-line text-center"
-                @click="go(l.url)"
+                @click="go(l.url, l.name)"
               >
                 <img :src="iconFor(l.url)" :alt="l.name" class="w-5 h-5 object-contain" loading="lazy" referrerpolicy="no-referrer" />
                 <span class="text-[11px] text-ink2 leading-tight line-clamp-2 px-1">{{ l.name }}</span>

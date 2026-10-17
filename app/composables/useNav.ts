@@ -1,5 +1,4 @@
 import { DEFAULT_GROUPS, DEFAULT_ENGINE, ENGINES, RECOMMENDED_LINKS, type NavGroup, type Engine } from '~/data/nav'
-
 const uid = () => 'x' + Math.random().toString(36).slice(2, 10)
 const LS_GROUPS = 'my2077.groups'
 const LS_FREQ = 'my2077.freq'
@@ -35,6 +34,7 @@ export function useNav() {
   const diy = useState<boolean>('nav-diy', () => false)
   const syncMsg = useState<string>('nav-sync-msg', () => '')
   const freq = useState<FreqMap>('nav-freq', () => ({}))
+  const recommended = useState<{ name: string; url: string; icon?: string }[]>('nav-recommended', () => RECOMMENDED_LINKS.map(l => ({ name: l.name, url: l.url })))
   const engineId = useState<string>('nav-engine', () => DEFAULT_ENGINE)
   const customEngine = useState<Engine | null>('nav-engine-custom', () => null)
   let syncTimer: any = null
@@ -66,22 +66,24 @@ export function useNav() {
       const ce = localStorage.getItem(LS_CUSTOM_ENGINE)
       if (ce) customEngine.value = JSON.parse(ce)
     } catch {}
-    if (!hasLocal) {
-      try {
-        const d: any = await $fetch('/api/site')
-        if (Array.isArray(d?.groups) && d.groups.length) {
-          groups.value = d.groups.map((g: any, gi: number) => ({
-            id: 's' + gi,
-            name: g.name,
-            links: (g.links || []).map((l: any, li: number) => ({ id: 's' + gi + '_' + li, name: l.name, url: l.url, icon: l.icon }))
-          }))
-        }
-      } catch {}
-    }
+    try {
+      const d: any = await $fetch('/api/site')
+      if (!hasLocal && Array.isArray(d?.groups) && d.groups.length) {
+        groups.value = d.groups.map((g: any, gi: number) => ({
+          id: 's' + gi,
+          name: g.name,
+          recommended: !!g.recommended,
+          links: (g.links || []).map((l: any, li: number) => ({ id: 's' + gi + '_' + li, name: l.name, url: l.url, icon: l.icon }))
+        }))
+      }
+      if (Array.isArray(d?.recommended) && d.recommended.length) {
+        recommended.value = d.recommended.map((l: any) => ({ name: l.name, url: l.url, icon: l.icon }))
+      }
+    } catch {}
   }
 
   /** 记录一次点击，用于「常用」排序；登录后自动同步到云端。 */
-  function recordClick(url: string) {
+  function recordClick(url: string, name = '') {
     if (!import.meta.client || !url) return
     const key = url.trim()
     if (!key) return
@@ -92,13 +94,15 @@ export function useNav() {
       clearTimeout(syncTimer)
       syncTimer = setTimeout(() => pushToCloud(), 1500)
     }
+    // 匿名统计：不阻塞跳转，失败静默
+    try { $fetch('/api/click', { method: 'POST', body: { url: key, name } }).catch(() => {}) } catch {}
   }
 
   /** 首页置顶列表：推荐站点优先在前，其后追加按使用频率排序的常用站点（去重）。 */
   function topLinks(limit = 12) {
     const out: { name: string; url: string; count: number; recommended: boolean }[] = []
     const seen = new Set<string>()
-    for (const r of RECOMMENDED_LINKS) {
+    for (const r of recommended.value) {
       if (seen.has(r.url)) continue
       seen.add(r.url)
       out.push({ name: r.name, url: r.url, count: freq.value[r.url] || 0, recommended: true })
@@ -188,6 +192,7 @@ export function useNav() {
     diy,
     syncMsg,
     freq,
+    recommended,
     engineId,
     customEngine,
     loadLocal,

@@ -36,10 +36,6 @@ const isDark = computed(() => colorMode.value === 'dark')
           </template>
         </ClientOnly>
 
-        <NuxtLink to="/submit" class="btn btn-sm btn-ghost btn-icon-sm" title="提交收录" aria-label="提交收录">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14" /></svg>
-        </NuxtLink>
-
         <button
           class="btn btn-sm btn-icon-sm"
           :class="{ 'btn-primary': diy }"

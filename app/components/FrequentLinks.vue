@@ -21,7 +21,7 @@ const items = computed(() => topLinks(12))
         target="_blank"
         rel="noopener"
         class="linkcard flex items-center gap-3 px-3.5 h-[58px] overflow-hidden"
-        @click="recordClick(l.url)"
+        @click="recordClick(l.url, l.name)"
       >
         <span class="grid place-items-center w-9 h-9 rounded-xl bg-card2 border border-line shrink-0 overflow-hidden">
           <img :src="iconFor(l.url)" :alt="l.name" class="w-[18px] h-[18px] object-contain" loading="lazy" referrerpolicy="no-referrer" />

@@ -10,7 +10,9 @@
 - **天气**：按访问 IP 自动定位（清秋 IP 接口），支持手动切换城市
 - **站点图标**：服务端 `/api/icon` 代理，多级回退（站点 favicon → Google s2 → DuckDuckGo → favicon.im），7 天缓存
 - **提交收录**：一键抓取站点 TDK（title / description / keywords）与图标，提交后由后台审核
-- **管理后台** `/admin`：概览、收录审核、导航管理、用户管理（响应式，适配手机与 PC）
+- **管理后台** `/admin`：概览、收录审核、导航管理、点击统计、用户管理（响应式，适配手机与 PC）
+- **导航导入导出**：后台「导航管理」支持站点配置导出为 JSON 与导入恢复
+- **点击统计**：匿名记录站点点击，后台「点击统计」展示总点击、今日点击、趋势与热门榜
 - **PWA**：离线可用，可添加到主屏幕
 
 ## 技术栈
@@ -46,10 +48,10 @@ app/
     login.vue / register.vue / settings.vue
     u/[name].vue          # 用户公开主页
     admin/                # 后台页面
-  data/nav.ts             # 内置引擎、推荐站点、默认分组
+shared/nav.ts             # 前后端共用：内置引擎、推荐站点、默认分组
 server/
-  api/                    # 接口（auth / config / links / meta / submit / icon / weather / admin）
-  utils/                  # db / auth / site / weather / settings / siteGroups
+  api/                    # 接口（auth / config / links / meta / submit / icon / weather / click / admin）
+  utils/                  # db / auth / site / weather / settings / siteConfig
   schema.sql / migrate-*.sql
 ```
 

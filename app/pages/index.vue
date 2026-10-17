@@ -60,10 +60,6 @@ function openDrawer() { drawerOpen.value = true }
         <span>{{ groups.length }} 个分类</span>
         <span class="opacity-40">·</span>
         <span>{{ totalLinks }} 个站点</span>
-        <span class="opacity-40">·</span>
-        <NuxtLink to="/submit" class="text-ink hover:underline">提交收录</NuxtLink>
-        <NuxtLink v-if="!user" to="/login" class="text-ink hover:underline">登录同步</NuxtLink>
-        <NuxtLink v-else to="/settings" class="text-ink hover:underline">管理导航</NuxtLink>
       </div>
     </section>
 

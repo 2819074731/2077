@@ -1,17 +1,12 @@
-interface NavLink { name: string; url: string; icon?: string }
-export interface NavGroup { name: string; links: NavLink[] }
+import { getSiteConfig } from './siteConfig'
 
-let cache: { data: NavGroup[]; at: number } | null = null
-const TTL = 1000 * 60 * 5
+export interface NavLink { name: string; url: string; icon?: string }
+export interface NavGroup { name: string; links: NavLink[]; recommended?: boolean }
 
+/** @deprecated 使用 siteConfig.ts 的 getSiteConfig / invalidateSiteConfig */
 export async function getSiteGroups(): Promise<NavGroup[]> {
-  if (cache && Date.now() - cache.at < TTL) return cache.data
-  const { getSetting } = await import('./settings')
-  const groups = await getSetting<NavGroup[]>('site_groups', [])
-  cache = { data: groups, at: Date.now() }
-  return groups
+  const cfg = await getSiteConfig()
+  return cfg.groups
 }
 
-export function invalidateSiteGroups(): void {
-  cache = null
-}
+export { invalidateSiteConfig as invalidateSiteGroups } from './siteConfig'

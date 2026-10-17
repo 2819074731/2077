@@ -1,9 +1,6 @@
 import { normalizeSiteUrl } from '../../utils/site'
-import { getSetting, setSetting } from '../../utils/settings'
-import { invalidateSiteGroups } from '../../utils/siteGroups'
-
-interface NavLink { name: string; url: string; icon?: string }
-interface NavGroup { name: string; links: NavLink[] }
+import { getSiteConfig, invalidateSiteConfig } from '../../utils/siteConfig'
+import { setSetting } from '../../utils/settings'
 
 export default defineEventHandler(async (event) => {
   await requireAdmin(event)
@@ -24,15 +21,16 @@ export default defineEventHandler(async (event) => {
   if (action === 'approve') {
     const u = normalizeSiteUrl(sub.url)
     const url = u.toString()
-    const groups = await getSetting<NavGroup[]>('site_groups', [])
+    const cfg = await getSiteConfig()
+    const groups = cfg.groups
     const target = String(body?.group || sub.grp || '').trim() || '收录站点'
     let grp = groups.find((g) => g.name === target)
     if (!grp) { grp = { name: target, links: [] }; groups.push(grp) }
     if (!grp.links.some((l) => l.url === url)) {
       grp.links.push({ name: sub.name, url, icon: `/api/icon?url=${encodeURIComponent(u.hostname)}` })
     }
-    await setSetting('site_groups', groups)
-    invalidateSiteGroups()
+    await setSetting('site_config', { groups, recommended: cfg.recommended })
+    invalidateSiteConfig()
     await db.execute('UPDATE submissions SET status = ? WHERE id = ?', ['approved', id])
     return { ok: true, status: 'approved' }
   }
