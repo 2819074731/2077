@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { CloudLink } from '~/composables/useAuth'
+import { iconFor, hostOf } from '~/data/nav'
+import { parseBookmarksHtml } from '#shared/bookmarks'
 const { user, refresh, logout, saveCloudLinks, updateProfile, changePassword, revokeOtherSessions } = useAuth()
 const { pushToCloud, pullFromCloud, resetAll, syncMsg } = useNav()
 
@@ -27,6 +29,13 @@ const pwNext = ref('')
 const pwConfirm = ref('')
 const pwSaving = ref(false)
 const revoking = ref(false)
+const bookmarkInput = ref<HTMLInputElement | null>(null)
+const pasteOpen = ref(false)
+const pasteText = ref('')
+const importBusy = ref(false)
+const importDone = ref(0)
+const importTotal = ref(0)
+const fetchingUrl = ref('')
 
 useSeoMeta({ title: '我的设置 · 2077 导航', robots: 'noindex' })
 
@@ -47,10 +56,36 @@ function isHttpUrl(raw: string) {
 
 function serialize(list: CloudLink[]) {
   return list
-    .map(l => ({ name: (l.name || '').trim(), url: normalizeUrl(l.url || ''), public: l.public !== false }))
+    .map(l => ({ name: (l.name || '').trim(), url: normalizeUrl(l.url || ''), icon: l.icon || '', public: l.public !== false }))
     .filter(l => l.name || l.url)
 }
 
+function normalizeKey(raw: string) {
+  try {
+    const u = new URL(normalizeUrl(raw))
+    u.hash = ''
+    return u.toString().replace(/\/+$/, '')
+  } catch {
+    return ''
+  }
+}
+
+function cleanTitle(title: string) {
+  return String(title || '').split(/[-_|·—]/)[0].trim().slice(0, 60)
+}
+
+const duplicateIdx = computed(() => {
+  const groups = new Map<string, number[]>()
+  links.value.forEach((l, i) => {
+    const k = normalizeKey(l.url || '')
+    if (!k) return
+    if (!groups.has(k)) groups.set(k, [])
+    groups.get(k)!.push(i)
+  })
+  const set = new Set<number>()
+  for (const arr of groups.values()) if (arr.length > 1) arr.forEach(i => set.add(i))
+  return set
+})
 const publicCount = computed(() => links.value.filter(l => l.url && l.public !== false).length)
 const dirty = computed(() => loaded.value && JSON.stringify(serialize(links.value)) !== snapshot.value)
 const syncText = computed(() => syncMsg.value || syncLocal.value)
@@ -147,6 +182,123 @@ function clearInvalid(i: number) {
   invalidIdx.value = invalidIdx.value.filter(x => x !== i)
 }
 
+async function fetchMetaFor(l: CloudLink) {
+  if (fetchingUrl.value || !isHttpUrl(normalizeUrl(l.url || ''))) return false
+  fetchingUrl.value = l.url
+  try {
+    const d: any = await $fetch('/api/meta', { method: 'POST', body: { url: l.url } })
+    const m = d.meta || {}
+    if (!(l.name || '').trim()) l.name = cleanTitle(m.title) || m.host || hostOf(l.url)
+    l.icon = m.host ? `/api/icon?url=${encodeURIComponent(m.host)}` : iconFor(l.url)
+    return true
+  } catch {
+    if (!(l.name || '').trim()) l.name = hostOf(normalizeUrl(l.url || ''))
+    if (!l.icon) l.icon = iconFor(l.url)
+    return false
+  } finally {
+    fetchingUrl.value = ''
+  }
+}
+
+function onUrlBlur(l: CloudLink) {
+  if (!l.icon) l.icon = iconFor(l.url)
+  if (!(l.name || '').trim()) fetchMetaFor(l)
+}
+
+async function fillNames(rows: CloudLink[]) {
+  if (!rows.length) return
+  importBusy.value = true
+  importTotal.value = rows.length
+  importDone.value = 0
+  const queue = [...rows]
+  const workers = Array.from({ length: 3 }, async () => {
+    while (queue.length) {
+      const l = queue.shift()!
+      await fetchMetaFor(l)
+      importDone.value++
+    }
+  })
+  await Promise.all(workers)
+  importBusy.value = false
+}
+
+async function appendLinks(items: Array<{ name?: string; url: string }>, fetchNames: boolean) {
+  const room = 50 - links.value.length
+  if (room <= 0) {
+    flash('最多保存 50 条网址', 'err')
+    return
+  }
+  const seen = new Set(links.value.map(l => normalizeKey(l.url || '')).filter(Boolean))
+  const fresh: CloudLink[] = []
+  for (const it of items) {
+    const url = normalizeUrl(it.url)
+    if (!isHttpUrl(url)) continue
+    const k = normalizeKey(url)
+    if (!k || seen.has(k)) continue
+    seen.add(k)
+    fresh.push({
+      name: (it.name || '').trim(),
+      url,
+      icon: iconFor(url),
+      public: true
+    })
+    if (fresh.length >= room) break
+  }
+  if (!fresh.length) {
+    flash('没有可导入的新网址')
+    return
+  }
+  links.value.push(...fresh)
+  const truncated = fresh.length < items.length
+  flash(`已导入 ${fresh.length} 条${truncated ? '（已去重或超出 50 条上限）' : ''}`)
+  if (fetchNames) await fillNames(fresh.filter(l => !(l.name || '').trim()))
+}
+
+async function importBookmarks(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  try {
+    const folders = parseBookmarksHtml(await file.text())
+    const items = folders.flatMap(f => f.links)
+    if (!items.length) {
+      flash('未识别到书签，请选择浏览器导出的 HTML 文件', 'err')
+      return
+    }
+    await appendLinks(items, false)
+  } catch {
+    flash('书签解析失败', 'err')
+  }
+}
+
+function openPaste() {
+  pasteText.value = ''
+  pasteOpen.value = true
+}
+
+async function importPaste() {
+  if (importBusy.value) return
+  const found = new Set<string>()
+  const re = /https?:\/\/[^\s"'<>]+/gi
+  let m: RegExpExecArray | null
+  while ((m = re.exec(pasteText.value))) found.add(m[0])
+  for (const line of pasteText.value.split(/\r?\n/)) {
+    const t = line.trim()
+    if (/^[\w.-]+\.[a-z]{2,}(?:\/\S*)?$/i.test(t)) found.add('https://' + t)
+  }
+  const items = Array.from(found).slice(0, 50).map(url => ({ url }))
+  if (!items.length) {
+    flash('没有识别到网址', 'err')
+    return
+  }
+  await appendLinks(items, true)
+  if (!importBusy.value) {
+    pasteOpen.value = false
+    pasteText.value = ''
+  }
+}
+
 async function save() {
   if (saving.value) return
   invalidIdx.value = []
@@ -166,6 +318,13 @@ async function save() {
     invalidIdx.value = bad
     flash(`有 ${bad.length} 行名称为空或网址无效`, 'err')
     return
+  }
+  if (duplicateIdx.value.size) {
+    flash(`有 ${duplicateIdx.value.size} 条重复网址，请先合并或删除`, 'err')
+    return
+  }
+  for (const l of clean) {
+    if (!l.icon) l.icon = iconFor(l.url)
   }
   saving.value = true
   try {
@@ -418,7 +577,27 @@ async function revokeOthers() {
             </div>
             <p class="text-[12.5px] sm:text-[13px] text-ink2 mt-0.5">公开的网址会展示在你的个人主页，最多保存 50 条。</p>
           </div>
-          <button class="btn btn-sm shrink-0" @click="addRow">+ 添加</button>
+          <div class="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+            <button class="btn btn-sm btn-ghost" @click="bookmarkInput?.click()">导入书签</button>
+            <button class="btn btn-sm btn-ghost" @click="openPaste">粘贴导入</button>
+            <button class="btn btn-sm" @click="addRow">+ 添加</button>
+            <input ref="bookmarkInput" type="file" accept="text/html,.html,.htm" class="hidden" @change="importBookmarks" />
+          </div>
+        </div>
+
+        <div v-if="pasteOpen" class="mt-4 rounded-xl border border-line bg-card2 p-3">
+          <textarea
+            v-model="pasteText"
+            rows="4"
+            class="field !h-auto min-h-[96px] resize-y py-2"
+            placeholder="每行一个网址，例如：&#10;https://github.com&#10;https://news.ycombinator.com"
+            :disabled="importBusy"
+          />
+          <div class="mt-2 flex items-center gap-2 flex-wrap">
+            <span class="text-[11.5px] text-ink3 flex-1 min-w-[160px]">{{ importBusy ? `正在抓取 ${importDone}/${importTotal}` : '留空名称会自动抓取标题，重复网址会跳过' }}</span>
+            <button class="btn btn-sm btn-ghost" :disabled="importBusy" @click="pasteOpen = false; pasteText = ''">取消</button>
+            <button class="btn btn-sm btn-primary" :disabled="importBusy || !pasteText.trim()" @click="importPaste">导入</button>
+          </div>
         </div>
 
         <div v-if="!loaded" class="mt-5 flex flex-col gap-2.5">
@@ -460,7 +639,8 @@ async function revokeOthers() {
               <input
                 v-model="l.url"
                 class="field grow min-w-0"
-                :class="invalidIdx.includes(i) && !isHttpUrl(normalizeUrl(l.url || '')) ? '!border-danger' : ''"
+                :class="[invalidIdx.includes(i) && !isHttpUrl(normalizeUrl(l.url || '')) ? '!border-danger' : '', duplicateIdx.has(i) ? '!border-warning' : '']"
+                :title="duplicateIdx.has(i) ? '重复网址' : ''"
                 placeholder="https://example.com"
                 aria-label="网址"
                 inputmode="url"
@@ -469,6 +649,7 @@ async function revokeOthers() {
                 maxlength="500"
                 autocomplete="off"
                 @input="clearInvalid(i)"
+                @blur="onUrlBlur(l)"
               />
               <div class="flex items-center justify-between gap-2 sm:justify-end">
                 <button
@@ -500,10 +681,12 @@ async function revokeOthers() {
 
           <div class="sticky bottom-0 z-10 -mx-4 sm:-mx-6 -mb-4 sm:-mb-6 mt-5 flex items-center gap-3 rounded-b-2xl border-t border-line bg-bg px-4 sm:px-6 py-3 backdrop-blur">
             <div class="min-w-0 flex-1">
-              <p v-if="dirty" class="text-[12.5px] text-warning">有未保存的更改</p>
+              <p v-if="importBusy" class="text-[12.5px] text-ink2">正在抓取名称 {{ importDone }}/{{ importTotal }}</p>
+              <p v-else-if="duplicateIdx.size" class="text-[12.5px] text-warning">{{ duplicateIdx.size }} 条重复网址，请先处理</p>
+              <p v-else-if="dirty" class="text-[12.5px] text-warning">有未保存的更改</p>
               <p v-else class="text-[12px] text-ink3 truncate">{{ links.length }} 条网址 · {{ publicCount }} 条公开</p>
             </div>
-            <button class="btn btn-primary min-w-[88px] disabled:opacity-50 disabled:cursor-not-allowed" :disabled="saving || !dirty" @click="save">{{ saving ? '保存中…' : '保存' }}</button>
+            <button class="btn btn-primary min-w-[88px] disabled:opacity-50 disabled:cursor-not-allowed" :disabled="saving || !dirty || duplicateIdx.size > 0 || importBusy" @click="save">{{ saving ? '保存中…' : '保存' }}</button>
           </div>
         </template>
       </section>

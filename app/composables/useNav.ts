@@ -249,9 +249,9 @@ export function useNav() {
     renameGroup(gid: string, name: string) {
       const g = groups.value.find(x => x.id === gid); if (g) { g.name = name; scheduleSync() }
     },
-    addLink(gid: string, link: { name: string; url: string }) {
+    addLink(gid: string, link: { name: string; url: string; icon?: string }) {
       const g = groups.value.find(x => x.id === gid)
-      if (g && link.name && link.url) { g.links.push({ id: uid(), name: link.name, url: link.url }); scheduleSync() }
+      if (g && link.name && link.url) { g.links.push({ id: uid(), name: link.name, url: link.url, icon: link.icon }); scheduleSync() }
     },
     updateLink(gid: string, lid: string, patch: Partial<NavGroup['links'][number]>) {
       const g = groups.value.find(x => x.id === gid)

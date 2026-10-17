@@ -65,7 +65,12 @@ export default defineNuxtConfig({
       icons: [
         { src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml' },
         { src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'maskable' }
-      ]
+      ],
+      share_target: {
+        action: '/share',
+        method: 'GET',
+        params: { title: 'title', text: 'text', url: 'url' }
+      }
     },
     workbox: {
       navigateFallback: '/',

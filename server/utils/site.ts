@@ -1,4 +1,5 @@
 import { isIP } from 'node:net'
+import { safeFetch, readBodyCapped } from './safeUrl'
 
 export interface SiteMeta {
   url: string
@@ -49,45 +50,42 @@ export function normalizeSiteUrl(input: string): URL {
   if (isIP(host) && isPrivateIp(host)) {
     throw createError({ statusCode: 400, statusMessage: '不支持的地址' })
   }
+  if (u.port && u.port !== '80' && u.port !== '443') {
+    throw createError({ statusCode: 400, statusMessage: '仅支持 80/443 端口' })
+  }
   u.hash = ''
   return u
 }
 
 /** 拉取网页 HTML，自动识别编码并解码。 */
 export async function fetchHtml(url: string, timeout = 8000): Promise<{ html: string; finalUrl: string } | null> {
-  const ctrl = new AbortController()
-  const timer = setTimeout(() => ctrl.abort(), timeout)
+  const hit = await safeFetch(url, {
+    timeout,
+    headers: { Accept: 'text/html,application/xhtml+xml,*/*;q=0.8' }
+  })
+  if (!hit || !hit.res.ok) return null
+  const ct = (hit.res.headers.get('content-type') || '').toLowerCase()
+  if (ct && !ct.includes('text/html') && !ct.includes('application/xhtml+xml')) return null
+  let buf: Buffer
   try {
-    const res = await fetch(url, {
-      signal: ctrl.signal,
-      redirect: 'follow',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; 2077Bot/1.0; +https://my2077.com)',
-        Accept: 'text/html,application/xhtml+xml,image/*,*/*;q=0.8'
-      }
-    })
-    if (!res.ok) return null
-    const buf = Buffer.from(await res.arrayBuffer())
-    const ct = res.headers.get('content-type') || ''
-    let charset = /charset=([\w-]+)/i.exec(ct)?.[1] || ''
-    if (!charset) {
-      const head = buf.toString('latin1', 0, 2048)
-      charset = /charset=["']?([\w-]+)/i.exec(head)?.[1] || ''
-    }
-    charset = (charset || 'utf-8').toLowerCase()
-    if (charset === 'gb2312' || charset === 'gbk') charset = 'gbk'
-    let html = ''
-    try {
-      html = new TextDecoder(charset).decode(buf)
-    } catch {
-      html = buf.toString('utf-8')
-    }
-    return { html, finalUrl: res.url || url }
+    buf = await readBodyCapped(hit.res, 512 * 1024)
   } catch {
     return null
-  } finally {
-    clearTimeout(timer)
   }
+  let charset = /charset=([\w-]+)/i.exec(ct)?.[1] || ''
+  if (!charset) {
+    const head = buf.toString('latin1', 0, 2048)
+    charset = /charset=["']?([\w-]+)/i.exec(head)?.[1] || ''
+  }
+  charset = (charset || 'utf-8').toLowerCase()
+  if (charset === 'gb2312' || charset === 'gbk') charset = 'gbk'
+  let html = ''
+  try {
+    html = new TextDecoder(charset).decode(buf)
+  } catch {
+    html = buf.toString('utf-8')
+  }
+  return { html, finalUrl: hit.finalUrl }
 }
 
 function attr(tag: string, name: string): string {

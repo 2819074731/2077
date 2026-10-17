@@ -1,87 +1,143 @@
-import { isIP } from 'node:net'
+import { createHash } from 'node:crypto'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
+import { assertPublicHttpUrl, readBodyCapped, safeFetch } from '../../utils/safeUrl'
 
-const PRIVATE_V4 = [
-  /^10\./, /^127\./, /^169\.254\./,
-  /^172\.(1[6-9]|2\d|3[01])\./, /^192\.168\./, /^0\./
-]
+const TTL = 1000 * 60 * 60 * 24 * 7
+const MAX_MEM = 600
+const ICON_DIR = process.env.ICON_CACHE_DIR || join(process.cwd(), 'data', 'icons')
 
-function blocked(host: string): boolean {
-  const h = host.toLowerCase()
-  if (h === 'localhost' || h.endsWith('.local') || h.endsWith('.internal')) return true
-  if (isIP(h) === 4) return PRIVATE_V4.some((r) => r.test(h))
-  if (isIP(h) === 6) return h === '::1' || h.startsWith('fc') || h.startsWith('fd') || h.startsWith('fe80')
-  return false
-}
+interface Cached { body: Buffer; type: string; at: number }
+
+const mem = new Map<string, Cached>()
 
 function normalize(input: string): string {
   const raw = String(input || '').trim()
   if (!raw) return ''
   try {
-    return new URL(/^https?:\/\//i.test(raw) ? raw : 'https://' + raw).hostname.toLowerCase()
+    const u = new URL(/^https?:\/\//i.test(raw) ? raw : 'https://' + raw)
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return ''
+    return u.hostname.toLowerCase()
   } catch {
     return ''
   }
 }
 
-const TTL = 1000 * 60 * 60 * 24 * 7
-const MAX = 600
-const cache = new Map<string, { body: Buffer; type: string; at: number }>()
+function keyOf(host: string): string {
+  return createHash('sha1').update(host).digest('hex')
+}
 
-async function fetchImage(url: string, timeout = 5000): Promise<{ body: Buffer; type: string } | null> {
-  const ctrl = new AbortController()
-  const timer = setTimeout(() => ctrl.abort(), timeout)
+async function diskGet(host: string): Promise<Cached | null> {
+  const key = keyOf(host)
   try {
-    const res = await fetch(url, {
-      signal: ctrl.signal,
-      redirect: 'follow',
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; 2077Bot/1.0)', Accept: 'image/*,*/*;q=0.5' }
-    })
-    if (!res.ok) return null
-    const type = (res.headers.get('content-type') || '').split(';')[0].trim()
-    if (type && !type.startsWith('image/')) return null
-    const buf = Buffer.from(await res.arrayBuffer())
-    if (buf.length < 40 || buf.length > 512 * 1024) return null
-    return { body: buf, type: type || 'image/x-icon' }
+    const meta = JSON.parse(await readFile(join(ICON_DIR, key + '.json'), 'utf8'))
+    if (!meta || Date.now() - Number(meta.at) > TTL) return null
+    const body = await readFile(join(ICON_DIR, key + '.bin'))
+    if (!body.length) return null
+    return { body, type: String(meta.type || 'image/x-icon'), at: Number(meta.at) }
   } catch {
     return null
-  } finally {
-    clearTimeout(timer)
+  }
+}
+
+async function diskPut(host: string, img: Cached): Promise<void> {
+  const key = keyOf(host)
+  try {
+    await mkdir(ICON_DIR, { recursive: true })
+    await writeFile(join(ICON_DIR, key + '.bin'), img.body)
+    await writeFile(join(ICON_DIR, key + '.json'), JSON.stringify({ host, type: img.type, at: img.at }))
+  } catch {}
+}
+
+async function fetchImage(url: string, timeout: number, guarded: boolean): Promise<Cached | null> {
+  let res: Response | null = null
+  let at = Date.now()
+  try {
+    if (guarded) {
+      const hit = await safeFetch(url, {
+        timeout,
+        headers: { Accept: 'image/*,*/*;q=0.5' }
+      })
+      if (!hit) return null
+      res = hit.res
+      at = Date.now()
+    } else {
+      const ctrl = new AbortController()
+      const timer = setTimeout(() => ctrl.abort(), timeout)
+      try {
+        res = await fetch(url, {
+          signal: ctrl.signal,
+          redirect: 'follow',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; 2077Bot/1.0)',
+            Accept: 'image/*,*/*;q=0.5'
+          }
+        })
+        at = Date.now()
+      } finally {
+        clearTimeout(timer)
+      }
+    }
+    if (!res || !res.ok) return null
+    const type = (res.headers.get('content-type') || '').split(';')[0].trim().toLowerCase()
+    if (type && !type.startsWith('image/') && type !== 'application/octet-stream') return null
+    const body = await readBodyCapped(res, 512 * 1024)
+    if (body.length < 40) return null
+    return { body, type: type || 'image/x-icon', at }
+  } catch {
+    return null
   }
 }
 
 export default defineEventHandler(async (event) => {
   const q = getQuery(event)
   const host = normalize(String(q.url || q.host || ''))
-  if (!host || blocked(host)) {
+  if (!host) {
+    setResponseStatus(event, 404)
+    return ''
+  }
+  try {
+    await assertPublicHttpUrl(new URL(`https://${host}`))
+  } catch {
     setResponseStatus(event, 404)
     return ''
   }
 
-  const hit = cache.get(host)
+  const hit = mem.get(host)
   if (hit && Date.now() - hit.at < TTL) {
     setHeader(event, 'Content-Type', hit.type)
     setHeader(event, 'Cache-Control', 'public, max-age=604800, immutable')
-    setHeader(event, 'X-Icon-Cache', 'HIT')
+    setHeader(event, 'X-Icon-Cache', 'MEM')
     return hit.body
   }
 
-  const candidates = [
-    `https://${host}/favicon.ico`,
-    `https://www.google.com/s2/favicons?domain=${host}&sz=64`,
-    `https://icons.duckduckgo.com/ip3/${host}.ico`,
-    `https://favicon.im/${host}`
+  const disk = await diskGet(host)
+  if (disk) {
+    if (mem.size >= MAX_MEM) mem.delete(mem.keys().next().value as string)
+    mem.set(host, disk)
+    setHeader(event, 'Content-Type', disk.type)
+    setHeader(event, 'Cache-Control', 'public, max-age=604800, immutable')
+    setHeader(event, 'X-Icon-Cache', 'DISK')
+    return disk.body
+  }
+
+  const candidates: Array<{ url: string; guarded: boolean }> = [
+    { url: `https://${host}/favicon.ico`, guarded: true },
+    { url: `https://www.google.com/s2/favicons?domain=${host}&sz=64`, guarded: false },
+    { url: `https://icons.duckduckgo.com/ip3/${host}.ico`, guarded: false },
+    { url: `https://favicon.im/${host}`, guarded: false }
   ]
 
-  for (const url of candidates) {
-    const img = await fetchImage(url)
-    if (img) {
-      if (cache.size >= MAX) cache.delete(cache.keys().next().value as string)
-      cache.set(host, { ...img, at: Date.now() })
-      setHeader(event, 'Content-Type', img.type)
-      setHeader(event, 'Cache-Control', 'public, max-age=604800, immutable')
-      setHeader(event, 'X-Icon-Cache', 'MISS')
-      return img.body
-    }
+  for (const c of candidates) {
+    const img = await fetchImage(c.url, c.guarded ? 5000 : 4000, c.guarded)
+    if (!img) continue
+    if (mem.size >= MAX_MEM) mem.delete(mem.keys().next().value as string)
+    mem.set(host, img)
+    await diskPut(host, img)
+    setHeader(event, 'Content-Type', img.type)
+    setHeader(event, 'Cache-Control', 'public, max-age=604800, immutable')
+    setHeader(event, 'X-Icon-Cache', 'MISS')
+    return img.body
   }
 
   setResponseStatus(event, 404)

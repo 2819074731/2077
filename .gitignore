@@ -21,3 +21,6 @@ logs/
 .idea/
 .vscode/
 *.swp
+
+# 运行期数据（favicon 缓存等）
+data/

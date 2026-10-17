@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, computed } from 'vue'
+import { onMounted, computed, ref } from 'vue'
 import { DEFAULT_GROUPS, INLINE_GROUP_COUNT } from '~/data/nav'
 
 const { groups, diy, syncMsg, loadLocal, addGroup, resetAll, activeCat, visibleGroups } = useNav()
@@ -45,6 +45,7 @@ const totalLinks = computed(() => groups.value.reduce((n, g) => n + g.links.leng
 const shownGroups = computed(() => visibleGroups())
 const hasMoreGroups = computed(() => groups.value.length > INLINE_GROUP_COUNT && !activeCat.value)
 const drawerOpen = useState<boolean>('nav-drawer-open', () => false)
+const importOpen = ref(false)
 function openDrawer() { drawerOpen.value = true }
 </script>
 
@@ -71,6 +72,7 @@ function openDrawer() { drawerOpen.value = true }
       <span class="text-ink2">编辑模式：修改名称、增删链接与分组，登录后自动同步到云端。</span>
       <div class="flex-1" />
       <span v-if="syncMsg" class="text-ink2" :class="isMobile && 'hidden'">{{ syncMsg }}</span>
+      <button class="btn btn-sm" @click="importOpen = true">批量导入</button>
       <button class="btn btn-sm" @click="addGroup">+ 分组</button>
       <button class="btn btn-sm" @click="resetAll">恢复默认</button>
     </div>
@@ -105,5 +107,7 @@ function openDrawer() { drawerOpen.value = true }
     <p v-else class="text-[12px] text-ink2 mb-10 text-center">
       <NuxtLink to="/login" class="text-ink hover:underline">登录</NuxtLink> 后可将导航配置同步到云端，并展示你的云端网址。
     </p>
+
+    <QuickImport v-model="importOpen" />
   </div>
 </template>
