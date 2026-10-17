@@ -58,7 +58,7 @@ const isDark = computed(() => colorMode.value === 'dark')
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
         </button>
 
-        <button v-if="!isMobile" class="btn btn-sm btn-ghost btn-icon-sm" title="切换主题" aria-label="切换主题" @click="colorMode.preference = isDark ? 'light' : 'dark'">
+        <button class="btn btn-sm btn-ghost btn-icon-sm" title="切换主题" aria-label="切换主题" @click="colorMode.preference = isDark ? 'light' : 'dark'">
           <svg v-if="isDark" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
           <svg v-else width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" /></svg>
         </button>
@@ -67,8 +67,10 @@ const isDark = computed(() => colorMode.value === 'dark')
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h7V3H3v9Zm11 9h7v-9h-7v9ZM3 21h7v-6H3v6Zm11-12h7V3h-7v6Z" /></svg>
         </NuxtLink>
 
-        <NuxtLink v-if="!user && !isMobile" to="/login" class="btn btn-sm">登录</NuxtLink>
-        <NuxtLink v-else-if="user && !isMobile" to="/settings" class="btn btn-sm !px-1.5" :title="user.nickname" aria-label="我的设置">
+        <NuxtLink v-if="!user" to="/login" class="btn btn-sm btn-ghost btn-icon-sm" title="登录" aria-label="登录">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" /></svg>
+        </NuxtLink>
+        <NuxtLink v-else to="/settings" class="btn btn-sm !px-1.5" :title="user.nickname" aria-label="我的设置">
           <span class="grid place-items-center w-6 h-6 rounded-full bg-ink text-bg text-[11px] font-semibold">{{ (user.nickname || 'U')[0].toUpperCase() }}</span>
         </NuxtLink>
 

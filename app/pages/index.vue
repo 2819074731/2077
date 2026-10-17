@@ -76,10 +76,7 @@ function openDrawer() { drawerOpen.value = true }
     </div>
 
     <ClientOnly>
-      <template v-if="!activeCat">
-        <RecommendLinks />
-        <FrequentLinks />
-      </template>
+      <FrequentLinks />
     </ClientOnly>
 
     <CategoryBar />

@@ -50,7 +50,7 @@ export async function getSessionUser(event: H3Event) {
   if (!sid) return null
   const db = useDb()
   const [rows]: any = await db.query(
-    `SELECT u.id, u.email, u.nickname, u.slug, u.is_admin
+    `SELECT u.id, u.email, u.username, u.nickname, u.slug, u.is_admin
      FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.token = ? AND s.expires_at > NOW() LIMIT 1`,
     [sid]

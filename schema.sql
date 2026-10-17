@@ -4,6 +4,7 @@ USE `my2077`;
 CREATE TABLE IF NOT EXISTS `users` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `email` VARCHAR(190) NOT NULL,
+  `username` VARCHAR(60) NULL,
   `nickname` VARCHAR(60) NOT NULL DEFAULT '',
   `slug` VARCHAR(80) NOT NULL,
   `password_hash` VARCHAR(255) NOT NULL,
@@ -12,6 +13,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uniq_email` (`email`),
+  UNIQUE KEY `uniq_username` (`username`),
   UNIQUE KEY `uniq_slug` (`slug`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 

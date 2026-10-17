@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { iconFor, hostOf } from '~/data/nav'
 
-const props = defineProps<{ gid: string; link: { id: string; name: string; url: string; icon?: string } }>()
+const props = defineProps<{ gid: string; link: { id: string; name: string; url: string; icon?: string }; featured?: boolean }>()
 const { diy, updateLink, removeLink, recordClick } = useNav()
 
 const editing = ref(false)
@@ -49,7 +49,10 @@ function save() {
         <span v-else class="text-[14px] font-bold text-ink2">{{ initial }}</span>
       </span>
       <span class="min-w-0 flex-1">
-        <span class="block text-[13.5px] font-medium leading-tight truncate">{{ link.name }}</span>
+        <span class="flex items-center gap-1">
+          <span class="block text-[13.5px] font-medium leading-tight truncate">{{ link.name }}</span>
+          <span v-if="featured" class="shrink-0 text-[10px] leading-none px-1 py-0.5 rounded bg-ink text-bg font-medium">荐</span>
+        </span>
         <span class="block text-[11px] text-ink2 leading-tight truncate mt-0.5">{{ host }}</span>
       </span>
     </a>

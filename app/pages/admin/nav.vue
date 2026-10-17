@@ -96,7 +96,7 @@ async function importJson(e: Event) {
 <template>
   <div class="animate-fade-up">
     <div class="flex items-center gap-2 mb-4 flex-wrap">
-      <p class="text-[13px] text-ink2 flex-1 min-w-[220px]">维护站点默认导航分组，前台未登录用户将看到这里的配置。</p>
+      <p class="text-[13px] text-ink2 flex-1 min-w-[220px]">维护站点默认导航分组，前台未登录用户将看到这里的配置。推荐站点按网址匹配，命中后在各分类内置顶展示。</p>
       <span v-if="msg" class="text-[12.5px] text-ink2">{{ msg }}</span>
       <button class="btn btn-sm" @click="exportJson">导出</button>
       <button class="btn btn-sm" @click="fileInput?.click()">导入</button>
@@ -115,6 +115,7 @@ async function importJson(e: Event) {
           <div class="flex-1" />
           <button class="btn btn-sm btn-ghost" @click="addRec">+ 推荐</button>
         </div>
+        <p class="text-[12px] text-ink3 mb-2">按网址匹配，命中后在各分类内置顶并加「荐」标；分类中没有的网址不会单独展示。</p>
         <div v-if="!recommended.length" class="text-[12.5px] text-ink3 py-3 text-center border border-dashed border-line rounded-xl">暂无推荐站点</div>
         <div v-for="(l, li) in recommended" :key="li" class="flex flex-col sm:flex-row gap-2 mb-2">
           <input v-model="l.name" class="field sm:!w-40" placeholder="名称" />

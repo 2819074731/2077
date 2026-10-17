@@ -45,11 +45,11 @@ export default defineNuxtConfig({
   },
 
   sitemap: {
-    exclude: ['/login', '/register', '/settings']
+    exclude: ['/login', '/register', '/settings', '/admin', '/admin/**']
   },
 
   robots: {
-    disallow: ['/login', '/register', '/settings', '/api/']
+    disallow: ['/login', '/register', '/settings', '/admin', '/api/']
   },
 
   pwa: {

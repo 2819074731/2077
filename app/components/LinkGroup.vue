@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import type { NavGroup } from '~/data/nav'
 const props = defineProps<{ group: NavGroup }>()
-const { diy, renameGroup, removeGroup, addLink } = useNav()
+const { diy, renameGroup, removeGroup, addLink, orderLinks, isFeatured } = useNav()
 const adding = ref(false)
 const draft = ref({ name: '', url: '' })
+
+const shown = computed(() => (diy.value ? props.group.links : orderLinks(props.group.links)))
 
 function save() {
   if (!draft.value.name || !draft.value.url) return
@@ -48,7 +50,7 @@ function save() {
     </div>
 
     <div class="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-      <LinkItem v-for="link in group.links" :key="link.id" :gid="group.id" :link="link" />
+      <LinkItem v-for="link in shown" :key="link.id" :gid="group.id" :link="link" :featured="isFeatured(link.url)" />
     </div>
   </section>
 </template>

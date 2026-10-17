@@ -31,7 +31,7 @@ async function submit() {
         <h1 class="text-lg font-semibold">登录 2077</h1>
         <p class="text-ink2 text-[13px] -mt-1">同步你的导航配置与云端网址。</p>
       </div>
-      <input v-model="email" class="field" type="email" placeholder="邮箱" autocomplete="email" required />
+      <input v-model="email" class="field" type="text" placeholder="邮箱或用户名" autocomplete="username" required />
       <input v-model="password" class="field" type="password" placeholder="密码" autocomplete="current-password" required />
       <p v-if="err" class="text-[13px] text-red-500">{{ err }}</p>
       <button class="btn btn-primary w-full mt-1" :disabled="loading">{{ loading ? '登录中...' : '登录' }}</button>

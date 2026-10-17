@@ -13,7 +13,7 @@ export const ENGINES: Engine[] = [
 
 export const DEFAULT_ENGINE = 'bing'
 
-/** 首页置顶的推荐站点（与「常用」合并展示）。 */
+/** 站长推荐站点池：按 URL 匹配，命中后在各分类内置顶展示（不单独成区块）。 */
 export const RECOMMENDED_LINKS: NavLink[] = [
   { id: 'r1', name: 'GitHub', url: 'https://github.com' },
   { id: 'r2', name: 'ChatGPT', url: 'https://chat.openai.com' },

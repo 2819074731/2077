@@ -100,9 +100,24 @@ export function useNav() {
     try { $fetch('/api/click', { method: 'POST', body: { url: key, name } }).catch(() => {}) } catch {}
   }
 
-  /** 站长推荐站点（固定展示，独立于用户习惯）。 */
+  /** 站长推荐 URL 池（用于分类内置顶排序，不单独成区块）。 */
   function recommendList() {
     return recommended.value.map(r => ({ name: r.name, url: r.url, icon: r.icon }))
+  }
+
+  /** 该链接是否被站长推荐。 */
+  function isFeatured(url: string): boolean {
+    return recommended.value.some(r => r.url === url)
+  }
+
+  /** 分类内排序：推荐链接置顶，其余保持原有顺序（稳定）。 */
+  function orderLinks<T extends { url: string }>(links: T[]): T[] {
+    const pool = new Set(recommended.value.map(r => r.url))
+    if (!pool.size) return links
+    const featured: T[] = []
+    const rest: T[] = []
+    for (const l of links) (pool.has(l.url) ? featured : rest).push(l)
+    return [...featured, ...rest]
   }
 
   /** 用户个人常用站点：仅按点击频次排序，独立于推荐。 */
@@ -215,6 +230,8 @@ export function useNav() {
     pushToCloud,
     recordClick,
     recommendList,
+    isFeatured,
+    orderLinks,
     frequentList,
     visibleGroups,
     selectCat,
