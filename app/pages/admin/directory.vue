@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue'
+import { DIRECTORY_CATEGORIES } from '#shared/directory'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
@@ -33,9 +34,18 @@ const size = 20
 
 const editing = ref<Entry | null>(null)
 const saving = ref(false)
+const metaFetching = ref(false)
 const formError = ref('')
 
 useSeoMeta({ title: '分类目录 · 2077 管理后台', robots: 'noindex' })
+
+const categoryOptions = computed(() => {
+  const seen = new Set<string>(DIRECTORY_CATEGORIES)
+  const extra = categories.value.map((c: any) => String(c.category)).filter((c) => c && !seen.has(c))
+  return [...DIRECTORY_CATEGORIES, ...extra]
+})
+
+const filterCategories = computed(() => categories.value.filter((c: any) => Number(c.n) > 0))
 
 const emptyEntry = (): Entry => ({
   name: '', url: '', icon: '', category: '其他', title: '', description: '',
@@ -64,6 +74,32 @@ function go(p: number) { page.value = p; load() }
 function flash(text: string) {
   msg.value = text
   setTimeout(() => (msg.value = ''), 1600)
+}
+
+async function fetchTkd() {
+  const e = editing.value
+  if (!e || metaFetching.value) return
+  if (!e.url.trim()) { formError.value = '请先填写网址'; return }
+  if ((e.title || e.description || e.keywords) && !confirm('将覆盖现有 TDK，继续获取？')) return
+  metaFetching.value = true
+  formError.value = ''
+  try {
+    const d: any = await $fetch('/api/meta', { method: 'POST', body: { url: e.url } })
+    const m = d.meta || {}
+    if (m.title) {
+      e.title = m.title
+      if (!e.name.trim()) e.name = (m.title.split(/[-_|·—]/)[0].trim() || m.title).slice(0, 80)
+    }
+    if (m.description) e.description = m.description
+    if (m.keywords) e.keywords = m.keywords
+    if (m.icon) e.icon = `/api/icon?url=${encodeURIComponent(m.host)}`
+    else if (!e.icon.trim()) e.icon = iconOf(e.url)
+    flash('已获取 TDK 与图标')
+  } catch (err: any) {
+    formError.value = err?.data?.statusMessage || err?.data?.message || '抓取失败，请手动填写'
+  } finally {
+    metaFetching.value = false
+  }
 }
 
 function openCreate() {
@@ -152,7 +188,7 @@ onBeforeUnmount(() => {
         </div>
         <select v-model="category" class="field !w-auto max-w-[180px]" @change="search">
           <option value="">全部分类</option>
-          <option v-for="c in categories" :key="c.category" :value="c.category">{{ c.category }}（{{ c.n }}）</option>
+          <option v-for="c in filterCategories" :key="c.category" :value="c.category">{{ c.category }}（{{ c.n }}）</option>
         </select>
         <span class="text-[12.5px] text-ink2 ml-auto">共 {{ total }} 个 · 已发布 {{ published }}</span>
         <button class="btn btn-sm btn-primary" @click="openCreate">新增站点</button>
@@ -227,7 +263,7 @@ onBeforeUnmount(() => {
                   <span class="text-[12px] text-ink2">分类</span>
                   <input v-model="editing.category" class="field" list="dir-categories" placeholder="例如 开发工具" maxlength="60" />
                   <datalist id="dir-categories">
-                    <option v-for="c in categories" :key="c.category" :value="c.category" />
+                    <option v-for="c in categoryOptions" :key="c" :value="c" />
                   </datalist>
                 </label>
                 <div class="flex flex-col gap-1">
@@ -241,7 +277,13 @@ onBeforeUnmount(() => {
             </section>
 
             <section class="flex flex-col gap-3 pt-1">
-              <h3 class="text-[12px] font-semibold text-ink3 uppercase tracking-wider">SEO 与描述</h3>
+              <div class="flex items-center justify-between gap-2">
+                <h3 class="text-[12px] font-semibold text-ink3 uppercase tracking-wider">SEO 与描述</h3>
+                <button type="button" class="btn btn-sm btn-ghost" :disabled="metaFetching" @click="fetchTkd">
+                  <svg v-if="!metaFetching" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8" /><path d="M21 3v5h-5" /></svg>
+                  {{ metaFetching ? '抓取中…' : '一键获取 TKD' }}
+                </button>
+              </div>
               <label class="flex flex-col gap-1">
                 <span class="text-[12px] text-ink2">SEO 标题（留空使用站点名称）</span>
                 <input v-model="editing.title" class="field" placeholder="不超过 200 字" maxlength="200" />

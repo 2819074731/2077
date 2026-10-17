@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+import { DIRECTORY_CATEGORIES } from '#shared/directory'
 
 useSeoMeta({
   title: '提交收录 · 2077 导航',
@@ -12,7 +13,13 @@ const fetching = ref(false)
 const err = ref('')
 const ok = ref(false)
 
-const GROUPS = ['开发工具', 'AI 与模型', '社区资讯', '影音娱乐', '云与控制台', '运维监控', '学习文档', '效率工具', '购物生活', '社交平台', '其他']
+const NAV_GROUPS = ['开发工具', 'AI 与模型', '社区资讯', '影音娱乐', '云与控制台', '运维监控', '学习文档', '效率工具', '购物生活', '社交平台', '其他']
+const groupOptions = computed(() => form.value.target === 'directory' ? DIRECTORY_CATEGORIES : NAV_GROUPS)
+
+function chooseTarget(target: 'nav' | 'directory') {
+  form.value.target = target
+  form.value.group = ''
+}
 
 async function fetchMeta() {
   err.value = ''
@@ -85,7 +92,7 @@ async function submit() {
               type="button"
               class="btn justify-start !h-auto py-2.5"
               :class="form.target === 'nav' ? 'btn-primary' : 'btn-ghost'"
-              @click="form.target = 'nav'"
+              @click="chooseTarget('nav')"
             >
               <span class="text-left">
                 <span class="block text-[13px] font-medium">首页导航</span>
@@ -96,7 +103,7 @@ async function submit() {
               type="button"
               class="btn justify-start !h-auto py-2.5"
               :class="form.target === 'directory' ? 'btn-primary' : 'btn-ghost'"
-              @click="form.target = 'directory'"
+              @click="chooseTarget('directory')"
             >
               <span class="text-left">
                 <span class="block text-[13px] font-medium">分类目录</span>
@@ -116,7 +123,7 @@ async function submit() {
             <label class="text-[13px] font-medium">{{ form.target === 'directory' ? '目录分类' : '分组' }}</label>
             <select v-model="form.group" class="field">
               <option value="">未指定</option>
-              <option v-for="g in GROUPS" :key="g" :value="g">{{ g }}</option>
+              <option v-for="g in groupOptions" :key="g" :value="g">{{ g }}</option>
             </select>
           </div>
         </div>

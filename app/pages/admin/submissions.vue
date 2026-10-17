@@ -51,7 +51,7 @@ function openReview(item: any, target: 'nav' | 'directory') {
   reviewing.value = item
   mode.value = target
   groupName.value = item.grp || navGroups.value[0] || '收录站点'
-  category.value = item.grp || dirCategories.value[0] || '其他'
+  category.value = item.grp || (dirCategories.value.includes('其他') ? '其他' : dirCategories.value[0]) || '其他'
   msg.value = ''
 }
 

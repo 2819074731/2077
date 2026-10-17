@@ -1,3 +1,5 @@
+import { DIRECTORY_CATEGORIES } from '#shared/directory'
+
 export default defineEventHandler(async (event) => {
   await requireAdmin(event)
   const q = getQuery(event)
@@ -27,11 +29,21 @@ export default defineEventHandler(async (event) => {
      FROM directory_entries ${clause} ORDER BY id DESC LIMIT ${size} OFFSET ${offset}`,
     params
   )
+  const counts = new Map<string, any>(cats.map((c: any) => [String(c.category), c]))
+  const categories: { category: string; n: number; published: number }[] = DIRECTORY_CATEGORIES.map((name) => {
+    const c: any = counts.get(name)
+    counts.delete(name)
+    return { category: name, n: Number(c?.n || 0), published: Number(c?.published || 0) }
+  })
+  for (const c of counts.values()) {
+    categories.push({ category: String(c.category), n: Number(c.n || 0), published: Number(c.published || 0) })
+  }
+
   return {
     items: rows,
     total: Number(count?.n || 0),
     published: Number(pub?.n || 0),
-    categories: cats,
+    categories,
     page,
     size
   }
