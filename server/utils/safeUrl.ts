@@ -101,7 +101,7 @@ export async function safeFetch(input: string, opts: SafeFetchOptions = {}): Pro
 }
 
 /** 限制响应体大小与读取时长的读取；超限抛错。 */
-export async function readBodyCapped(res: Response, maxBytes: number, timeoutMs = 8000): Promise<Buffer> {
+export async function readBodyCapped(res: Response, maxBytes: number, timeoutMs = 8000, allowTruncate = false): Promise<Buffer> {
   const reader = res.body?.getReader()
   if (!reader) return Buffer.alloc(0)
   const chunks: Uint8Array[] = []
@@ -121,6 +121,7 @@ export async function readBodyCapped(res: Response, maxBytes: number, timeoutMs 
       total += value.byteLength
       if (total > maxBytes) {
         await reader.cancel().catch(() => {})
+        if (allowTruncate) break
         throw new Error('body-too-large')
       }
       chunks.push(value)

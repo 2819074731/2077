@@ -24,7 +24,8 @@ export default defineEventHandler(async (event) => {
     [hash]
   )
   const row = cached[0]
-  if (row && Date.now() - new Date(row.fetched_at).getTime() < TTL_MS) {
+  const usableRow = !!row && !!(row.title || row.description) && !String(row.icon || '').startsWith('data:')
+  if (usableRow && Date.now() - new Date(row.fetched_at).getTime() < TTL_MS) {
     return {
       meta: {
         url: row.url,
@@ -39,7 +40,21 @@ export default defineEventHandler(async (event) => {
   }
 
   const meta = await fetchSiteMeta(key)
-  if (!meta.title && !meta.description && !meta.icon) {
+  if (!meta.title && !meta.description) {
+    if (usableRow) {
+      return {
+        meta: {
+          url: row.url,
+          host: row.host,
+          title: row.title,
+          description: row.description || '',
+          keywords: row.keywords || '',
+          icon: row.icon || ''
+        },
+        cached: true,
+        stale: true
+      }
+    }
     throw createError({ statusCode: 502, statusMessage: '无法抓取该站点信息，请手动填写' })
   }
 

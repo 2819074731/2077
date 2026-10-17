@@ -121,12 +121,15 @@ async function fetchMeta() {
   try {
     const d: any = await $fetch('/api/meta', { method: 'POST', body: { url: raw } })
     const m = d.meta
-    form.value.title = m.title || ''
-    form.value.description = m.description || ''
-    form.value.keywords = m.keywords || ''
-    form.value.icon = m.icon || ''
-    if (!form.value.name && m.title) form.value.name = m.title.split(/[-_|·—]/)[0].trim().slice(0, 40)
+    if (m.title) form.value.title = m.title
+    if (m.description) form.value.description = m.description
+    if (m.keywords) form.value.keywords = m.keywords
     if (m.icon) form.value.icon = `/api/icon?url=${encodeURIComponent(m.host)}`
+    if (!form.value.name.trim()) {
+      form.value.name = m.title
+        ? m.title.split(/[-_|·—]/)[0].trim().slice(0, 40)
+        : new URL(raw).hostname.replace(/^www\./, '')
+    }
   } catch (e: any) {
     err.value = e?.data?.statusMessage || e?.data?.message || '抓取失败，请手动填写'
   } finally {
