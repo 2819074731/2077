@@ -3,6 +3,7 @@ import { onMounted, computed, ref } from 'vue'
 import { DEFAULT_GROUPS, INLINE_GROUP_COUNT } from '~/data/nav'
 
 const { groups, diy, syncMsg, loadLocal, applySite, addGroup, resetAll, activeCat, visibleGroups } = useNav()
+const { categories, loadCategories } = useCategories()
 const { user, refresh } = useAuth()
 const { isMobile } = useDevice()
 
@@ -16,6 +17,7 @@ const siteUrl = useRuntimeConfig().public.siteUrl
 
 const { data: siteData } = await useFetch('/api/site', { key: 'site-config' })
 applySite(siteData.value, { groups: true })
+await loadCategories()
 
 useSeoMeta({
   title: '2077 导航 · 可自定义的浏览器起始页',
@@ -67,7 +69,17 @@ const shownGroups = computed(() => {
   const university = groups.value.find((g) => g.name === '高校')
   return university && !list.some((g) => g.name === '高校') ? [...list, university] : list
 })
-const hasMoreGroups = computed(() => groups.value.length > INLINE_GROUP_COUNT && !activeCat.value)
+const menuCount = computed(() => {
+  const seen = new Set(groups.value.map((g) => g.name))
+  return groups.value.length + categories.value.filter((name) => !seen.has(name)).length
+})
+const hasMoreGroups = computed(() => menuCount.value > INLINE_GROUP_COUNT && !activeCat.value)
+const activeCategoryName = computed(() => {
+  if (!activeCat.value) return ''
+  const g = groups.value.find((x) => x.id === activeCat.value || x.name === activeCat.value)
+  return g?.name || String(activeCat.value)
+})
+const activeEmpty = computed(() => !!activeCat.value && !shownGroups.value.some((g) => g.links.length > 0))
 const drawerOpen = useState<boolean>('nav-drawer-open', () => false)
 const importOpen = ref(false)
 function openDrawer() { drawerOpen.value = true }
@@ -83,7 +95,7 @@ function openDrawer() { drawerOpen.value = true }
         <SearchBar />
       </div>
       <div class="flex items-center gap-3 text-[12px] text-ink2 flex-wrap justify-center">
-        <span>{{ groups.length }} 个分类</span>
+        <span>{{ menuCount }} 个分类</span>
         <span class="opacity-40">·</span>
         <span>{{ totalLinks }} 个站点</span>
       </div>
@@ -109,7 +121,14 @@ function openDrawer() { drawerOpen.value = true }
 
     <ClientOnly>
       <div class="animate-fade-up">
-        <LinkGroup v-for="g in shownGroups" :key="g.id" :group="g" />
+        <div v-if="activeEmpty" class="card p-6 sm:p-8 text-center mb-8">
+          <p class="text-[15px] font-semibold">{{ activeCategoryName }}</p>
+          <p class="mt-1 text-[12.5px] text-ink2">该分类暂无首页导航站点，可在分类目录中浏览收录内容。</p>
+          <NuxtLink :to="`/site?category=${encodeURIComponent(activeCategoryName)}`" class="btn btn-sm btn-primary mt-4">查看分类目录</NuxtLink>
+        </div>
+        <template v-else>
+          <LinkGroup v-for="g in shownGroups" :key="g.id" :group="g" />
+        </template>
       </div>
       <template #fallback>
         <div>
@@ -119,9 +138,9 @@ function openDrawer() { drawerOpen.value = true }
     </ClientOnly>
 
     <div v-if="hasMoreGroups" class="text-center mb-8">
-      <button v-if="isMobile" class="btn btn-sm" @click="openDrawer">查看全部 {{ groups.length }} 个分类</button>
+      <button v-if="isMobile" class="btn btn-sm" @click="openDrawer">查看全部 {{ menuCount }} 个分类</button>
       <span v-else class="text-[12.5px] text-ink2">
-        更多分类（{{ groups.length - INLINE_GROUP_COUNT }} 个）已收起，点击上方分类或右上角「自定义」可编辑。
+        更多分类（{{ menuCount - INLINE_GROUP_COUNT }} 个）已收起，点击上方分类或右上角「自定义」可编辑。
       </span>
     </div>
 

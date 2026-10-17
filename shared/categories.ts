@@ -28,6 +28,8 @@ export const SITE_CATEGORIES = [
   '安全防护',
   '软件下载',
   '移动应用',
+  '目录导航',
+  '小说阅读',
   '其他'
 ] as const
 

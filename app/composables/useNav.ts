@@ -321,7 +321,7 @@ export function useNav() {
   function visibleGroups() {
     if (activeCat.value) {
       const g = groups.value.find(x => x.id === activeCat.value || x.name === activeCat.value)
-      return g ? [g] : groups.value.slice(0, INLINE_GROUP_COUNT)
+      return g ? [g] : []
     }
     return groups.value.slice(0, INLINE_GROUP_COUNT)
   }

@@ -4,6 +4,7 @@ import { useWallpaper } from '~/composables/useWallpaper'
 const colorMode = useColorMode()
 const { user, restore } = useAuth()
 const { diy, toggleDiy, loadLocal, syncMsg, selectCat } = useNav()
+const { loadCategories } = useCategories()
 const { isMobile, initServer, initClient } = useDevice()
 const wp = useWallpaper()
 
@@ -21,6 +22,7 @@ initServer()
 onMounted(() => {
   initClient()
   loadLocal()
+  loadCategories()
   wp.loadLocal()
   restore()
 })

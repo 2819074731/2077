@@ -1,13 +1,23 @@
 <script setup lang="ts">
-import { watch, onBeforeUnmount, computed } from 'vue'
+import { watch, onMounted, onBeforeUnmount, computed } from 'vue'
 
 const open = useState<boolean>('nav-drawer-open', () => false)
 const wpSettingsOpen = useState<boolean>('wp-settings-open', () => false)
 const { groups, activeCat, selectCat } = useNav()
+const { categories, loadCategories } = useCategories()
 const { user } = useAuth()
 const { isMobile } = useDevice()
 
+onMounted(() => loadCategories())
 const totalLinks = computed(() => groups.value.reduce((n, g) => n + g.links.length, 0))
+const list = computed(() => {
+  const seen = new Set(groups.value.map((g) => g.name))
+  const out = groups.value.map((g) => ({ key: g.id, name: g.name, count: g.links.length }))
+  for (const name of categories.value) {
+    if (!seen.has(name)) out.push({ key: name, name, count: 0 })
+  }
+  return out
+})
 
 function pickCat(id: string | null) {
   selectCat(id)
@@ -67,7 +77,7 @@ onBeforeUnmount(() => lockBody(false))
           <div class="flex items-center gap-2">
             <span class="h-3.5 w-1 rounded-full accent-bar" />
             <span class="text-[13px] font-semibold">分类</span>
-            <span class="ml-auto text-[11px] text-ink3">共 {{ groups.length }} 个</span>
+            <span class="ml-auto text-[11px] text-ink3">共 {{ list.length }} 个</span>
           </div>
           <div class="grid grid-cols-2 gap-1.5">
             <button
@@ -82,14 +92,14 @@ onBeforeUnmount(() => lockBody(false))
               <span class="text-[11px] opacity-60">{{ totalLinks }}</span>
             </button>
             <button
-              v-for="g in groups"
-              :key="g.id"
+              v-for="item in list"
+              :key="item.key"
               class="flex items-center justify-between gap-1.5 h-10 px-3 rounded-xl text-[13px] transition-colors"
-              :class="activeCat === g.id ? 'bg-ink text-bg font-medium' : 'text-ink2 hover:bg-card2 hover:text-ink'"
-              @click="pickCat(g.id)"
+              :class="activeCat === item.key ? 'bg-ink text-bg font-medium' : 'text-ink2 hover:bg-card2 hover:text-ink'"
+              @click="pickCat(item.key)"
             >
-              <span class="truncate">{{ g.name }}</span>
-              <span class="text-[11px] opacity-60 shrink-0">{{ g.links.length }}</span>
+              <span class="truncate">{{ item.name }}</span>
+              <span v-if="item.count" class="text-[11px] opacity-60 shrink-0">{{ item.count }}</span>
             </button>
           </div>
         </section>
