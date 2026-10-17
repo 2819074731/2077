@@ -16,7 +16,7 @@ const RULES: Array<{ group: string; words: string[] }> = [
   { group: '学习文档', words: ['mdn', 'w3schools', 'coursera', 'wikipedia', 'docs', '文档', '教程', '课程', '学习'] },
   { group: '效率工具', words: ['notion', 'obsidian', 'figma', 'canva', 'trello', 'todoist', 'calendar', 'drive.google', '效率', '笔记', '待办'] },
   { group: '购物生活', words: ['taobao', 'tmall', 'jd.com', 'amazon', 'meituan', '淘宝', '天猫', '京东', '美团', '购物', '生活'] },
-  { group: '社交平台', words: ['weibo', 'x.com', 'twitter', 'telegram', 'discord', 'facebook', 'instagram', '小红书', '抖音', '微博', '社交'] }
+  { group: '社交平台', words: ['weibo', 'twitter', 'telegram', 'discord', 'facebook', 'instagram', '小红书', '抖音', '微博', '社交'] }
 ]
 
 /**

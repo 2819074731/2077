@@ -225,6 +225,7 @@ async function importBookmarks(e: Event) {
     if (!total) { flash('未识别到书签，请确认是浏览器导出的 HTML 文件', 'err'); return }
     if (!window.confirm(`识别到 ${total} 个书签（${folders.length} 个文件夹），按文件夹合并到现有分组？`)) return
     let added = 0
+    const seen = new Set(groups.value.flatMap(g => g.links.map(x => normalizeKey(x.url))))
     for (const f of folders) {
       let g = groups.value.find(x => x.name === f.folder)
       if (!g) {
@@ -233,7 +234,9 @@ async function importBookmarks(e: Event) {
       }
       for (const l of f.links) {
         if (g.links.length >= 200) break
-        if (g.links.some(x => normalizeKey(x.url) === normalizeKey(l.url))) continue
+        const k = normalizeKey(l.url)
+        if (!k || seen.has(k)) continue
+        seen.add(k)
         g.links.push({ name: l.name || hostOf(l.url), url: l.url, icon: iconFor(l.url) })
         added++
       }
