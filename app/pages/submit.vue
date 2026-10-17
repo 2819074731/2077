@@ -54,7 +54,7 @@ async function submit() {
     <div class="w-full max-w-[560px] animate-fade-up">
       <header class="mb-6 text-center">
         <h1 class="text-2xl font-bold tracking-tight">提交收录</h1>
-        <p class="text-ink2 text-[13.5px] mt-1.5">推荐你的网站加入 2077 导航。填写网址后点「一键获取」，自动抓取标题、描述与图标。</p>
+        <p class="text-ink2 text-[13.5px] mt-1.5">推荐你的网站加入 2077 导航，可选择首页导航或分类目录。填写网址后点「一键获取」，自动抓取标题、描述与图标。</p>
       </header>
 
       <div v-if="ok" class="card p-8 text-center">
@@ -89,7 +89,7 @@ async function submit() {
             >
               <span class="text-left">
                 <span class="block text-[13px] font-medium">首页导航</span>
-                <span class="block text-[11px] opacity-70 mt-0.5">展示在首页分类中</span>
+                <span class="block text-[11px] opacity-70 mt-0.5">审核标准较高，仅收录优质站点</span>
               </span>
             </button>
             <button
@@ -100,10 +100,11 @@ async function submit() {
             >
               <span class="text-left">
                 <span class="block text-[13px] font-medium">分类目录</span>
-                <span class="block text-[11px] opacity-70 mt-0.5">生成独立详情页，利于 SEO</span>
+                <span class="block text-[11px] opacity-70 mt-0.5">收录到分类目录</span>
               </span>
             </button>
           </div>
+          <p class="text-[11.5px] text-ink3 mt-0.5">首页导航审核标准较高，优先收录原创、长期稳定运营的站点。</p>
         </div>
 
         <div class="grid sm:grid-cols-2 gap-3.5">

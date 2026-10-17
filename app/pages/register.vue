@@ -4,6 +4,7 @@ const { register } = useAuth()
 const email = ref('')
 const nickname = ref('')
 const username = ref('')
+const qq = ref('')
 const password = ref('')
 const err = ref('')
 const loading = ref(false)
@@ -13,7 +14,7 @@ async function submit() {
   err.value = ''
   loading.value = true
   try {
-    await register(email.value.trim(), password.value, nickname.value.trim() || email.value.split('@')[0], username.value.trim() || undefined)
+    await register(email.value.trim(), password.value, nickname.value.trim() || email.value.split('@')[0], username.value.trim() || undefined, qq.value.trim())
     await navigateTo('/settings')
   } catch (e: any) {
     err.value = e?.data?.statusMessage || e?.data?.message || '注册失败'
@@ -32,6 +33,10 @@ async function submit() {
         <p class="text-ink2 text-[13px] -mt-1">注册后即可云端同步导航配置。</p>
       </div>
       <input v-model="email" class="field" type="email" placeholder="邮箱" autocomplete="email" required />
+      <div class="flex flex-col gap-1">
+        <input v-model="qq" class="field" inputmode="numeric" pattern="[1-9][0-9]{4,11}" maxlength="12" placeholder="QQ 号（必填）" required />
+        <p class="text-[11.5px] text-ink3 px-0.5">用于生成默认头像，仅管理员可见。</p>
+      </div>
       <input v-model="username" class="field" placeholder="用户名（可选，用于登录）" autocomplete="username" />
       <input v-model="nickname" class="field" placeholder="昵称（可选）" />
       <input v-model="password" class="field" type="password" placeholder="密码（至少 6 位）" autocomplete="new-password" required />

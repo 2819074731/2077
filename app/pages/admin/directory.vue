@@ -151,7 +151,7 @@ onMounted(load)
     <div v-else class="card overflow-hidden divide-y divide-line">
       <div v-for="e in items" :key="e.id" class="p-3.5 sm:p-4">
         <div class="flex items-start gap-3">
-          <img v-if="e.icon || iconOf(e.url)" :src="e.icon || iconOf(e.url)" alt="" class="w-9 h-9 rounded-lg object-contain bg-card2 shrink-0" loading="lazy" />
+          <SiteIcon :src="e.icon || iconOf(e.url)" :name="e.name" :url="e.url" class="w-9 h-9 rounded-lg shrink-0 text-[13px]" />
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-1.5 flex-wrap">
               <span class="font-medium text-[13.5px]">{{ e.name }}</span>

@@ -5,7 +5,7 @@ export default defineEventHandler(async (event) => {
   if (!id) throw createError({ statusCode: 404, statusMessage: '页面不存在' })
   const db = useDb()
   const [rows]: any = await db.query(
-    `SELECT id, name, url, icon, category, title, description, keywords, content, featured, created_at
+    `SELECT id, name, url, icon, category, title, description, keywords, content, featured, created_at, updated_at
      FROM directory_entries WHERE id = ? AND status = 'published' AND detail_enabled = 1 LIMIT 1`,
     [id]
   )
@@ -18,14 +18,30 @@ export default defineEventHandler(async (event) => {
      ORDER BY featured DESC, sort ASC, id DESC LIMIT 6`,
     [item.category, id]
   )
-  if (!related.length) {
-    const [latest]: any = await db.query(
+  if (related.length < 6) {
+    const seen = new Set<number>([id, ...related.map((r: any) => r.id)])
+    const [fallback]: any = await db.query(
       `SELECT id, name, url, icon, category, description, detail_enabled
-       FROM directory_entries WHERE status = 'published' AND id <> ?
-       ORDER BY id DESC LIMIT 6`,
-      [id]
+       FROM directory_entries WHERE status = 'published'
+       ORDER BY id DESC LIMIT 30`
     )
-    return { item, related: latest }
+    for (const r of fallback) {
+      if (related.length >= 6) break
+      if (seen.has(r.id)) continue
+      seen.add(r.id)
+      related.push(r)
+    }
   }
-  return { item, related }
+
+  const [categories]: any = await db.query(
+    `SELECT category, COUNT(*) AS n FROM directory_entries WHERE status = 'published'
+     GROUP BY category ORDER BY n DESC, category ASC`
+  )
+  const [latest]: any = await db.query(
+    `SELECT id, name, url, icon, category, detail_enabled
+     FROM directory_entries WHERE status = 'published' AND id <> ? ORDER BY id DESC LIMIT 6`,
+    [id]
+  )
+
+  return { item, related, categories, latest }
 })

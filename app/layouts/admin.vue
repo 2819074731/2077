@@ -102,7 +102,7 @@ function isActive(i: any) {
         <h1 class="font-semibold text-[15px] truncate">{{ current }}</h1>
         <div class="flex-1" />
         <NuxtLink to="/settings" class="btn btn-sm !px-1.5" :title="user?.nickname || ''">
-          <span class="grid place-items-center w-6 h-6 rounded-full bg-ink text-bg text-[11px] font-semibold">{{ (user?.nickname || 'A')[0].toUpperCase() }}</span>
+          <UserAvatar :src="user?.avatar" :name="user?.nickname" class="w-6 h-6 rounded-full text-[11px]" />
         </NuxtLink>
       </header>
       <main class="p-3 sm:p-5 lg:p-6 max-w-[1280px] w-full mx-auto">

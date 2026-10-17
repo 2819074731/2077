@@ -145,7 +145,7 @@ function iconOf(url: string) {
     <div v-else class="flex flex-col gap-3">
       <div v-for="it in items" :key="it.id" class="card p-4">
         <div class="flex items-start gap-3">
-          <img :src="iconOf(it.url)" alt="" class="w-9 h-9 rounded-xl shrink-0" referrerpolicy="no-referrer" />
+          <SiteIcon :src="it.icon || iconOf(it.url)" :name="it.name" :url="it.url" class="w-9 h-9 rounded-xl shrink-0 text-[13px]" />
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-1.5 flex-wrap">
               <span class="font-medium text-[14px]">{{ it.name }}</span>

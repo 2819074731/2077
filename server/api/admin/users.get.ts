@@ -1,3 +1,5 @@
+import { withDefaultAvatar } from '../../utils/user'
+
 export default defineEventHandler(async (event) => {
   await requireAdmin(event)
   const q = getQuery(event)
@@ -11,8 +13,8 @@ export default defineEventHandler(async (event) => {
   const where: string[] = []
   const params: any[] = []
   if (kw) {
-    where.push('(email LIKE ? OR username LIKE ? OR nickname LIKE ? OR slug LIKE ?)')
-    params.push(`%${kw}%`, `%${kw}%`, `%${kw}%`, `%${kw}%`)
+    where.push('(email LIKE ? OR username LIKE ? OR nickname LIKE ? OR slug LIKE ? OR qq LIKE ?)')
+    params.push(`%${kw}%`, `%${kw}%`, `%${kw}%`, `%${kw}%`, `%${kw}%`)
   }
   if (role === 'admin') where.push('is_admin = 1')
   if (role === 'user') where.push('is_admin = 0')
@@ -22,10 +24,10 @@ export default defineEventHandler(async (event) => {
   const total = countRows[0]?.n || 0
 
   const [rows]: any = await db.query(
-    `SELECT u.id, u.email, u.username, u.nickname, u.slug, u.is_admin, u.created_at,
+    `SELECT u.id, u.email, u.username, u.nickname, u.avatar, u.qq, u.slug, u.is_admin, u.created_at,
             (SELECT COUNT(*) FROM user_links l WHERE l.user_id = u.id) AS links
      FROM users u ${clause} ORDER BY u.id DESC LIMIT ${size} OFFSET ${offset}`,
     params
   )
-  return { items: rows, total, page, size }
+  return { items: rows.map((u: any) => withDefaultAvatar(u)), total, page, size }
 })

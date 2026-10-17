@@ -23,6 +23,32 @@ const categories = computed<any[]>(() => (data.value as any)?.categories || [])
 const total = computed(() => Number((data.value as any)?.total || 0))
 const all = computed(() => Number((data.value as any)?.all || 0))
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / 24)))
+const canonicalUrl = computed(() => {
+  const qs = new URLSearchParams()
+  if (category.value) qs.set('category', category.value)
+  if (page.value > 1) qs.set('page', String(page.value))
+  const s = qs.toString()
+  return siteUrl + '/site' + (s ? '?' + s : '')
+})
+
+const faqs = [
+  {
+    q: '2077 分类目录是什么？',
+    a: '2077 分类目录按主题收录网站，每个开启详情页的站点都有独立介绍页，提供官网入口、站点简介与同类推荐。'
+  },
+  {
+    q: '首页导航和分类目录有什么区别？',
+    a: '首页导航展示精选站点，审核标准较高；分类目录面向更广泛的站点，按分类长期收录，并生成独立的详情页。'
+  },
+  {
+    q: '如何提交网站到分类目录？',
+    a: '在提交收录页面填写网址与站点信息，选择「分类目录」即可。审核通过后会出现在对应分类中。'
+  },
+  {
+    q: '分类目录如何排序？',
+    a: '默认按精选、人工排序与收录时间排列，也可以通过分类筛选和关键词搜索快速定位站点。'
+  }
+]
 
 const seoTitle = computed(() => {
   const c = category.value
@@ -41,32 +67,61 @@ useSeoMeta({
   ogTitle: seoTitle,
   ogDescription: seoDesc,
   ogType: 'website',
-  ogUrl: () => siteUrl + '/site' + (category.value ? `?category=${encodeURIComponent(category.value)}` : ''),
-  robots: () => (q.value ? 'noindex,follow' : 'index,follow')
+  ogUrl: canonicalUrl,
+  robots: () => (q.value || page.value > 1 ? 'noindex,follow' : 'index,follow')
 })
 
 useHead(() => ({
-  link: [{ rel: 'canonical', href: siteUrl + '/site' + (category.value ? `?category=${encodeURIComponent(category.value)}` : '') }],
+  link: [{ rel: 'canonical', href: canonicalUrl.value }],
   script: [{
     type: 'application/ld+json',
     innerHTML: JSON.stringify({
       '@context': 'https://schema.org',
-      '@type': 'CollectionPage',
-      name: seoTitle.value,
-      description: seoDesc.value,
-      url: siteUrl + '/site',
-      mainEntity: {
-        '@type': 'ItemList',
-        itemListElement: items.value.map((it: any, i: number) => ({
-          '@type': 'ListItem',
-          position: i + 1,
-          url: `${siteUrl}/site/${it.id}.html`,
-          name: it.name
-        }))
-      }
+      '@graph': [
+        {
+          '@type': 'CollectionPage',
+          '@id': siteUrl + '/site#webpage',
+          name: seoTitle.value,
+          description: seoDesc.value,
+          url: siteUrl + '/site',
+          inLanguage: 'zh-CN',
+          isPartOf: { '@id': siteUrl + '/#website' },
+          publisher: { '@id': siteUrl + '/#organization' },
+          mainEntity: {
+            '@type': 'ItemList',
+            itemListElement: items.value.map((it: any, i: number) => ({
+              '@type': 'ListItem',
+              position: i + 1,
+              url: `${siteUrl}/site/${it.id}.html`,
+              name: it.name
+            }))
+          },
+          breadcrumb: { '@id': siteUrl + '/site#breadcrumb' }
+        },
+        {
+          '@type': 'BreadcrumbList',
+          '@id': siteUrl + '/site#breadcrumb',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: '首页', item: siteUrl + '/' },
+            { '@type': 'ListItem', position: 2, name: '分类目录', item: siteUrl + '/site' }
+          ]
+        },
+        {
+          '@type': 'FAQPage',
+          mainEntity: faqs.map(f => ({
+            '@type': 'Question',
+            name: f.q,
+            acceptedAnswer: { '@type': 'Answer', text: f.a }
+          }))
+        }
+      ]
     })
   }]
 }))
+
+function iconOf(url: string) {
+  try { return `/api/icon?url=${encodeURIComponent(new URL(url).hostname)}` } catch { return '' }
+}
 
 function go(patch: Record<string, any>) {
   const query: Record<string, any> = { ...route.query, ...patch }
@@ -89,7 +144,12 @@ function search() {
       <p class="text-ink2 text-[13px] mt-2 max-w-[720px] leading-relaxed">
         按分类浏览已收录的网站，每个站点拥有独立介绍页，方便检索、分享与被搜索引擎收录。
       </p>
-      <p class="text-[12px] text-ink3 mt-2">共 {{ all }} 个站点 · 当前筛选 {{ total }} 个</p>
+      <div class="flex items-center gap-3 flex-wrap mt-2">
+        <p class="text-[12px] text-ink3">共 {{ all }} 个站点 · 当前筛选 {{ total }} 个</p>
+        <span class="opacity-40 text-[12px]">·</span>
+        <NuxtLink to="/" class="text-[12px] text-ink3 hover:text-ink">首页导航</NuxtLink>
+        <NuxtLink to="/sitemap" class="text-[12px] text-ink3 hover:text-ink">站点地图</NuxtLink>
+      </div>
     </header>
 
     <div class="flex flex-col gap-3 mb-5">
@@ -120,7 +180,7 @@ function search() {
     <div v-else class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
       <article v-for="it in items" :key="it.id" class="card p-4 flex flex-col gap-2.5 hover:border-ink/30 transition-colors">
         <div class="flex items-start gap-3">
-          <img :src="it.icon || `/api/icon?url=${encodeURIComponent(new URL(it.url).hostname)}`" alt="" class="w-9 h-9 rounded-xl shrink-0" loading="lazy" referrerpolicy="no-referrer" />
+          <SiteIcon :src="it.icon || iconOf(it.url)" :name="it.name" :url="it.url" class="w-9 h-9 rounded-xl shrink-0 text-[13px]" />
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-1.5">
               <h2 class="font-semibold text-[14.5px] truncate">{{ it.name }}</h2>
@@ -139,6 +199,17 @@ function search() {
         </div>
       </article>
     </div>
+
+    <section class="mt-10 pt-7 border-t border-line">
+      <h2 class="text-[18px] font-semibold mb-4">常见问题</h2>
+      <dl class="grid sm:grid-cols-2 gap-5">
+        <div v-for="f in faqs" :key="f.q">
+          <dt class="text-[13.5px] font-medium">{{ f.q }}</dt>
+          <dd class="text-[13px] text-ink2 leading-7 mt-1">{{ f.a }}</dd>
+        </div>
+      </dl>
+      <p class="text-[12.5px] text-ink2 mt-5">想推荐网站？<NuxtLink to="/submit" class="text-ink hover:underline">提交收录</NuxtLink>，首页导航审核标准较高，分类目录长期开放。</p>
+    </section>
 
     <div v-if="totalPages > 1" class="flex items-center justify-center gap-2 mt-6 flex-wrap">
       <button class="btn btn-sm" :disabled="page <= 1" @click="go({ page: page - 1 })">上一页</button>

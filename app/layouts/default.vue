@@ -123,6 +123,8 @@ const isDark = computed(() => colorMode.value === 'dark')
           <span class="opacity-40">·</span>
           <NuxtLink to="/site" class="hover:text-ink">分类目录</NuxtLink>
           <span class="opacity-40">·</span>
+          <NuxtLink to="/sitemap" class="hover:text-ink">站点地图</NuxtLink>
+          <span class="opacity-40">·</span>
           <NuxtLink to="/submit" class="hover:text-ink">提交收录</NuxtLink>
           <div class="flex-1" />
           <SetHomeHint />

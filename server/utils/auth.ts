@@ -1,5 +1,6 @@
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
 import type { H3Event } from 'h3'
+import { withDefaultAvatar } from './user'
 
 export function hashPassword(pw: string): string {
   const salt = randomBytes(16).toString('hex')
@@ -50,12 +51,12 @@ export async function getSessionUser(event: H3Event) {
   if (!sid) return null
   const db = useDb()
   const [rows]: any = await db.query(
-    `SELECT u.id, u.email, u.username, u.nickname, u.avatar, u.slug, u.is_admin
+    `SELECT u.id, u.email, u.username, u.nickname, u.avatar, u.qq, u.slug, u.is_admin
      FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.token = ? AND s.expires_at > NOW() LIMIT 1`,
     [sid]
   )
-  return rows[0] || null
+  return rows[0] ? withDefaultAvatar(rows[0]) : null
 }
 
 export async function revokeOtherSessions(event: H3Event, userId: number) {

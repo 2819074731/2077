@@ -54,7 +54,7 @@ function fmtDate(v: string) {
     <div class="flex flex-col gap-3 mb-4">
       <div class="flex flex-wrap items-center gap-2">
         <form class="flex gap-2 flex-1 min-w-[220px]" @submit.prevent="search">
-          <input v-model="kw" class="field grow sm:max-w-[300px]" placeholder="搜索邮箱、昵称或短链" />
+          <input v-model="kw" class="field grow sm:max-w-[300px]" placeholder="搜索邮箱、昵称、QQ 或短链" />
           <button class="btn shrink-0" type="submit">搜索</button>
         </form>
         <select v-model="role" class="field !w-auto" @change="search">
@@ -72,13 +72,13 @@ function fmtDate(v: string) {
     <div v-else class="card overflow-hidden divide-y divide-line">
       <div v-for="u in items" :key="u.id" class="p-4">
         <div class="flex items-start gap-3">
-          <span class="grid place-items-center w-9 h-9 rounded-full bg-ink text-bg text-[12px] font-semibold shrink-0">{{ (u.nickname || 'U')[0].toUpperCase() }}</span>
+          <UserAvatar :src="u.avatar" :name="u.nickname" class="w-9 h-9 rounded-full text-[12px] shrink-0" />
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-1.5 flex-wrap">
               <span class="font-medium text-[13.5px]">{{ u.nickname || '—' }}</span>
               <span v-if="u.is_admin" class="chip !text-[10px]">管理员</span>
             </div>
-            <p class="text-[11.5px] text-ink2 truncate">{{ u.email }}</p>
+            <p class="text-[11.5px] text-ink2 truncate">{{ u.email }}<span v-if="u.qq"> · QQ {{ u.qq }}</span></p>
             <p class="text-[11.5px] text-ink3 mt-0.5">/u/{{ u.slug }} · {{ u.links }} 个云端链接 · 注册于 {{ fmtDate(u.created_at) }}</p>
           </div>
         </div>

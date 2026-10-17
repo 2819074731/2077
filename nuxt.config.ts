@@ -30,18 +30,25 @@ export default defineNuxtConfig({
         { charset: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
         { name: 'theme-color', content: '#0e0e0e' },
+        { name: 'robots', content: 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1' },
+        { property: 'og:site_name', content: '2077 导航' },
+        { name: 'twitter:card', content: 'summary' },
         { name: 'description', content: '2077 导航：可自定义的浏览器起始页，聚合常用站点，支持离线使用与云端同步。' },
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-title', content: '2077' }
       ],
-      link: [{ rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }]
+      link: [
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+        { rel: 'alternate', type: 'application/xml', title: 'XML Sitemap', href: '/sitemap.xml' },
+        { rel: 'alternate', type: 'text/plain', title: 'LLMs.txt', href: '/llms.txt' }
+      ]
     }
   },
 
   site: {
     url: 'https://my2077.com',
     name: '2077 导航',
-    description: '可自定义的浏览器起始页，聚合常用站点导航'
+    description: '可自定义的浏览器起始页，聚合常用站点导航，并提供独立的分类网站目录'
   },
 
   sitemap: {

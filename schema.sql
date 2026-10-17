@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `username` VARCHAR(60) NULL,
   `nickname` VARCHAR(60) NOT NULL DEFAULT '',
   `avatar` MEDIUMTEXT NULL,
+  `qq` VARCHAR(20) NULL,
   `slug` VARCHAR(80) NOT NULL,
   `password_hash` VARCHAR(255) NOT NULL,
   `is_admin` TINYINT(1) NOT NULL DEFAULT 0,
@@ -15,6 +16,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uniq_email` (`email`),
   UNIQUE KEY `uniq_username` (`username`),
+  UNIQUE KEY `uniq_qq` (`qq`),
   UNIQUE KEY `uniq_slug` (`slug`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
