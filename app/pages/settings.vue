@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { CloudLink } from '~/composables/useAuth'
-const { user, refresh, logout, saveCloudLinks } = useAuth()
+const { user, refresh, logout, saveCloudLinks, updateProfile, changePassword, revokeOtherSessions } = useAuth()
 const { pushToCloud, pullFromCloud, resetAll, syncMsg } = useNav()
 
 const links = ref<CloudLink[]>([])
@@ -15,6 +15,18 @@ const syncLocal = ref('')
 const snapshot = ref('')
 let msgTimer: any = null
 let syncTimer: any = null
+
+const nicknameDraft = ref('')
+const usernameDraft = ref('')
+const avatarDraft = ref('')
+const avatarBusy = ref(false)
+const profileSaving = ref(false)
+const avatarInput = ref<HTMLInputElement | null>(null)
+const pwCurrent = ref('')
+const pwNext = ref('')
+const pwConfirm = ref('')
+const pwSaving = ref(false)
+const revoking = ref(false)
 
 useSeoMeta({ title: '我的设置 · 2077 导航', robots: 'noindex' })
 
@@ -43,6 +55,23 @@ const publicCount = computed(() => links.value.filter(l => l.url && l.public !==
 const dirty = computed(() => loaded.value && JSON.stringify(serialize(links.value)) !== snapshot.value)
 const syncText = computed(() => syncMsg.value || syncLocal.value)
 const syncFailed = computed(() => syncText.value.includes('失败'))
+const nicknameInvalid = computed(() => {
+  const v = nicknameDraft.value.trim()
+  return !v || v.length > 60
+})
+const usernameInvalid = computed(() => {
+  const v = usernameDraft.value.trim().toLowerCase()
+  return !!v && !/^[a-z0-9_-]{3,60}$/.test(v)
+})
+const profileDirty = computed(() => {
+  if (!user.value) return false
+  return nicknameDraft.value.trim() !== (user.value.nickname || '')
+    || usernameDraft.value.trim().toLowerCase() !== (user.value.username || '')
+    || avatarDraft.value !== (user.value.avatar || '')
+})
+const pwMismatch = computed(() => !!pwConfirm.value && pwNext.value !== pwConfirm.value)
+const pwReady = computed(() => !!pwCurrent.value && pwNext.value.length >= 6 && pwNext.value === pwConfirm.value)
+
 
 function flash(text: string, kind: 'ok' | 'err' = 'ok') {
   msg.value = text
@@ -66,6 +95,9 @@ onMounted(async () => {
     await navigateTo('/login?redirect=/settings')
     return
   }
+  nicknameDraft.value = user.value.nickname || ''
+  usernameDraft.value = user.value.username || ''
+  avatarDraft.value = user.value.avatar || ''
   links.value = (user.value.links || []).map(l => ({ ...l }))
   snapshot.value = JSON.stringify(serialize(links.value))
   loaded.value = true
@@ -181,12 +213,121 @@ async function onLogout() {
   await logout()
   await navigateTo('/')
 }
+
+function pickAvatar() {
+  if (avatarBusy.value) return
+  avatarInput.value?.click()
+}
+
+function compressImage(file: File, max: number, quality: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file)
+    const img = new Image()
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const scale = Math.min(1, max / Math.max(img.width, img.height))
+      const w = Math.max(1, Math.round(img.width * scale))
+      const h = Math.max(1, Math.round(img.height * scale))
+      const canvas = document.createElement('canvas')
+      canvas.width = w
+      canvas.height = h
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        reject(new Error('canvas unavailable'))
+        return
+      }
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, w, h)
+      ctx.drawImage(img, 0, 0, w, h)
+      resolve(canvas.toDataURL('image/jpeg', quality))
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error('decode failed'))
+    }
+    img.src = url
+  })
+}
+
+async function onAvatarFile(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  if (!/^image\/(?:png|jpeg|webp)$/.test(file.type)) {
+    flash('仅支持 PNG / JPG / WebP', 'err')
+    return
+  }
+  if (file.size > 8 * 1024 * 1024) {
+    flash('图片不能超过 8MB', 'err')
+    return
+  }
+  avatarBusy.value = true
+  try {
+    avatarDraft.value = await compressImage(file, 192, 0.85)
+  } catch {
+    flash('图片处理失败，请换一张试试', 'err')
+  } finally {
+    avatarBusy.value = false
+  }
+}
+
+async function saveProfile() {
+  if (profileSaving.value || nicknameInvalid.value || usernameInvalid.value) return
+  profileSaving.value = true
+  try {
+    const body: { nickname: string; username: string; avatar?: string | null } = {
+      nickname: nicknameDraft.value.trim(),
+      username: usernameDraft.value.trim().toLowerCase()
+    }
+    if (avatarDraft.value !== (user.value?.avatar || '')) body.avatar = avatarDraft.value || null
+    const u = await updateProfile(body)
+    nicknameDraft.value = u.nickname
+    usernameDraft.value = u.username || ''
+    avatarDraft.value = u.avatar || ''
+    flash('资料已更新')
+  } catch (err: any) {
+    flash(err?.data?.statusMessage || err?.data?.message || '保存失败', 'err')
+  } finally {
+    profileSaving.value = false
+  }
+}
+
+async function savePassword() {
+  if (pwSaving.value || !pwReady.value) return
+  pwSaving.value = true
+  try {
+    const d: any = await changePassword(pwCurrent.value, pwNext.value)
+    pwCurrent.value = ''
+    pwNext.value = ''
+    pwConfirm.value = ''
+    flash(d?.removed ? `密码已更新，已退出 ${d.removed} 个其他设备` : '密码已更新')
+  } catch (err: any) {
+    flash(err?.data?.statusMessage || err?.data?.message || '修改失败', 'err')
+  } finally {
+    pwSaving.value = false
+  }
+}
+
+async function revokeOthers() {
+  if (revoking.value) return
+  if (!window.confirm('将退出除当前浏览器外的所有登录状态，确定继续？')) return
+  revoking.value = true
+  try {
+    const d: any = await revokeOtherSessions()
+    flash(d?.removed ? `已退出 ${d.removed} 个其他设备` : '没有其他登录设备')
+  } catch (err: any) {
+    flash(err?.data?.statusMessage || err?.data?.message || '操作失败', 'err')
+  } finally {
+    revoking.value = false
+  }
+}
 </script>
 
 <template>
   <div class="max-w-wrap mx-auto px-4 py-8 sm:py-10 animate-fade-up">
     <header class="flex items-center gap-3.5 mb-6">
-      <span class="grid place-items-center w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-ink text-bg text-lg font-semibold shadow-soft shrink-0">{{ (user?.nickname || 'U')[0].toUpperCase() }}</span>
+      <UserAvatar :src="user?.avatar" :name="user?.nickname" class="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl text-lg shadow-soft shrink-0" />
       <div class="min-w-0 flex-1">
         <h1 class="text-lg sm:text-xl font-semibold truncate">{{ user?.nickname || '我的设置' }}</h1>
         <p class="text-[12.5px] sm:text-[13px] text-ink2 truncate">
@@ -201,7 +342,56 @@ async function onLogout() {
     </header>
 
     <div class="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)] items-start">
-      <aside class="order-2 lg:order-1 flex flex-col gap-4 lg:sticky lg:top-20">
+      <aside class="order-2 lg:order-1 flex flex-col gap-4">
+        <section class="card p-4 sm:p-5">
+          <div class="flex items-center gap-2.5 mb-3">
+            <span class="h-4 w-1 rounded-full accent-bar" />
+            <h2 class="font-semibold">账号资料</h2>
+          </div>
+          <div class="flex items-center gap-3">
+            <UserAvatar :src="avatarDraft" :name="nicknameDraft" class="w-14 h-14 rounded-2xl text-xl shadow-soft shrink-0" />
+            <div class="flex flex-col items-start gap-1.5 min-w-0">
+              <button class="btn btn-sm" :disabled="avatarBusy" @click="pickAvatar">{{ avatarBusy ? '处理中…' : '更换头像' }}</button>
+              <button v-if="avatarDraft" class="btn btn-sm btn-ghost !h-7 !px-0 text-[12px] text-ink3" @click="avatarDraft = ''">移除头像</button>
+            </div>
+            <input ref="avatarInput" type="file" accept="image/png,image/jpeg,image/webp" class="hidden" @change="onAvatarFile" />
+          </div>
+          <p class="mt-2 text-[11.5px] text-ink3 leading-relaxed">支持 PNG / JPG / WebP，自动压缩为 192px 方形头像。</p>
+
+          <div class="mt-4 flex flex-col gap-3">
+            <div>
+              <label class="block text-[12.5px] text-ink2 mb-1.5" for="nickname">昵称</label>
+              <input id="nickname" v-model="nicknameDraft" class="field" maxlength="60" placeholder="显示名称" autocomplete="nickname" />
+            </div>
+            <div>
+              <label class="block text-[12.5px] text-ink2 mb-1.5" for="username">用户名</label>
+              <input id="username" v-model="usernameDraft" class="field" maxlength="60" placeholder="可选，用于登录" autocapitalize="off" spellcheck="false" autocomplete="username" />
+              <p v-if="usernameInvalid" class="mt-1 text-[11.5px] text-danger">用户名需 3-60 位小写字母、数字、下划线或短横线</p>
+              <p v-else class="mt-1 text-[11.5px] text-ink3">可用用户名或邮箱登录，留空则仅用邮箱。</p>
+            </div>
+            <button class="btn btn-sm btn-primary w-full" :disabled="profileSaving || !profileDirty || nicknameInvalid || usernameInvalid" @click="saveProfile">{{ profileSaving ? '保存中…' : '保存资料' }}</button>
+          </div>
+        </section>
+
+        <section class="card p-4 sm:p-5">
+          <div class="flex items-center gap-2.5 mb-2.5">
+            <span class="h-4 w-1 rounded-full accent-bar" />
+            <h2 class="font-semibold">账号安全</h2>
+          </div>
+          <p class="text-[12.5px] text-ink2 leading-relaxed">修改密码后，其他设备上的登录会自动失效。</p>
+          <div class="mt-4 flex flex-col gap-2.5">
+            <input v-model="pwCurrent" type="password" class="field" placeholder="当前密码" autocomplete="current-password" />
+            <input v-model="pwNext" type="password" class="field" placeholder="新密码（至少 6 位）" autocomplete="new-password" maxlength="72" />
+            <input v-model="pwConfirm" type="password" class="field" placeholder="确认新密码" autocomplete="new-password" maxlength="72" />
+            <p v-if="pwMismatch" class="text-[11.5px] text-danger">两次输入的新密码不一致</p>
+            <button class="btn btn-sm btn-primary w-full" :disabled="pwSaving || !pwReady" @click="savePassword">{{ pwSaving ? '更新中…' : '更新密码' }}</button>
+          </div>
+          <div class="mt-4 pt-4 border-t border-line">
+            <button class="btn btn-sm btn-ghost w-full" :disabled="revoking" @click="revokeOthers">{{ revoking ? '处理中…' : '退出其他设备' }}</button>
+            <p class="mt-2 text-[11.5px] text-ink3 leading-relaxed">清除除当前浏览器外的所有登录状态。</p>
+          </div>
+        </section>
+
         <section class="card p-4 sm:p-5">
           <div class="flex items-center gap-2.5 mb-2.5">
             <span class="h-4 w-1 rounded-full accent-bar" />
@@ -216,24 +406,7 @@ async function onLogout() {
             </div>
           </div>
           <p class="mt-3 min-h-[18px] text-[12px] leading-snug" :class="syncFailed ? 'text-danger' : 'text-ink3'">{{ syncText }}</p>
-        </section>
-
-        <section class="card p-4 sm:p-5 hidden sm:block">
-          <div class="flex items-center gap-2.5 mb-3">
-            <span class="h-4 w-1 rounded-full accent-bar" />
-            <h2 class="font-semibold">账号</h2>
-          </div>
-          <dl class="grid grid-cols-2 gap-2 text-[12.5px]">
-            <div class="rounded-xl border border-line bg-card2 px-3 py-2.5">
-              <dt class="text-ink3">云端网址</dt>
-              <dd class="mt-0.5 text-base font-semibold">{{ links.length }}</dd>
-            </div>
-            <div class="rounded-xl border border-line bg-card2 px-3 py-2.5">
-              <dt class="text-ink3">公开</dt>
-              <dd class="mt-0.5 text-base font-semibold">{{ publicCount }}</dd>
-            </div>
-          </dl>
-          <NuxtLink :to="`/u/${user?.slug}`" class="btn btn-sm w-full mt-3">查看个人主页</NuxtLink>
+          <NuxtLink :to="`/u/${user?.slug}`" class="btn btn-sm w-full mt-2">查看个人主页</NuxtLink>
         </section>
       </aside>
 
@@ -329,8 +502,7 @@ async function onLogout() {
 
           <div class="sticky bottom-0 z-10 -mx-4 sm:-mx-6 -mb-4 sm:-mb-6 mt-5 flex items-center gap-3 rounded-b-2xl border-t border-line bg-bg px-4 sm:px-6 py-3 backdrop-blur">
             <div class="min-w-0 flex-1">
-              <p v-if="msg" class="text-[12.5px] truncate" :class="msgKind === 'err' ? 'text-danger' : 'text-success'">{{ msg }}</p>
-              <p v-else-if="dirty" class="text-[12.5px] text-warning">有未保存的更改</p>
+              <p v-if="dirty" class="text-[12.5px] text-warning">有未保存的更改</p>
               <p v-else class="text-[12px] text-ink3 truncate">{{ links.length }} 条网址 · {{ publicCount }} 条公开</p>
             </div>
             <button class="btn btn-primary min-w-[88px] disabled:opacity-50 disabled:cursor-not-allowed" :disabled="saving || !dirty" @click="save">{{ saving ? '保存中…' : '保存' }}</button>
@@ -338,5 +510,12 @@ async function onLogout() {
         </template>
       </section>
     </div>
+
+    <div
+      v-if="msg"
+      class="fixed left-1/2 bottom-6 z-50 -translate-x-1/2 rounded-xl border border-line bg-bg px-4 py-2.5 text-[12.5px] shadow-soft"
+      :class="msgKind === 'err' ? 'text-danger' : 'text-ink'"
+      role="status"
+    >{{ msg }}</div>
   </div>
 </template>

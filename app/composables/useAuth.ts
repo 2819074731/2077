@@ -1,4 +1,4 @@
-interface AuthUser { id: number; email: string; username?: string | null; nickname: string; slug: string; is_admin?: number; links?: CloudLink[] }
+interface AuthUser { id: number; email: string; username?: string | null; nickname: string; avatar?: string | null; slug: string; is_admin?: number; links?: CloudLink[] }
 export interface CloudLink { id?: number; name: string; url: string; icon?: string; sort?: number; public?: boolean }
 
 export function useAuth() {
@@ -29,6 +29,20 @@ export function useAuth() {
     async logout() {
       try { await $fetch('/api/auth/logout', { method: 'POST' }) } catch {}
       user.value = null
+    },
+    async updateProfile(input: { nickname: string; username?: string; avatar?: string | null }) {
+      const d: any = await $fetch('/api/account/profile', { method: 'PUT', body: input })
+      if (user.value) user.value = { ...user.value, ...d.user }
+      return d.user as AuthUser
+    },
+    async changePassword(currentPassword: string, newPassword: string) {
+      return await $fetch('/api/account/password', {
+        method: 'PUT',
+        body: { currentPassword, newPassword }
+      })
+    },
+    async revokeOtherSessions() {
+      return await $fetch('/api/account/sessions', { method: 'DELETE' })
     },
     async saveCloudLinks(links: CloudLink[]) {
       const d: any = await $fetch('/api/links', { method: 'PUT', body: { links } })

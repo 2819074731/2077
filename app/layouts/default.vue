@@ -90,7 +90,7 @@ const isDark = computed(() => colorMode.value === 'dark')
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" /></svg>
         </NuxtLink>
         <NuxtLink v-else to="/settings" class="btn btn-sm !px-1.5" :title="user.nickname" aria-label="我的设置">
-          <span class="grid place-items-center w-6 h-6 rounded-full bg-ink text-bg text-[11px] font-semibold">{{ (user.nickname || 'U')[0].toUpperCase() }}</span>
+          <UserAvatar :src="user.avatar" :name="user.nickname" class="w-6 h-6 rounded-full text-[11px]" />
         </NuxtLink>
 
         <!-- 手机：抽屉菜单 -->

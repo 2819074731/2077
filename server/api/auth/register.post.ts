@@ -29,5 +29,5 @@ export default defineEventHandler(async (event) => {
     [email, username || null, nickname, slug, hashPassword(password), JSON.stringify({ groups: [], version: 0 })]
   )
   await createSession(event, r.insertId)
-  return { user: { id: r.insertId, email, username: username || null, nickname, slug, links: [] } }
+  return { user: { id: r.insertId, email, username: username || null, nickname, avatar: null, slug, links: [] } }
 })

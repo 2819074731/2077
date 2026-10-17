@@ -35,7 +35,7 @@ useHead({
     </div>
     <template v-else>
       <header class="flex items-center gap-4 mb-8 animate-fade-up">
-        <span class="grid place-items-center w-14 h-14 rounded-2xl bg-ink text-bg text-xl font-semibold shadow-soft">{{ (profile.nickname || 'U')[0].toUpperCase() }}</span>
+        <UserAvatar :src="profile.avatar" :name="profile.nickname" class="w-14 h-14 rounded-2xl text-xl shadow-soft" />
         <div>
           <h1 class="text-xl font-semibold">{{ profile.nickname }}</h1>
           <p class="text-[13px] text-ink2">my2077 用户 · {{ links.length }} 个云端网址</p>

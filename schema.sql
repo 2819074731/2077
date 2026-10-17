@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `email` VARCHAR(190) NOT NULL,
   `username` VARCHAR(60) NULL,
   `nickname` VARCHAR(60) NOT NULL DEFAULT '',
+  `avatar` MEDIUMTEXT NULL,
   `slug` VARCHAR(80) NOT NULL,
   `password_hash` VARCHAR(255) NOT NULL,
   `is_admin` TINYINT(1) NOT NULL DEFAULT 0,

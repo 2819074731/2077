@@ -50,12 +50,22 @@ export async function getSessionUser(event: H3Event) {
   if (!sid) return null
   const db = useDb()
   const [rows]: any = await db.query(
-    `SELECT u.id, u.email, u.username, u.nickname, u.slug, u.is_admin
+    `SELECT u.id, u.email, u.username, u.nickname, u.avatar, u.slug, u.is_admin
      FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.token = ? AND s.expires_at > NOW() LIMIT 1`,
     [sid]
   )
   return rows[0] || null
+}
+
+export async function revokeOtherSessions(event: H3Event, userId: number) {
+  const sid = getCookie(event, 'sid') || ''
+  const db = useDb()
+  const [r]: any = await db.execute(
+    'DELETE FROM sessions WHERE user_id = ? AND token <> ?',
+    [userId, sid]
+  )
+  return Number(r?.affectedRows || 0)
 }
 
 export async function requireAdmin(event: H3Event) {
