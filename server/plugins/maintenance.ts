@@ -1,5 +1,6 @@
 import { getSetting } from '../utils/settings'
 import { isMaintenanceRunning, runDirectoryMaintenance } from '../utils/directoryMaintenance'
+import { getSiteSettings } from '../utils/siteSettings'
 
 export default defineNitroPlugin(() => {
   if (!import.meta.server) return
@@ -11,7 +12,10 @@ export default defineNitroPlugin(() => {
       const today = new Date().toDateString()
       const lastDay = last?.at ? new Date(String(last.at)).toDateString() : ''
       if (lastDay === today) return
-      if (new Date().getHours() < 4) return
+      const { maintenanceSchedule } = await getSiteSettings()
+      const [hour, minute] = maintenanceSchedule.split(':').map(Number)
+      const now = new Date()
+      if (now.getHours() * 60 + now.getMinutes() < hour * 60 + minute) return
       await runDirectoryMaintenance()
     } catch (error: any) {
       if (Number(error?.statusCode) !== 409) console.warn('[maintenance] 自动巡检失败', error?.message || error)

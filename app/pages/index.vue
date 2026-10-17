@@ -6,6 +6,8 @@ const { groups, diy, syncMsg, loadLocal, applySite, addGroup, resetAll, activeCa
 const { categories, loadCategories } = useCategories()
 const { user, refresh } = useAuth()
 const { isMobile } = useDevice()
+const { settings, loadSiteSettings } = useSiteSettings()
+await loadSiteSettings()
 
 onMounted(async () => {
   loadLocal()
@@ -20,15 +22,16 @@ applySite(siteData.value, { groups: true })
 await loadCategories()
 
 useSeoMeta({
-  title: '2077 导航 · 可自定义的浏览器起始页',
-  description: '2077 导航：可自定义的浏览器起始页，聚合常用站点，支持离线使用与云端同步。',
-  ogTitle: '2077 导航',
-  ogDescription: '可自定义的浏览器起始页，聚合常用站点导航。',
+  title: () => `${settings.value.siteName} · ${settings.value.siteTagline}`,
+  description: () => settings.value.siteDescription,
+  keywords: () => settings.value.siteKeywords,
+  ogTitle: () => settings.value.siteName,
+  ogDescription: () => settings.value.siteTagline,
   ogType: 'website',
   ogUrl: siteUrl + '/'
 })
 
-useHead({
+useHead(() => ({
   link: [{ rel: 'canonical', href: siteUrl + '/' }],
   script: [{
     type: 'application/ld+json',
@@ -38,11 +41,11 @@ useHead({
         {
           '@type': 'WebSite',
           '@id': siteUrl + '/#website',
-          name: '2077 导航',
-          alternateName: 'my2077',
+          name: settings.value.siteName,
+          alternateName: settings.value.siteShortName,
           url: siteUrl + '/',
           inLanguage: 'zh-CN',
-          description: '可自定义的浏览器起始页，聚合常用站点，并提供独立的分类网站目录。',
+          description: settings.value.siteDescription,
           publisher: { '@id': siteUrl + '/#organization' },
           potentialAction: {
             '@type': 'SearchAction',
@@ -53,14 +56,14 @@ useHead({
         {
           '@type': 'Organization',
           '@id': siteUrl + '/#organization',
-          name: '2077 导航',
+          name: settings.value.siteName,
           url: siteUrl + '/',
-          description: '2077 导航是中文网址导航与网站目录，提供首页导航与分类目录两种收录方式。'
+          description: settings.value.siteTagline
         }
       ]
     })
   }]
-})
+}))
 
 const totalLinks = computed(() => groups.value.reduce((n, g) => n + g.links.length, 0))
 const shownGroups = computed(() => {
@@ -89,7 +92,7 @@ function openDrawer() { drawerOpen.value = true }
   <div class="max-w-wrap mx-auto px-4">
     <section class="pb-8 flex flex-col items-center text-center gap-4" :class="isMobile ? 'pt-12' : 'pt-16'">
       <h1 class="font-extrabold tracking-tight leading-[1.1]" :class="isMobile ? 'text-[30px]' : 'text-[40px]'">
-        2077 导航
+        {{ settings.siteName }}
       </h1>
       <div class="w-full max-w-[680px]">
         <SearchBar />

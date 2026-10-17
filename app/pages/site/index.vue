@@ -7,7 +7,9 @@ const route = useRoute()
 const router = useRouter()
 const siteUrl = useRuntimeConfig().public.siteUrl
 
-const PAGE_SIZE = 20
+const { settings, loadSiteSettings } = useSiteSettings()
+await loadSiteSettings()
+const PAGE_SIZE = settings.value.directoryPageSize
 const category = computed(() => String(route.query.category || ''))
 const q = computed(() => String(route.query.q || ''))
 const province = computed(() => String(route.query.province || ''))
@@ -81,19 +83,19 @@ const canonicalUrl = computed(() => {
 
 const seoTitle = computed(() => {
   const c = category.value
-  if (province.value) return `${provinceLabel(province.value)}高校名单 · 院校网址导航 | 2077 导航`
-  return c ? `${c}网站目录 · 2077 导航` : '网站目录 · 精选站点收录 | 2077 导航'
+  if (province.value) return `${provinceLabel(province.value)}高校名单 · 院校网址导航 | ${settings.value.siteName}`
+  return c ? `${c}网站目录 · ${settings.value.siteName}` : `网站目录 · 精选站点收录 | ${settings.value.siteName}`
 })
 const intro = computed(() => {
   if (province.value) return `汇总${provinceLabel(province.value)}的普通高校、职业院校与成人高校官网入口，按办学层次与类型整理，方便查询与访问。`
-  return category.value ? categoryIntro(category.value) : ''
+  return category.value ? categoryIntro(category.value, settings.value.siteName) : ''
 })
 const seoDesc = computed(() => {
   const c = category.value
   if (province.value) return `${provinceLabel(province.value)}高校名单与官网入口，当前收录 ${total.value} 所院校，可按办学层次与类型筛选。`
   return c
-    ? `${categoryIntro(c)} 当前收录 ${total.value} 个站点。`
-    : `2077 导航网站目录，按分类浏览已收录网站，提供站点简介、官网入口与分类筛选，共 ${all.value} 个站点。`
+    ? `${categoryIntro(c, settings.value.siteName)} 当前收录 ${total.value} 个站点。`
+    : `${settings.value.siteName}网站目录，按分类浏览已收录网站，提供站点简介、官网入口与分类筛选，共 ${all.value} 个站点。`
 })
 
 useSeoMeta({
@@ -282,7 +284,7 @@ function resetAll() {
               <span class="chip !text-[10px]">{{ it.category }}</span>
             </div>
             <p class="text-[12.5px] sm:text-[13px] text-ink2 leading-relaxed line-clamp-2 mt-1">
-              {{ it.description || `收录于 2077 导航「${it.category}」分类。` }}
+              {{ it.description || `收录于${settings.value.siteName}「${it.category}」分类。` }}
             </p>
             <div class="flex items-center gap-1.5 mt-1.5 text-[11.5px] text-ink3 min-w-0">
               <span class="truncate">{{ hostOf(it.url) }}</span>

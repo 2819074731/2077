@@ -1,6 +1,9 @@
 <script setup lang="ts">
+const { settings, loadSiteSettings } = useSiteSettings()
+await loadSiteSettings()
+
 useSeoMeta({
-  title: '离线 · 2077 导航',
+  title: () => `离线 · ${settings.value.siteName}`,
   description: '当前网络不可用。',
   robots: 'noindex'
 })

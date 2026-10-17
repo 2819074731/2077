@@ -2,6 +2,8 @@
 import { computed } from 'vue'
 
 const siteUrl = useRuntimeConfig().public.siteUrl
+const { settings, loadSiteSettings } = useSiteSettings()
+await loadSiteSettings()
 
 const [{ data: dir }, { data: nav }] = await Promise.all([
   useFetch('/api/directory/all', { key: 'sitemap-directory' }),
@@ -22,8 +24,8 @@ const grouped = computed(() => {
   return Array.from(map.entries()).map(([category, list]) => ({ category, items: list }))
 })
 
-const title = '站点地图 · 2077 导航'
-const description = `2077 导航的完整站点地图：首页导航分类、分类目录站点与主要页面入口，共 ${items.value.length} 个目录站点。`
+const title = `站点地图 · ${settings.value.siteName}`
+const description = `${settings.value.siteName}的完整站点地图：首页导航分类、分类目录站点与主要页面入口，共 ${items.value.length} 个目录站点。`
 
 useSeoMeta({
   title,
@@ -78,7 +80,7 @@ useHead(() => ({
     <header class="mb-7">
       <h1 class="text-[26px] sm:text-[32px] font-extrabold tracking-tight">站点地图</h1>
       <p class="text-ink2 text-[13px] mt-2 max-w-[760px] leading-relaxed">
-        这里汇总了 2077 导航的主要页面、首页导航分类与分类目录下的全部站点，方便访客与搜索引擎快速遍历全站内容。
+        这里汇总了{{ settings.siteName }}的主要页面、首页导航分类与分类目录下的全部站点，方便访客与搜索引擎快速遍历全站内容。
       </p>
       <p class="text-[12px] text-ink3 mt-2">目录站点 {{ items.length }} 个 · {{ categories.length }} 个分类 · 首页导航 {{ groups.length }} 个分组</p>
     </header>
@@ -143,7 +145,7 @@ useHead(() => ({
 
     <section class="card p-5 sm:p-6 text-[12.5px] text-ink2 leading-relaxed">
       <h2 class="text-[16px] font-semibold text-ink mb-2">关于收录</h2>
-      2077 导航提供首页导航与分类目录两种收录方式。首页导航审核标准较高，分类目录按主题长期收录站点。
+      {{ settings.siteName }}提供首页导航与分类目录两种收录方式。首页导航审核标准较高，分类目录按主题长期收录站点。
     </section>
   </div>
 </template>

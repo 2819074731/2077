@@ -20,6 +20,9 @@ interface StatusResponse {
 
 const route = useRoute()
 const token = computed(() => String(route.query.token || '').trim())
+const { settings, loadSiteSettings } = useSiteSettings()
+await loadSiteSettings()
+
 const { data, error, pending, refresh } = await useFetch<StatusResponse>(
   () => token.value ? `/api/submit/status?token=${encodeURIComponent(token.value)}` : '/api/submit/status',
   { watch: [token] }
@@ -35,7 +38,7 @@ const errorMessage = computed(() => {
 })
 
 useSeoMeta({
-  title: '提交状态 · 2077 导航',
+  title: () => `提交状态 · ${settings.value.siteName}`,
   description: '查询网站收录申请的审核进度。',
   robots: 'noindex,nofollow'
 })
@@ -57,7 +60,7 @@ function statusClass(status?: string | null) {
 function statusNote(status?: string | null) {
   if (status === 'approved') return '该站点已通过审核，可以前往分类目录查看站点详情。'
   if (status === 'rejected') return '本次申请未通过审核，可以补充更完整的信息后再次提交。'
-  return '申请已提交，通常会在 1-3 个工作日内完成审核，审核期间请勿重复提交。'
+  return `申请已提交，通常会在 ${settings.value.submitReviewDays} 个工作日内完成审核，审核期间请勿重复提交。`
 }
 
 function formatDate(value?: string | null) {

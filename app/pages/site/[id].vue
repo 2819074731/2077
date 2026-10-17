@@ -5,6 +5,8 @@ import { useNav } from '~/composables/useNav'
 const route = useRoute()
 const siteUrl = useRuntimeConfig().public.siteUrl
 const { recordClick } = useNav()
+const { settings, loadSiteSettings } = useSiteSettings()
+await loadSiteSettings()
 const id = computed(() => String(route.params.id || '').replace(/\.html?$/i, ''))
 
 const { data, error } = await useAsyncData(
@@ -43,9 +45,9 @@ const host = computed(() => {
   try { return new URL(item.value.url).hostname } catch { return item.value.url }
 })
 const pageUrl = computed(() => `${siteUrl}/site/${item.value.id}.html`)
-const pageTitle = computed(() => item.value.title || `${item.value.name} - ${item.value.category}网站推荐 | 2077 导航`)
+const pageTitle = computed(() => item.value.title || `${item.value.name} - ${item.value.category}网站推荐 | ${settings.value.siteName}`)
 const pageDesc = computed(() =>
-  item.value.description || `${item.value.name}${item.value.province ? `位于${item.value.province}${item.value.school_level ? `，是一所${item.value.school_type || ''}${item.value.school_level}高校` : ''}` : ''}（${host.value}）收录在 2077 导航「${item.value.category}」分类，提供官网入口、院校信息与同类站点推荐。`
+  item.value.description || `${item.value.name}${item.value.province ? `位于${item.value.province}${item.value.school_level ? `，是一所${item.value.school_type || ''}${item.value.school_level}高校` : ''}` : ''}（${host.value}）收录在${settings.value.siteName}「${item.value.category}」分类，提供官网入口、院校信息与同类站点推荐。`
 )
 const paragraphs = computed<string[]>(() => {
   const text = String(item.value.content || '').trim()
@@ -58,7 +60,7 @@ const paragraphs = computed<string[]>(() => {
 const faqs = computed(() => [
   {
     q: `${item.value.name} 是什么网站？`,
-    a: item.value.description || `${item.value.name} 是收录在 2077 导航「${item.value.category}」分类下的站点。`
+    a: item.value.description || `${item.value.name} 是收录在${settings.value.siteName}「${item.value.category}」分类下的站点。`
   },
   {
     q: `${item.value.name} 的官网地址是什么？`,
@@ -70,7 +72,7 @@ const faqs = computed(() => [
   },
   {
     q: '如何提交类似网站？',
-    a: '可通过 2077 导航的提交收录页面推荐网站，首页导航审核标准较高，分类目录长期开放收录。'
+    a: `可通过${settings.value.siteName}的提交收录页面推荐网站，首页导航审核标准较高，分类目录长期开放收录。`
   }
 ])
 const created = computed(() => {

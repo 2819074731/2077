@@ -28,6 +28,16 @@ test('公开配置接口返回分组', async () => {
   assert.ok(Array.isArray(data.groups))
 })
 
+test('站点设置接口可用', async () => {
+  const res = await get('/api/site/settings')
+  assert.equal(res.status, 200)
+  const data = await res.json()
+  assert.equal(typeof data.siteName, 'string')
+  assert.ok(data.siteName.length > 0)
+  assert.ok(['nav', 'directory'].includes(data.submitDefaultTarget))
+  assert.equal(typeof data.directoryPageSize, 'number')
+})
+
 test('分类接口可用', async () => {
   const res = await get('/api/categories')
   assert.equal(res.status, 200)

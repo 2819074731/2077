@@ -7,6 +7,7 @@ const { groups, activeCat, selectCat } = useNav()
 const { categories, loadCategories } = useCategories()
 const { user } = useAuth()
 const { isMobile } = useDevice()
+const { settings } = useSiteSettings()
 
 onMounted(() => loadCategories())
 const totalLinks = computed(() => groups.value.reduce((n, g) => n + g.links.length, 0))
@@ -50,8 +51,8 @@ onBeforeUnmount(() => lockBody(false))
     <aside class="absolute inset-y-0 right-0 w-[86%] max-w-[340px] bg-bg border-l border-line flex flex-col animate-fade-up" @touchmove.stop>
       <div class="h-14 flex items-center gap-2 px-4 border-b border-line shrink-0">
         <NuxtLink to="/" class="flex items-center gap-2 min-w-0" aria-label="返回首页" @click="goHome">
-          <span class="grid place-items-center w-8 h-8 rounded-xl bg-ink text-bg text-[11px] font-mono font-bold">2077</span>
-          <span class="font-semibold text-[14px] truncate">2077 导航</span>
+          <span class="grid place-items-center w-8 h-8 rounded-xl bg-ink text-bg text-[11px] font-mono font-bold">{{ settings.siteShortName }}</span>
+          <span class="font-semibold text-[14px] truncate">{{ settings.siteName }}</span>
         </NuxtLink>
         <div class="flex-1" />
         <button class="grid place-items-center w-8 h-8 rounded-lg text-ink2 hover:bg-card2" aria-label="关闭" @click="open = false">

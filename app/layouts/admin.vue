@@ -4,6 +4,8 @@ import { ref, computed, onMounted } from 'vue'
 const { user, restore } = useAuth()
 const route = useRoute()
 const menuOpen = ref(false)
+const { settings, loadSiteSettings } = useSiteSettings()
+await loadSiteSettings()
 
 onMounted(async () => {
   await restore()
@@ -38,6 +40,12 @@ const menus = [
     items: [
       { to: '/admin/stats', label: '流量与蜘蛛', icon: 'M3 3v18h18M7 15l3-3 3 3 5-6' }
     ]
+  },
+  {
+    label: '系统设置',
+    items: [
+      { to: '/admin/settings', label: '网站设置', icon: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm7.4-3a7.4 7.4 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7.4 7.4 0 0 0-2-1.2L14.5 3h-5l-.4 2.6a7.4 7.4 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7.4 7.4 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7.4 7.4 0 0 0 2 1.2l.4 2.6h5l.4-2.6a7.4 7.4 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2Z' }
+    ]
   }
 ]
 
@@ -61,7 +69,7 @@ function isActive(i: any) {
       :class="menuOpen ? 'translate-x-0' : '-translate-x-full'"
     >
       <div class="h-14 flex items-center gap-2 px-4 border-b border-line shrink-0">
-        <span class="grid place-items-center w-8 h-8 rounded-xl bg-ink text-bg text-[10px] font-mono font-bold">2077</span>
+        <span class="grid place-items-center w-8 h-8 rounded-xl bg-ink text-bg text-[10px] font-mono font-bold">{{ settings.siteShortName }}</span>
         <span class="font-semibold text-[14px]">管理后台</span>
         <button class="lg:hidden ml-auto grid place-items-center w-9 h-9 rounded-lg text-ink2 hover:bg-card2" aria-label="关闭菜单" @click="menuOpen = false">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12" /></svg>

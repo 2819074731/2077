@@ -7,6 +7,8 @@ const { diy, toggleDiy, loadLocal, syncMsg, selectCat } = useNav()
 const { loadCategories } = useCategories()
 const { isMobile, initServer, initClient } = useDevice()
 const wp = useWallpaper()
+const { settings, loadSiteSettings } = useSiteSettings()
+await loadSiteSettings()
 
 const drawerOpen = useState<boolean>('nav-drawer-open', () => false)
 const wpSettingsOpen = useState<boolean>('wp-settings-open', () => false)
@@ -45,9 +47,9 @@ function goHome() {
 
     <header class="sticky top-0 z-30 border-b border-line bg-header backdrop-blur-xl">
       <div class="max-w-wrap mx-auto px-4 h-14 flex items-center gap-1.5 sm:gap-2">
-        <NuxtLink to="/" class="flex items-center gap-2 font-semibold shrink-0" aria-label="2077 导航" @click="goHome">
-          <span class="grid place-items-center w-8 h-8 rounded-xl bg-ink text-bg text-[11px] font-mono font-bold tracking-tight">2077</span>
-          <span v-if="!isMobile" class="text-[15px] tracking-tight">2077 导航</span>
+        <NuxtLink to="/" class="flex items-center gap-2 font-semibold shrink-0" :aria-label="settings.siteName" @click="goHome">
+          <span class="grid place-items-center w-8 h-8 rounded-xl bg-ink text-bg text-[11px] font-mono font-bold tracking-tight">{{ settings.siteShortName }}</span>
+          <span v-if="!isMobile" class="text-[15px] tracking-tight">{{ settings.siteName }}</span>
         </NuxtLink>
 
         <span v-if="syncMsg && !isMobile" class="text-[12px] text-ink2 ml-1.5">{{ syncMsg }}</span>
@@ -126,13 +128,21 @@ function goHome() {
           >{{ f.name }}</a>
         </div>
         <div class="flex items-center gap-3 flex-wrap">
-          <span class="font-medium text-ink">2077 导航</span>
+          <span class="font-medium text-ink">{{ settings.siteName }}</span>
           <span class="opacity-40">·</span>
           <NuxtLink to="/site" class="hover:text-ink">分类目录</NuxtLink>
           <span class="opacity-40">·</span>
           <NuxtLink to="/sitemap" class="hover:text-ink">站点地图</NuxtLink>
           <span class="opacity-40">·</span>
           <NuxtLink to="/submit" class="hover:text-ink">提交收录</NuxtLink>
+          <template v-if="settings.icpNumber">
+            <span class="opacity-40">·</span>
+            <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener nofollow" class="hover:text-ink">{{ settings.icpNumber }}</a>
+          </template>
+          <template v-if="settings.contactEmail">
+            <span class="opacity-40">·</span>
+            <a :href="`mailto:${settings.contactEmail}`" class="hover:text-ink">联系</a>
+          </template>
         </div>
       </div>
     </footer>

@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 const { login } = useAuth()
+const { settings, loadSiteSettings } = useSiteSettings()
+await loadSiteSettings()
 const route = useRoute()
 const email = ref('')
 const password = ref('')
 const err = ref('')
 const loading = ref(false)
-useSeoMeta({ title: '登录 · 2077 导航', robots: 'noindex' })
+useSeoMeta({ title: () => `登录 · ${settings.value.siteName}`, robots: 'noindex' })
 
 async function submit() {
   err.value = ''
@@ -27,8 +29,8 @@ async function submit() {
   <div class="max-w-wrap mx-auto px-4 py-16 flex justify-center">
     <form class="card w-full max-w-[380px] p-7 flex flex-col gap-3.5 animate-fade-up" @submit.prevent="submit">
       <div class="flex flex-col items-center gap-2 mb-1">
-        <span class="grid place-items-center w-10 h-10 rounded-2xl bg-ink text-bg font-mono text-[11px] shadow-soft">2077</span>
-        <h1 class="text-lg font-semibold">登录 2077</h1>
+        <span class="grid place-items-center w-10 h-10 rounded-2xl bg-ink text-bg font-mono text-[11px] shadow-soft">{{ settings.siteShortName }}</span>
+        <h1 class="text-lg font-semibold">登录 {{ settings.siteName }}</h1>
         <p class="text-ink2 text-[13px] -mt-1">同步你的导航配置与云端网址。</p>
       </div>
       <input v-model="email" class="field" type="text" placeholder="邮箱或用户名" autocomplete="username" required />

@@ -2,9 +2,8 @@ import { safeFetch } from './safeUrl'
 import { fetchSiteMeta } from './site'
 import { getSetting, setSetting } from './settings'
 import { notifyAdmin } from './notify'
+import { getSiteSettings } from './siteSettings'
 
-const LINK_TTL_DAYS = 7
-const TDK_TTL_DAYS = 7
 const LINK_CONCURRENCY = 4
 const TDK_CONCURRENCY = 3
 const BROKEN_FILTER = "status = 'published' AND http_status IS NOT NULL AND http_status >= 400 AND http_status NOT IN (401, 403, 412, 429)"
@@ -28,11 +27,12 @@ export async function checkLinksBatch(limit = 20): Promise<{
   remaining: number
 }> {
   const db = useDb()
+  const { linkTtlDays } = await getSiteSettings()
   const size = Math.min(40, Math.max(1, limit))
   const [rows]: any = await db.query(
     `SELECT id, name, url FROM directory_entries
      WHERE status = 'published'
-       AND (checked_at IS NULL OR checked_at < DATE_SUB(NOW(), INTERVAL ${LINK_TTL_DAYS} DAY))
+       AND (checked_at IS NULL OR checked_at < DATE_SUB(NOW(), INTERVAL ${linkTtlDays} DAY))
      ORDER BY checked_at IS NULL DESC, checked_at ASC, id ASC LIMIT ${size}`
   )
 
@@ -64,7 +64,7 @@ export async function checkLinksBatch(limit = 20): Promise<{
   const [[remain]]: any = await db.query(
     `SELECT COUNT(*) AS n FROM directory_entries
      WHERE status = 'published'
-       AND (checked_at IS NULL OR checked_at < DATE_SUB(NOW(), INTERVAL ${LINK_TTL_DAYS} DAY))`
+       AND (checked_at IS NULL OR checked_at < DATE_SUB(NOW(), INTERVAL ${linkTtlDays} DAY))`
   )
   return {
     checked: rows.length,
@@ -93,6 +93,7 @@ export async function fillTdkBatch(limit = 6, options: { category?: string } = {
   remaining: number
 }> {
   const db = useDb()
+  const { tdkTtlDays } = await getSiteSettings()
   const size = Math.min(50, Math.max(1, limit))
   const category = String(options.category || '').trim()
   const scope = category ? 'AND category = ?' : ''
@@ -101,7 +102,7 @@ export async function fillTdkBatch(limit = 6, options: { category?: string } = {
     `SELECT id, name, url, title, description, keywords, icon
      FROM directory_entries
      WHERE status = 'published'
-       AND (tdk_checked_at IS NULL OR tdk_checked_at < DATE_SUB(NOW(), INTERVAL ${TDK_TTL_DAYS} DAY))
+       AND (tdk_checked_at IS NULL OR tdk_checked_at < DATE_SUB(NOW(), INTERVAL ${tdkTtlDays} DAY))
        AND (COALESCE(title, '') = '' OR COALESCE(description, '') = '' OR COALESCE(keywords, '') = '')
        ${scope}
      ORDER BY (COALESCE(description, '') = '') DESC, id ASC
@@ -139,7 +140,7 @@ export async function fillTdkBatch(limit = 6, options: { category?: string } = {
   const [[remain]]: any = await db.query(
     `SELECT COUNT(*) AS n FROM directory_entries
      WHERE status = 'published'
-       AND (tdk_checked_at IS NULL OR tdk_checked_at < DATE_SUB(NOW(), INTERVAL ${TDK_TTL_DAYS} DAY))
+       AND (tdk_checked_at IS NULL OR tdk_checked_at < DATE_SUB(NOW(), INTERVAL ${tdkTtlDays} DAY))
        AND (COALESCE(title, '') = '' OR COALESCE(description, '') = '' OR COALESCE(keywords, '') = '')
        ${scope}`,
     params
@@ -159,19 +160,20 @@ export async function fillTdkBatch(limit = 6, options: { category?: string } = {
 
 export async function getMaintenanceStatus(): Promise<any> {
   const db = useDb()
+  const { linkTtlDays, tdkTtlDays, maintenanceSchedule } = await getSiteSettings()
   const last = await getSetting<any>('directory_maintenance_last', null)
   const [[row]]: any = await db.query(
     `SELECT
        COUNT(*) AS total,
-       SUM(checked_at IS NULL OR checked_at < DATE_SUB(NOW(), INTERVAL ${LINK_TTL_DAYS} DAY)) AS due_links,
+       SUM(checked_at IS NULL OR checked_at < DATE_SUB(NOW(), INTERVAL ${linkTtlDays} DAY)) AS due_links,
        SUM(http_status IS NOT NULL AND http_status >= 400 AND http_status NOT IN (401, 403, 412, 429)) AS broken,
        SUM(COALESCE(title, '') = '' OR COALESCE(description, '') = '' OR COALESCE(keywords, '') = '') AS missing,
        SUM((COALESCE(title, '') = '' OR COALESCE(description, '') = '' OR COALESCE(keywords, '') = '')
-         AND (tdk_checked_at IS NULL OR tdk_checked_at < DATE_SUB(NOW(), INTERVAL ${TDK_TTL_DAYS} DAY))) AS due_tdk
+         AND (tdk_checked_at IS NULL OR tdk_checked_at < DATE_SUB(NOW(), INTERVAL ${tdkTtlDays} DAY))) AS due_tdk
      FROM directory_entries WHERE status = 'published'`
   )
   return {
-    schedule: '04:10',
+    schedule: maintenanceSchedule,
     last: last || null,
     total: Number(row?.total || 0),
     dueLinks: Number(row?.due_links || 0),

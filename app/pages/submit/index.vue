@@ -1,20 +1,26 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { suggestGroupName } from '#shared/classify'
+import { preferredSubmitTarget, submitTargetEnabled } from '#shared/siteSettings'
 
 const siteUrl = useRuntimeConfig().public.siteUrl
 const canonicalUrl = `${siteUrl}/submit`
 const { data: categoryData } = await useFetch('/api/categories')
 const siteCategories = computed<string[]>(() => (categoryData.value as any)?.categories || [])
+const { settings, loadSiteSettings } = useSiteSettings()
+await loadSiteSettings()
 
-const faqs = [
+const defaultTarget = preferredSubmitTarget(settings.value)
+const reviewText = computed(() => `通常 ${settings.value.submitReviewDays} 个工作日内完成审核`)
+
+const faqs = computed(() => [
   {
     q: '提交后多久能审核完成？',
-    a: '通常 1-3 个工作日完成审核。收录结果以站内状态为准，审核期间无需重复提交。'
+    a: `${reviewText.value}。收录结果以站内状态为准，审核期间无需重复提交。`
   },
   {
     q: '收录网站需要付费吗？',
-    a: '不需要。2077 导航的首页导航与分类目录均为免费收录，不收取任何费用。'
+    a: `不需要。${settings.value.siteName}的首页导航与分类目录均为免费收录，不收取任何费用。`
   },
   {
     q: '哪些网站更容易通过审核？',
@@ -28,14 +34,14 @@ const faqs = [
     q: '提示网站已提交过怎么办？',
     a: '说明该网址已在审核队列或已经收录，请勿重复提交。如需更新信息，可在原提交审核完成后再补充。'
   }
-]
+])
 
 useSeoMeta({
-  title: '提交网站收录 · 免费网址提交 | 2077 导航',
-  description: '免费提交网站到 2077 导航，可选择首页精选导航或分类网站目录。支持一键抓取标题、描述、关键词与图标，人工审核后收录。',
-  keywords: '提交网站,网址提交,网站收录,免费收录,网址导航,分类目录,2077 导航',
-  ogTitle: '提交网站收录 · 2077 导航',
-  ogDescription: '免费提交网站到 2077 导航，支持首页精选导航与分类网站目录，人工审核后收录。',
+  title: () => `提交网站收录 · 免费网址提交 | ${settings.value.siteName}`,
+  description: () => `免费提交网站到${settings.value.siteName}，可选择首页精选导航或分类网站目录。支持一键抓取标题、描述、关键词与图标，人工审核后收录。`,
+  keywords: () => `提交网站,网址提交,网站收录,免费收录,网址导航,分类目录,${settings.value.siteName}`,
+  ogTitle: () => `提交网站收录 · ${settings.value.siteName}`,
+  ogDescription: () => `免费提交网站到${settings.value.siteName}，支持首页精选导航与分类网站目录，人工审核后收录。`,
   ogType: 'website',
   ogUrl: canonicalUrl,
   twitterCard: 'summary'
@@ -52,8 +58,8 @@ useHead(() => ({
           '@type': 'WebPage',
           '@id': `${canonicalUrl}#webpage`,
           url: canonicalUrl,
-          name: '提交网站收录 · 2077 导航',
-          description: '免费提交网站到 2077 导航，支持首页精选导航与分类网站目录。',
+          name: `提交网站收录 · ${settings.value.siteName}`,
+          description: `免费提交网站到${settings.value.siteName}，支持首页精选导航与分类网站目录。`,
           inLanguage: 'zh-CN',
           isPartOf: { '@id': `${siteUrl}/#website` }
         },
@@ -67,7 +73,7 @@ useHead(() => ({
         },
         {
           '@type': 'FAQPage',
-          mainEntity: faqs.map(f => ({
+          mainEntity: faqs.value.map(f => ({
             '@type': 'Question',
             name: f.q,
             acceptedAnswer: { '@type': 'Answer', text: f.a }
@@ -80,7 +86,7 @@ useHead(() => ({
 
 const form = ref({
   url: '', name: '', title: '', description: '', keywords: '', icon: '', group: '',
-  target: 'nav', _trap: ''
+  target: defaultTarget, _trap: ''
 })
 const loading = ref(false)
 const fetching = ref(false)
@@ -101,6 +107,7 @@ const checkHint = computed(() => {
 })
 
 function chooseTarget(target: 'nav' | 'directory') {
+  if (!submitTargetEnabled(settings.value, target)) return
   form.value.target = target
 }
 
@@ -178,7 +185,7 @@ function onUrlBlur() {
 }
 
 function resetForm() {
-  form.value = { url: '', name: '', title: '', description: '', keywords: '', icon: '', group: '', target: 'nav', _trap: '' }
+  form.value = { url: '', name: '', title: '', description: '', keywords: '', icon: '', group: '', target: preferredSubmitTarget(settings.value), _trap: '' }
   err.value = ''
   ok.value = false
   submitted.value = null
@@ -225,7 +232,7 @@ async function submit() {
         </span>
         <h1 class="mt-3 text-[26px] sm:text-[32px] leading-tight font-bold tracking-tight">提交网站收录</h1>
         <p class="mt-2.5 text-[14px] sm:text-[14.5px] leading-7 text-ink2">
-          推荐你的网站加入 2077 导航。可选择首页精选导航或
+          推荐你的网站加入 {{ settings.siteName }}。可选择首页精选导航或
           <NuxtLink to="/site" class="font-medium text-ink underline decoration-line2 underline-offset-4 hover:decoration-ink">分类网站目录</NuxtLink>，
           审核通过后即可被用户访问和搜索。
         </p>
@@ -239,7 +246,7 @@ async function submit() {
         <h2 class="font-semibold text-xl">提交成功</h2>
         <p v-if="submitted?.id" class="text-[12.5px] text-ink3 mt-1.5">提交编号 #{{ submitted.id }}</p>
         <p class="text-ink2 text-[13.5px] leading-6 mt-2 max-w-[420px] mx-auto">
-          我们已收到你的收录申请，通常会在 1-3 个工作日内完成审核。审核期间请勿重复提交。
+          我们已收到你的收录申请，{{ reviewText }}。审核期间请勿重复提交。
         </p>
         <div class="flex flex-wrap justify-center gap-2 mt-6">
           <NuxtLink v-if="submitted?.token" :to="`/submit/status?token=${submitted.token}`" class="btn btn-primary">查看提交状态</NuxtLink>
@@ -312,8 +319,9 @@ async function submit() {
             <span class="grid place-items-center w-6 h-6 rounded-lg bg-ink text-bg text-[12px] font-semibold">2</span>
             <h2 class="font-semibold text-[15px]">选择收录方式</h2>
           </div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div class="grid grid-cols-1 gap-2.5" :class="settings.submitAllowNav && settings.submitAllowDirectory ? 'sm:grid-cols-2' : ''">
             <button
+              v-if="settings.submitAllowNav"
               type="button"
               class="rounded-xl border p-3.5 text-left transition-colors"
               :class="form.target === 'nav' ? 'border-ink bg-accentsoft' : 'border-line bg-card hover:border-line2'"
@@ -329,6 +337,7 @@ async function submit() {
               <span class="block text-[12.5px] leading-5 text-ink2 mt-1.5">进入首页精选分组，审核标准较高，只展示优质站点。</span>
             </button>
             <button
+              v-if="settings.submitAllowDirectory"
               type="button"
               class="rounded-xl border p-3.5 text-left transition-colors"
               :class="form.target === 'directory' ? 'border-ink bg-accentsoft' : 'border-line bg-card hover:border-line2'"
@@ -381,7 +390,7 @@ async function submit() {
         <div class="rounded-xl border border-line bg-card2 p-3.5 flex items-start gap-2.5">
           <svg class="shrink-0 mt-0.5" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" /><path d="m9 12 2 2 4-4" /></svg>
           <p class="text-[12.5px] leading-6 text-ink2">
-            提交内容会经过格式过滤与人工审核。请勿提交恶意跳转、弹窗广告、侵权或违法违规内容，否则将被拒绝收录。
+            {{ settings.submitNotice }}
           </p>
         </div>
 
@@ -397,7 +406,7 @@ async function submit() {
         <div class="grid sm:grid-cols-2 gap-4 sm:gap-5 mt-4">
           <div>
             <h3 class="text-[13.5px] font-medium">审核时间</h3>
-            <p class="text-[13px] leading-6 text-ink2 mt-1">通常 1-3 个工作日完成审核，无需重复提交。</p>
+            <p class="text-[13px] leading-6 text-ink2 mt-1">{{ reviewText }}，无需重复提交。</p>
           </div>
           <div>
             <h3 class="text-[13.5px] font-medium">收录标准</h3>

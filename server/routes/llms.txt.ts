@@ -1,8 +1,10 @@
 import { getSiteCategories } from '../utils/categories'
+import { getSiteSettings } from '../utils/siteSettings'
 
 export default defineEventHandler(async (event) => {
   const siteUrl = useRuntimeConfig().public.siteUrl
   const siteCategories = await getSiteCategories()
+  const settings = await getSiteSettings()
   const db = useDb()
   const [categories]: any = await db.query(
     `SELECT category, COUNT(*) AS n FROM directory_entries WHERE status = 'published'
@@ -13,9 +15,9 @@ export default defineEventHandler(async (event) => {
   )
 
   const lines = [
-    '# 2077 导航',
+    `# ${settings.siteName}`,
     '',
-    '> 2077 导航是中文网址导航与网站目录，提供可自定义的浏览器起始页、首页精选导航和带独立详情页的分类目录。',
+    `> ${settings.siteDescription}`,
     '',
     '## 主要页面',
     '',
@@ -28,7 +30,7 @@ export default defineEventHandler(async (event) => {
     '',
     '- 首页导航：审核标准较高，只展示精选站点。',
     '- 分类目录：按分类长期收录，符合条件的站点会生成独立详情页。',
-    '- 提交入口：' + siteUrl + '/submit，免费提交，通常 1-3 个工作日完成人工审核。',
+    '- 提交入口：' + siteUrl + '/submit，免费提交，通常 ' + settings.submitReviewDays + ' 个工作日完成人工审核。',
     '- 收录标准：网站需合法合规、可正常访问，并提供原创或有长期价值的内容；拒绝采集站、镜像站、恶意跳转和弹窗站点。',
     '- 同一网址只保留一条记录，重复提交会被自动拦截。',
     '',

@@ -2,7 +2,9 @@
 import { onMounted, ref } from 'vue'
 import { iconFor, hostOf } from '~/data/nav'
 
-useSeoMeta({ title: '添加到 2077 导航', robots: 'noindex' })
+const { settings, loadSiteSettings } = useSiteSettings()
+await loadSiteSettings()
+useSeoMeta({ title: () => `添加到 ${settings.value.siteName}`, robots: 'noindex' })
 
 const route = useRoute()
 const { groups, loadLocal, addGroup, addLink, renameGroup } = useNav()
@@ -81,7 +83,7 @@ onMounted(async () => {
   <div class="max-w-wrap mx-auto px-4 py-10 sm:py-14 flex justify-center">
     <div class="w-full max-w-[520px] animate-fade-up">
       <header class="mb-5">
-        <h1 class="text-xl font-semibold">添加到 2077 导航</h1>
+        <h1 class="text-xl font-semibold">添加到 {{ settings.siteName }}</h1>
         <p class="text-[13px] text-ink2 mt-1">来自系统分享面板的网址会先在这里确认，再写入你的本地导航。</p>
       </header>
 

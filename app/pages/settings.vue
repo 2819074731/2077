@@ -62,7 +62,9 @@ const importDone = ref(0)
 const importTotal = ref(0)
 const fetchingUrl = ref('')
 
-useSeoMeta({ title: '我的设置 · 2077 导航', robots: 'noindex' })
+const { settings, loadSiteSettings } = useSiteSettings()
+await loadSiteSettings()
+useSeoMeta({ title: () => `我的设置 · ${settings.value.siteName}`, robots: 'noindex' })
 
 function normalizeUrl(raw: string) {
   const v = (raw || '').trim()

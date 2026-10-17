@@ -28,6 +28,6 @@ export const CATEGORY_INTROS: Record<string, string> = {
   目录导航: '收录网址导航、站长目录与资源聚合站，方便发现更多站点入口。'
 }
 
-export function categoryIntro(name: string): string {
-  return CATEGORY_INTROS[name] || `浏览 2077 导航「${name}」分类下的站点，查看简介、官网入口与同类推荐。`
+export function categoryIntro(name: string, siteName = '2077 导航'): string {
+  return CATEGORY_INTROS[name] || `浏览${siteName}「${name}」分类下的站点，查看简介、官网入口与同类推荐。`
 }
