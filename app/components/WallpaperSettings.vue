@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { useWallpaper, ROTATE_INTERVALS } from '~/composables/useWallpaper'
+import { useWallpaper, ROTATE_INTERVALS, EFFECT_PRESETS } from '~/composables/useWallpaper'
 
 const open = useState<boolean>('wp-settings-open', () => false)
 const wp = useWallpaper()
+const { isMobile } = useDevice()
 
 const tab = ref<'wallpaper' | 'appearance'>('wallpaper')
 
@@ -27,13 +28,14 @@ const list = computed(() => wp.items.value)
 
 <template>
   <Teleport to="body">
-    <div v-if="open" class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div v-if="open" class="fixed inset-0 z-[60] flex justify-center" :class="isMobile ? 'items-end p-0' : 'items-center p-4'">
       <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="open = false" />
 
       <div
-        class="relative w-full sm:max-w-[560px] max-h-[88vh] sm:max-h-[82vh] bg-bg border border-line rounded-t-3xl sm:rounded-2xl shadow-pop flex flex-col overflow-hidden animate-fade-up"
+        class="relative w-full bg-bg border border-line shadow-pop flex flex-col overflow-hidden animate-fade-up"
+        :class="isMobile ? 'max-w-none max-h-[88vh] rounded-t-3xl' : 'max-w-[560px] max-h-[82vh] rounded-2xl'"
       >
-        <div class="h-14 shrink-0 flex items-center gap-2 px-4 sm:px-5 border-b border-line">
+        <div class="h-14 shrink-0 flex items-center gap-2 border-b border-line" :class="isMobile ? 'px-4' : 'px-5'">
           <span class="grid place-items-center w-8 h-8 rounded-xl bg-ink text-bg shrink-0">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3" /><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
           </span>
@@ -47,17 +49,17 @@ const list = computed(() => wp.items.value)
           </button>
         </div>
 
-        <div class="shrink-0 flex gap-1 p-2 sm:px-5 border-b border-line">
+        <div class="shrink-0 flex gap-1 p-2 border-b border-line" :class="!isMobile && 'px-5'">
           <button
             v-for="t in [{ v: 'wallpaper', l: '背景壁纸' }, { v: 'appearance', l: '显示效果' }]"
             :key="t.v"
-            class="flex-1 sm:flex-none h-9 px-4 rounded-lg text-[13px] font-medium transition-colors"
-            :class="tab === t.v ? 'bg-ink text-bg' : 'text-ink2 hover:bg-card2 hover:text-ink'"
+            class="h-9 px-4 rounded-lg text-[13px] font-medium transition-colors"
+            :class="[isMobile ? 'flex-1' : 'flex-none', tab === t.v ? 'bg-ink text-bg' : 'text-ink2 hover:bg-card2 hover:text-ink']"
             @click="tab = t.v as any"
           >{{ t.l }}</button>
         </div>
 
-        <div class="flex-1 overflow-y-auto p-4 sm:p-5">
+        <div class="flex-1 overflow-y-auto p-4" :class="!isMobile && 'p-5'">
           <!-- 壁纸 -->
           <template v-if="tab === 'wallpaper'">
             <div class="grid grid-cols-2 gap-3 mb-6">
@@ -121,13 +123,13 @@ const list = computed(() => wp.items.value)
                 <button class="btn btn-sm btn-ghost" @click="wp.pickRandom()">随机</button>
               </div>
 
-              <div v-if="wp.loading.value && !list.length" class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+              <div v-if="wp.loading.value && !list.length" class="grid gap-2.5" :class="isMobile ? 'grid-cols-2' : 'grid-cols-3'">
                 <div v-for="i in 6" :key="i" class="aspect-[16/10] rounded-xl bg-card2 animate-pulse" />
               </div>
               <div v-else-if="!list.length" class="text-[12.5px] text-ink2 py-6 text-center border border-dashed border-line rounded-xl">
                 壁纸加载失败，请稍后重试。
               </div>
-              <div v-else class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+              <div v-else class="grid gap-2.5" :class="isMobile ? 'grid-cols-2' : 'grid-cols-3'">
                 <button
                   v-for="w in list"
                   :key="w.id"
@@ -150,6 +152,27 @@ const list = computed(() => wp.items.value)
           <!-- 显示效果 -->
           <template v-else>
             <template v-if="wp.mode.value === 'bing'">
+              <div class="mb-6">
+                <div class="flex items-center gap-2 mb-3">
+                  <span class="h-4 w-1 rounded-full accent-bar" />
+                  <span class="text-[13.5px] font-semibold">效果预设</span>
+                  <span class="text-[11.5px] text-ink2">一键套用，推荐「通用」</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2.5">
+                  <button
+                    v-for="p in EFFECT_PRESETS"
+                    :key="p.id"
+                    class="rounded-xl border-2 p-3 flex flex-col items-center gap-1 transition-colors text-center"
+                    :class="wp.effect.value === p.id ? 'border-ink bg-card' : 'border-line bg-card hover:border-line2'"
+                    @click="wp.applyEffect(p.id)"
+                  >
+                    <span class="text-[13px] font-medium">{{ p.name }}</span>
+                    <span class="text-[10.5px] text-ink2 leading-tight">{{ p.desc }}</span>
+                  </button>
+                </div>
+                <p v-if="wp.effect.value === 'custom'" class="text-[11.5px] text-ink2 mt-2">当前为自定义效果，可拖动下方滑块微调。</p>
+              </div>
+
               <div class="mb-6">
                 <div class="flex items-center justify-between mb-2">
                   <span class="text-[13px] font-medium">壁纸不透明度</span>

@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import type { CloudLink } from '~/composables/useAuth'
 const { user, refresh, logout, saveCloudLinks } = useAuth()
 const { pushToCloud, pullFromCloud, resetAll, syncMsg } = useNav()
+const { formRow, isMobile } = useDevice()
 
 const links = ref<CloudLink[]>([])
 const saving = ref(false)
@@ -81,8 +82,8 @@ async function save() {
         还没有云端网址，点「添加」创建。
       </div>
 
-      <div v-for="(l, i) in links" :key="i" class="flex flex-col sm:flex-row gap-2 mb-2.5">
-        <input v-model="l.name" class="field sm:!w-44" placeholder="名称" />
+      <div v-for="(l, i) in links" :key="i" class="flex gap-2 mb-2.5" :class="formRow">
+        <input v-model="l.name" class="field" :class="!isMobile && '!w-44'" placeholder="名称" />
         <input v-model="l.url" class="field grow" placeholder="https://..." />
         <label class="flex items-center gap-1.5 text-[13px] text-ink2 select-none px-1.5 whitespace-nowrap">
           <input type="checkbox" v-model="l.public" /> 公开

@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { iconFor, hostOf } from '~/data/nav'
 
 const { recommendList, recordClick } = useNav()
+const { linkCols } = useDevice()
 const items = computed(() => recommendList())
 </script>
 
@@ -13,7 +14,7 @@ const items = computed(() => recommendList())
       <h2 class="text-[15px] font-semibold tracking-tight">推荐</h2>
       <span class="chip">站长精选</span>
     </div>
-    <div class="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+    <div class="grid gap-3" :class="linkCols">
       <a
         v-for="l in items"
         :key="l.url"

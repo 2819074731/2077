@@ -10,6 +10,16 @@ export function useDevice() {
 
   const isMobile = computed(() => uaMobile.value)
 
+  /**
+   * 站点链接网格列数：完全由 UA 决定，不受视口宽度影响。
+   * - PC：始终大屏 6 列（窄窗口也不退化）
+   * - 手机：2 列
+   */
+  const linkCols = computed(() => (uaMobile.value ? 'grid-cols-2' : 'grid-cols-6'))
+
+  /** 表单行：手机竖排、PC 横排（UA 驱动）。 */
+  const formRow = computed(() => (uaMobile.value ? 'flex-col' : 'flex-row'))
+
   /** 服务端：读取请求 UA。 */
   function initServer() {
     if (!import.meta.server) return
@@ -23,5 +33,5 @@ export function useDevice() {
     uaMobile.value = isMobileUA(navigator.userAgent || '')
   }
 
-  return { isMobile, initServer, initClient }
+  return { isMobile, linkCols, formRow, initServer, initClient }
 }

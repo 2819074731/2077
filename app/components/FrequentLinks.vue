@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { iconFor, hostOf } from '~/data/nav'
 
 const { frequentList, recordClick } = useNav()
+const { linkCols } = useDevice()
 const items = computed(() => frequentList(12))
 </script>
 
@@ -13,7 +14,7 @@ const items = computed(() => frequentList(12))
       <h2 class="text-[15px] font-semibold tracking-tight">常用</h2>
       <span class="chip">按你的使用习惯</span>
     </div>
-    <div class="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+    <div class="grid gap-3" :class="linkCols">
       <a
         v-for="l in items"
         :key="l.url"

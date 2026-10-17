@@ -16,9 +16,29 @@ const LS_INTERVAL = 'my2077.wallpaper.interval'
 const LS_FIXED = 'my2077.wallpaper.fixed'
 const LS_OPACITY = 'my2077.wallpaper.opacity'
 const LS_BLUR = 'my2077.wallpaper.blur'
+const LS_OVERLAY = 'my2077.wallpaper.overlay'
+const LS_EFFECT = 'my2077.wallpaper.effect'
 
 /** 轮播间隔可选值（分钟）。 */
 export const ROTATE_INTERVALS = [5, 10, 30, 60, 180, 1440]
+
+export interface EffectPreset {
+  id: string
+  name: string
+  desc: string
+  opacity: number
+  blur: number
+  overlay: number
+}
+
+/** 显示效果预设：一套通用默认，另有柔和 / 沉浸可选。 */
+export const EFFECT_PRESETS: EffectPreset[] = [
+  { id: 'general', name: '通用', desc: '清晰壁纸 + 适度遮罩', opacity: 100, blur: 0, overlay: 45 },
+  { id: 'soft', name: '柔和', desc: '轻微模糊，文字更清晰', opacity: 92, blur: 8, overlay: 55 },
+  { id: 'immersive', name: '沉浸', desc: '低遮罩，突出壁纸', opacity: 100, blur: 0, overlay: 18 }
+]
+
+export const DEFAULT_EFFECT = EFFECT_PRESETS[0]
 
 /** 轮播定时器（模块级，避免多处 useWallpaper 实例各起一个 interval）。 */
 let timer: any = null
@@ -28,12 +48,13 @@ export function useWallpaper() {
   const rotate = useState<boolean>('wp-rotate', () => true)
   const interval = useState<number>('wp-interval', () => 60)
   const fixed = useState<string>('wp-fixed', () => '')
-  const opacity = useState<number>('wp-opacity', () => 100)
-  const blur = useState<number>('wp-blur', () => 0)
+  const opacity = useState<number>('wp-opacity', () => DEFAULT_EFFECT.opacity)
+  const blur = useState<number>('wp-blur', () => DEFAULT_EFFECT.blur)
   const current = useState<string>('wp-current', () => '')
   const items = useState<WallpaperItem[]>('wp-items', () => [])
   const loading = useState<boolean>('wp-loading', () => false)
-  const overlay = useState<number>('wp-overlay', () => 55)
+  const overlay = useState<number>('wp-overlay', () => DEFAULT_EFFECT.overlay)
+  const effect = useState<string>('wp-effect', () => DEFAULT_EFFECT.id)
 
   /** 代理后的图片地址（走服务端缓存，避免跨域与防盗链）。 */
   function proxy(url: string): string {
@@ -48,6 +69,8 @@ export function useWallpaper() {
     localStorage.setItem(LS_FIXED, fixed.value)
     localStorage.setItem(LS_OPACITY, String(opacity.value))
     localStorage.setItem(LS_BLUR, String(blur.value))
+    localStorage.setItem(LS_OVERLAY, String(overlay.value))
+    localStorage.setItem(LS_EFFECT, effect.value)
   }
 
   function loadLocal() {
@@ -63,6 +86,10 @@ export function useWallpaper() {
     if (!Number.isNaN(op) && op >= 0 && op <= 100) opacity.value = op
     const bl = Number(localStorage.getItem(LS_BLUR))
     if (!Number.isNaN(bl) && bl >= 0 && bl <= 40) blur.value = bl
+    const ov = Number(localStorage.getItem(LS_OVERLAY))
+    if (!Number.isNaN(ov) && ov >= 0 && ov <= 100) overlay.value = ov
+    const ef = localStorage.getItem(LS_EFFECT)
+    effect.value = EFFECT_PRESETS.some(p => p.id === ef) ? (ef as string) : 'custom'
   }
 
   async function fetchList(n = 8) {
@@ -114,16 +141,27 @@ export function useWallpaper() {
 
   function setRotate(v: boolean) { rotate.value = v; persist(); restart() }
   function setIntervalMin(v: number) { interval.value = v; persist(); restart() }
-  function setOpacity(v: number) { opacity.value = v; persist() }
-  function setBlur(v: number) { blur.value = v; persist() }
-  function setOverlay(v: number) { overlay.value = v; persist() }
+  function setOpacity(v: number) { opacity.value = v; effect.value = 'custom'; persist() }
+  function setBlur(v: number) { blur.value = v; effect.value = 'custom'; persist() }
+  function setOverlay(v: number) { overlay.value = v; effect.value = 'custom'; persist() }
+
+  /** 套用显示效果预设。 */
+  function applyEffect(id: string) {
+    const p = EFFECT_PRESETS.find(x => x.id === id)
+    if (!p) return
+    effect.value = p.id
+    opacity.value = p.opacity
+    blur.value = p.blur
+    overlay.value = p.overlay
+    persist()
+  }
 
   /** 壁纸是否生效（用于布局层）。 */
   const active = computed(() => mode.value === 'bing' && !!current.value)
   const bgUrl = computed(() => active.value ? proxy(current.value) : '')
 
   return {
-    mode, rotate, interval, fixed, opacity, blur, overlay, items, loading, current,
+    mode, rotate, interval, fixed, opacity, blur, overlay, effect, items, loading, current,
     active, bgUrl,
     proxy,
     loadLocal,
@@ -136,6 +174,7 @@ export function useWallpaper() {
     setOpacity,
     setBlur,
     setOverlay,
+    applyEffect,
     restart,
     stop
   }

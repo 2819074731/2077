@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import type { NavGroup } from '~/data/nav'
 const props = defineProps<{ group: NavGroup }>()
 const { diy, renameGroup, removeGroup, addLink, orderLinks, isFeatured } = useNav()
+const { isMobile, linkCols, formRow } = useDevice()
 const adding = ref(false)
 const draft = ref({ name: '', url: '' })
 
@@ -40,8 +41,8 @@ function save() {
       <button v-if="diy" class="btn btn-sm btn-ghost" @click="adding = !adding">+ 链接</button>
     </div>
 
-    <div v-if="adding" class="card p-3 mb-4 flex flex-col sm:flex-row gap-2 animate-fade-up">
-      <input v-model="draft.name" class="field sm:!w-44" placeholder="名称" @keyup.enter="save" />
+    <div v-if="adding" class="card p-3 mb-4 flex gap-2 animate-fade-up" :class="formRow">
+      <input v-model="draft.name" class="field" :class="!isMobile && '!w-44'" placeholder="名称" @keyup.enter="save" />
       <input v-model="draft.url" class="field grow" placeholder="网址" @keyup.enter="save" />
       <div class="flex gap-2">
         <button class="btn" @click="adding = false">取消</button>
@@ -49,7 +50,7 @@ function save() {
       </div>
     </div>
 
-    <div class="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+    <div class="grid gap-3" :class="linkCols">
       <LinkItem v-for="link in shown" :key="link.id" :gid="group.id" :link="link" :featured="isFeatured(link.url)" />
     </div>
   </section>

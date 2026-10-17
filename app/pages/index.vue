@@ -50,8 +50,8 @@ function openDrawer() { drawerOpen.value = true }
 
 <template>
   <div class="max-w-wrap mx-auto px-4">
-    <section class="pt-12 sm:pt-16 pb-8 flex flex-col items-center text-center gap-4">
-      <h1 class="text-[30px] sm:text-[40px] font-extrabold tracking-tight leading-[1.1]">
+    <section class="pb-8 flex flex-col items-center text-center gap-4" :class="isMobile ? 'pt-12' : 'pt-16'">
+      <h1 class="font-extrabold tracking-tight leading-[1.1]" :class="isMobile ? 'text-[30px]' : 'text-[40px]'">
         2077 导航
       </h1>
       <div class="w-full max-w-[680px]">
@@ -70,7 +70,7 @@ function openDrawer() { drawerOpen.value = true }
       </span>
       <span class="text-ink2">编辑模式：修改名称、增删链接与分组，登录后自动同步到云端。</span>
       <div class="flex-1" />
-      <span v-if="syncMsg" class="text-ink2 hidden sm:inline">{{ syncMsg }}</span>
+      <span v-if="syncMsg" class="text-ink2" :class="isMobile && 'hidden'">{{ syncMsg }}</span>
       <button class="btn btn-sm" @click="addGroup">+ 分组</button>
       <button class="btn btn-sm" @click="resetAll">恢复默认</button>
     </div>
