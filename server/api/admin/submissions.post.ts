@@ -184,7 +184,7 @@ export default defineEventHandler(async (event) => {
     const op = String(body?.op || '')
     if (!ids.length) throw createError({ statusCode: 400, statusMessage: '请选择提交记录' })
     if (ids.length > 200) throw createError({ statusCode: 400, statusMessage: '单次最多处理 200 条记录' })
-    if (op !== 'approve' && op !== 'reject') throw createError({ statusCode: 400, statusMessage: '未知批量操作' })
+    if (op !== 'approve' && op !== 'reject' && op !== 'delete') throw createError({ statusCode: 400, statusMessage: '未知批量操作' })
 
     const targets = body?.targets && typeof body.targets === 'object'
       ? { nav: !!body.targets.nav, directory: !!body.targets.directory }
@@ -202,6 +202,7 @@ export default defineEventHandler(async (event) => {
 
     let approved = 0
     let rejected = 0
+    let deleted = 0
     let skipped = 0
     let errors = 0
 
@@ -219,6 +220,13 @@ export default defineEventHandler(async (event) => {
           }
           await approveSubmission(db, sub, { category: body?.category, targets }, categories)
           approved++
+        } else if (op === 'delete') {
+          if (sub.status !== 'rejected') {
+            skipped++
+            continue
+          }
+          await db.execute("DELETE FROM submissions WHERE id = ? AND status = 'rejected'", [id])
+          deleted++
         } else {
           await db.execute('UPDATE submissions SET status = ? WHERE id = ?', ['rejected', id])
           rejected++
@@ -234,8 +242,11 @@ export default defineEventHandler(async (event) => {
     if (op === 'reject' && rejected) {
       await notifyAdmin(`批量拒绝 ${rejected} 条收录提交`, { rejected, skipped, errors })
     }
+    if (op === 'delete' && deleted) {
+      await notifyAdmin(`批量删除 ${deleted} 条已拒绝的收录提交`, { deleted, skipped, errors })
+    }
 
-    return { ok: true, approved, rejected, skipped, errors }
+    return { ok: true, approved, rejected, deleted, skipped, errors }
   }
 
   const id = Number(body?.id)
@@ -248,6 +259,15 @@ export default defineEventHandler(async (event) => {
     await db.execute('UPDATE submissions SET status = ? WHERE id = ?', ['rejected', id])
     await notifyAdmin(`收录已拒绝：${sub.name}`, { id })
     return { ok: true, status: 'rejected' }
+  }
+
+  if (action === 'delete') {
+    if (sub.status !== 'rejected') {
+      throw createError({ statusCode: 400, statusMessage: '只能删除已拒绝的提交记录' })
+    }
+    await db.execute("DELETE FROM submissions WHERE id = ? AND status = 'rejected'", [id])
+    await notifyAdmin(`已删除拒绝记录：${sub.name}`, { id })
+    return { ok: true, deleted: 1 }
   }
 
   if (action === 'update') {

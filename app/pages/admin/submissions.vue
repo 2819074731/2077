@@ -24,6 +24,7 @@ const size = 20
 const categories = ref<string[]>([DEFAULT_CATEGORY])
 
 const allSelected = computed(() => items.value.length > 0 && items.value.every((item) => selected.value.has(Number(item.id))))
+const selectedRejected = computed(() => items.value.filter((item) => selected.value.has(Number(item.id)) && item.status === 'rejected').length)
 
 const editingItem = ref<any>(null)
 const mode = ref<'review' | 'edit'>('review')
@@ -136,11 +137,15 @@ function toggleAll() {
   selected.value = allSelected.value ? new Set() : new Set(items.value.map((item) => Number(item.id)))
 }
 
-async function bulk(op: 'approve' | 'reject') {
+async function bulk(op: 'approve' | 'reject' | 'delete') {
   if (bulkActing.value || !selected.value.size) return
-  const ids = [...selected.value]
-  const label = op === 'approve' ? '通过' : '拒绝'
-  if (!confirm(`确定${label}所选 ${ids.length} 条提交？`)) return
+  const ids = op === 'delete'
+    ? items.value.filter((item) => selected.value.has(Number(item.id)) && item.status === 'rejected').map((item) => Number(item.id))
+    : [...selected.value]
+  if (op === 'delete' && !ids.length) return
+  const label = op === 'approve' ? '通过' : op === 'reject' ? '拒绝' : '删除'
+  const tip = op === 'delete' ? `确定删除所选 ${ids.length} 条已拒绝记录？删除后不可恢复。` : `确定${label}所选 ${ids.length} 条提交？`
+  if (!confirm(tip)) return
   bulkActing.value = true
   try {
     const body: any = { action: 'bulk', ids, op }
@@ -151,6 +156,7 @@ async function bulk(op: 'approve' | 'reject') {
     const parts: string[] = []
     if (d.approved) parts.push(`通过 ${d.approved} 条`)
     if (d.rejected) parts.push(`拒绝 ${d.rejected} 条`)
+    if (d.deleted) parts.push(`删除 ${d.deleted} 条`)
     if (d.skipped) parts.push(`跳过 ${d.skipped} 条`)
     if (d.errors) parts.push(`失败 ${d.errors} 条`)
     showToast(`批量处理完成：${parts.length ? parts.join('，') : '没有变更'}`, d.errors ? 'err' : 'ok')
@@ -225,6 +231,19 @@ async function confirmApprove() {
     msgKind.value = 'err'
   } finally {
     acting.value = false
+  }
+}
+
+async function removeItem(item: any) {
+  if (!confirm(`确定删除「${item.name}」？删除后不可恢复。`)) return
+  msg.value = ''
+  try {
+    await $fetch('/api/admin/submissions', { method: 'POST', body: { id: item.id, action: 'delete' } })
+    flash('已删除')
+    await load()
+  } catch (e: any) {
+    msg.value = e?.data?.statusMessage || e?.data?.message || '删除失败'
+    msgKind.value = 'err'
   }
 }
 
@@ -317,6 +336,7 @@ function iconOf(url: string) {
         <div class="flex-1" />
         <button class="btn btn-sm btn-primary" :disabled="!selected.size || bulkActing" @click="bulk('approve')">批量通过</button>
         <button class="btn btn-sm btn-ghost text-danger" :disabled="!selected.size || bulkActing" @click="bulk('reject')">批量拒绝</button>
+        <button class="btn btn-sm btn-ghost text-danger" :disabled="!selectedRejected || bulkActing" @click="bulk('delete')">批量删除</button>
       </div>
       <div v-for="it in items" :key="it.id" class="card p-4">
         <div class="flex items-start gap-3">
@@ -346,6 +366,7 @@ function iconOf(url: string) {
           <a :href="it.url" target="_blank" rel="noopener nofollow" class="btn btn-sm btn-ghost">访问网站</a>
           <div class="flex-1" />
           <button v-if="it.status !== 'rejected'" class="btn btn-sm btn-ghost text-danger" @click="reject(it)">拒绝</button>
+          <button v-else class="btn btn-sm btn-ghost text-danger" @click="removeItem(it)">删除</button>
         </div>
       </div>
     </div>
