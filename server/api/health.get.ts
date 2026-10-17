@@ -26,6 +26,7 @@ export default defineEventHandler(async (event) => {
     uptime: Math.round(process.uptime()),
     memory: { rss: memory.rss },
     disk: { free: diskFree },
+    db: dbOk,
     checks: { db: dbOk, disk: diskOk }
   }
 })

@@ -83,10 +83,19 @@ export default defineNuxtConfig({
       }
     },
     workbox: {
-      navigateFallback: '/offline',
       additionalManifestEntries: [{ url: '/offline', revision: null }],
       globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
       runtimeCaching: [
+        {
+          urlPattern: ({ request }) => request.mode === 'navigate',
+          handler: 'NetworkFirst',
+          options: {
+            cacheName: 'pages',
+            networkTimeoutSeconds: 3,
+            expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 },
+            precacheFallback: { fallbackURL: '/offline' }
+          }
+        },
         {
           urlPattern: /^https:\/\/(icons\.duckduckgo\.com|www\.google\.com\/s2\/favicons|favicon\.im)\/.*/i,
           handler: 'CacheFirst',

@@ -7,6 +7,20 @@ interface CountCache<T> {
 
 let categoriesCache: CountCache<any[]> | null = null
 let totalCache: CountCache<number> | null = null
+let ngramReady: boolean | null = null
+
+async function hasNgram(db: any): Promise<boolean> {
+  if (ngramReady !== null) return ngramReady
+  try {
+    const [[row]]: any = await db.query(
+      "SELECT COUNT(*) AS n FROM information_schema.PLUGINS WHERE PLUGIN_NAME = 'ngram' AND PLUGIN_STATUS = 'ACTIVE'"
+    )
+    ngramReady = Number(row?.n || 0) > 0
+  } catch {
+    ngramReady = false
+  }
+  return ngramReady
+}
 
 async function getCategoryCounts(db: any): Promise<any[]> {
   const now = Date.now()
@@ -54,8 +68,8 @@ export default defineEventHandler(async (event) => {
         where.push('MATCH(name, title, description, keywords) AGAINST (? IN BOOLEAN MODE)')
         params.push(kw)
       } else {
-        where.push('(name LIKE ? OR description LIKE ? OR keywords LIKE ? OR url LIKE ?)')
-        params.push(`%${kw}%`, `%${kw}%`, `%${kw}%`, `%${kw}%`)
+        where.push('(name LIKE ? OR title LIKE ? OR description LIKE ? OR keywords LIKE ? OR url LIKE ?)')
+        params.push(`%${kw}%`, `%${kw}%`, `%${kw}%`, `%${kw}%`, `%${kw}%`)
       }
     }
     return { clause: where.join(' AND '), params }
@@ -77,9 +91,11 @@ export default defineEventHandler(async (event) => {
   }
 
   let result: { total: number; rows: any[] }
-  if (kw.length >= 2) {
+  if (kw.length >= 2 && await hasNgram(db)) {
     try {
       result = await queryPage(true)
+      // MariaDB/MySQL 的 ngram 分词对部分混合文本可能返回空结果，空结果时回退 LIKE。
+      if (!result.total) result = await queryPage(false)
     } catch {
       result = await queryPage(false)
     }

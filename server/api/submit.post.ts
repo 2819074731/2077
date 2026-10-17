@@ -4,13 +4,14 @@ import { cleanText, safeIcon } from '../utils/sanitize'
 import { rateLimit } from '../utils/rateLimit'
 import { urlKey } from '#shared/nav'
 import { getSiteCategories } from '../utils/categories'
+import { notifyAdmin } from '../utils/notify'
 
 export default defineEventHandler(async (event) => {
   const length = Number(getRequestHeader(event, 'content-length') || 0)
   if (length > 32 * 1024) {
     throw createError({ statusCode: 413, statusMessage: '提交内容过大' })
   }
-  rateLimit(event, 'submit', 10, 10 * 60 * 1000)
+  await rateLimit(event, 'submit', 10, 10 * 60 * 1000)
 
   const body = await readBody(event)
   if (!body || typeof body !== 'object') {
@@ -61,5 +62,7 @@ export default defineEventHandler(async (event) => {
       accessToken
     ]
   )
-  return { ok: true, id: Number(result?.insertId || 0), token: accessToken }
+  const id = Number(result?.insertId || 0)
+  void notifyAdmin(`新收录提交：${name}`, { id, category: group || '未分类', target })
+  return { ok: true, id, token: accessToken }
 })

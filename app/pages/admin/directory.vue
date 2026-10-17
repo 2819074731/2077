@@ -335,7 +335,7 @@ onBeforeUnmount(() => {
       >{{ toast }}</div>
     </Teleport>
 
-    <div v-if="editing" class="fixed inset-0 z-50 sm:flex sm:items-center sm:justify-center sm:p-4">
+    <div v-if="editing" role="dialog" aria-modal="true" class="fixed inset-0 z-50 sm:flex sm:items-center sm:justify-center sm:p-4">
       <div class="absolute inset-0 bg-black/50 backdrop-blur-[2px]" @click="editing = null" />
       <div class="relative w-full h-[100dvh] sm:h-auto sm:max-w-[720px] sm:max-h-[90vh] flex flex-col bg-card border-line sm:border sm:rounded-2xl shadow-xl overflow-hidden">
         <div class="shrink-0 flex items-center gap-2 px-4 h-14 border-b border-line bg-card">

@@ -1,19 +1,19 @@
 # 数据库备份
 
-`deploy/backup.sh` 会读取项目根目录的 `.env`，使用 `mysqldump` 将数据库导出到 `/www/backup/my2077`，文件名为 `db-YYYYmmdd-HHMM.sql.gz`，默认保留 14 天。
+`deploy/backup.sh` 会读取项目根目录的 `.env`，通过 Node 脚本 `scripts/backup.mjs` 将数据库导出为 gzip 压缩的 SQL 文件，保存到 `/www/backup/my2077`，文件名为 `db-YYYYmmdd-HHMM.sql.gz`，默认保留 14 天。
+
+脚本会自动跳过生成列，导出的 SQL 可以直接用于恢复。备份过程使用 `mysql2` 连接数据库，无需安装 `mysqldump`。
 
 ## 依赖
 
-- mysqldump
-- gzip
+- Node.js 22+
+- gzip（Node 内置 zlib，无需额外安装）
 - rclone（可选，仅在设置 RCLONE_REMOTE 时使用）
 
 ## 环境变量
 
 脚本优先使用进程环境变量，其次使用 `.env` 中的同名变量。
 
-- `APP_DIR`：项目目录，默认 `/www/wwwroot/my2077.com`
-- `ENV_FILE`：环境文件路径，默认 `$APP_DIR/.env`
 - `BACKUP_DIR`：备份目录，默认 `/www/backup/my2077`
 - `RETENTION_DAYS`：保留天数，默认 14
 - `RCLONE_REMOTE`：rclone 目标，例如 `remote:my2077-backup`
@@ -46,5 +46,6 @@ crontab -l
 ## 恢复示例
 
 ```bash
-gzip -dc /www/backup/my2077/db-20260101-0315.sql.gz | mysql -h 127.0.0.1 -u my2077 -p my2077
+# 通过本机 root socket 恢复，避免应用账号的 host 限制
+gzip -dc /www/backup/my2077/db-20260101-0315.sql.gz | mysql -u root my2077
 ```

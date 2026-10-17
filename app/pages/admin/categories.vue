@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
@@ -123,7 +123,18 @@ async function move(item: CategoryRow, dir: number) {
   }
 }
 
-onMounted(load)
+function onKeydown(e: KeyboardEvent) {
+  if (e.key !== 'Escape') return
+  if (editing.value && !saving.value) editing.value = null
+  else if (deleting.value && !deletingBusy.value) deleting.value = null
+}
+
+onMounted(() => {
+  load()
+  window.addEventListener('keydown', onKeydown)
+})
+
+onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 </script>
 
 <template>
@@ -174,7 +185,7 @@ onMounted(load)
     >{{ msg }}</div>
 
     <Teleport to="body">
-      <div v-if="editing" class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" @click.self="!saving && (editing = null)">
+      <div v-if="editing" role="dialog" aria-modal="true" class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" @click.self="!saving && (editing = null)">
         <div class="w-full sm:max-w-[420px] bg-card border border-line rounded-t-2xl sm:rounded-2xl p-4 sm:p-5">
           <div class="flex items-center gap-2 mb-3">
             <h3 class="font-semibold text-[15px]">{{ editing.mode === 'add' ? '新增分类' : '重命名分类' }}</h3>
@@ -196,7 +207,7 @@ onMounted(load)
     </Teleport>
 
     <Teleport to="body">
-      <div v-if="deleting" class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" @click.self="!deletingBusy && (deleting = null)">
+      <div v-if="deleting" role="dialog" aria-modal="true" class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" @click.self="!deletingBusy && (deleting = null)">
         <div class="w-full sm:max-w-[440px] bg-card border border-line rounded-t-2xl sm:rounded-2xl p-4 sm:p-5">
           <div class="flex items-center gap-2 mb-2">
             <h3 class="font-semibold text-[15px]">删除分类「{{ deleting.name }}」</h3>

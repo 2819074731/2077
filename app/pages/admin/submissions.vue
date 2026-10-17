@@ -76,6 +76,10 @@ function openReview(item: any) {
   msgKind.value = 'ok'
 }
 
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && editingItem.value && !acting.value) editingItem.value = null
+}
+
 function openEdit(item: any) {
   mode.value = 'edit'
   editingItem.value = item
@@ -233,11 +237,13 @@ async function reject(item: any) {
 }
 
 onMounted(async () => {
+  window.addEventListener('keydown', onKeydown)
   await loadCategories()
   await load()
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeydown)
   if (toastTimer) clearTimeout(toastTimer)
 })
 
@@ -351,7 +357,7 @@ function iconOf(url: string) {
     </Teleport>
 
     <Teleport to="body">
-      <div v-if="editingItem" class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" @click.self="!acting && (editingItem = null)">
+      <div v-if="editingItem" role="dialog" aria-modal="true" class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" @click.self="!acting && (editingItem = null)">
         <div class="w-full sm:max-w-[560px] bg-card border border-line rounded-t-2xl sm:rounded-2xl p-4 sm:p-5 max-h-[92vh] overflow-y-auto">
           <div class="flex items-center gap-2 mb-3">
             <h3 class="font-semibold text-[15px]">{{ mode === 'review' ? '审核并修改' : '编辑提交信息' }}「{{ editingItem.name }}」</h3>

@@ -1,18 +1,3 @@
-function configHasLinks(raw: unknown): boolean {
-  let config: any = raw
-  if (typeof config === 'string') {
-    try {
-      config = JSON.parse(config)
-    } catch {
-      return false
-    }
-  }
-  const groups = Array.isArray(config?.groups) ? config.groups : []
-  return groups.some((group: any) =>
-    Array.isArray(group?.links) && group.links.some((link: any) => String(link?.url || '').trim())
-  )
-}
-
 export default defineEventHandler(async () => {
   const db = useDb()
   const [rows]: any = await db.query(
@@ -24,7 +9,12 @@ export default defineEventHandler(async () => {
      GROUP BY category ORDER BY n DESC, category ASC`
   )
   const [users]: any = await db.query(
-    'SELECT id, config_json, created_at FROM users WHERE is_admin = 0 ORDER BY id ASC'
+    `SELECT u.id, u.created_at, COUNT(ul.id) AS public_links
+     FROM users u
+     JOIN user_links ul ON ul.user_id = u.id AND ul.is_public = 1
+     WHERE u.is_admin = 0
+     GROUP BY u.id, u.created_at
+     ORDER BY u.id ASC`
   )
   const urls: any[] = [
     { loc: '/', changefreq: 'daily', priority: 1 },
@@ -50,7 +40,7 @@ export default defineEventHandler(async () => {
     })
   }
   for (const u of users) {
-    if (!configHasLinks(u.config_json)) continue
+    if (Number(u.public_links || 0) <= 0) continue
     urls.push({
       loc: `/u/${u.id}`,
       lastmod: u.created_at ? new Date(u.created_at).toISOString() : undefined,

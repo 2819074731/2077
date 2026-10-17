@@ -3,7 +3,7 @@ import { rateLimit } from '../../utils/rateLimit'
 import { urlKey } from '#shared/nav'
 
 export default defineEventHandler(async (event) => {
-  rateLimit(event, 'submit-check', 30, 60 * 1000)
+  await rateLimit(event, 'submit-check', 30, 60 * 1000)
 
   const body = await readBody(event)
   const u = normalizeSiteUrl(String(body?.url || ''))

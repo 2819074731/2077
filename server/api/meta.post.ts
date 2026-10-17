@@ -9,7 +9,7 @@ function hashUrl(url: string): string {
 }
 
 export default defineEventHandler(async (event) => {
-  rateLimit(event, 'meta', 120, 60 * 1000)
+  await rateLimit(event, 'meta', 120, 60 * 1000)
   const body = await readBody(event)
   const raw = String(body?.url || '').trim()
   if (!raw) throw createError({ statusCode: 400, statusMessage: '请输入网址' })

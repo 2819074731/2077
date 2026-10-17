@@ -47,7 +47,7 @@ async function normalizePatch(body: any, current: any, normalizeCategory: boolea
 async function assertUniqueUrl(url: string, id: number) {
   const db = useDb()
   const [dup]: any = await db.query(
-    "SELECT id FROM submissions WHERE TRIM(TRAILING '/' FROM LOWER(url)) = ? AND id <> ? LIMIT 1",
+    "SELECT id FROM submissions WHERE url_key = ? AND id <> ? LIMIT 1",
     [urlKey(url), id]
   )
   if (dup.length) throw createError({ statusCode: 409, statusMessage: '该网址已在其他提交记录中' })
@@ -103,7 +103,7 @@ async function approveSubmission(db: any, sub: any, body: any, categories?: stri
 
   if (toDirectory) {
     const [existing]: any = await db.query(
-      "SELECT id FROM directory_entries WHERE TRIM(TRAILING '/' FROM LOWER(url)) = ? LIMIT 1",
+      "SELECT id FROM directory_entries WHERE url_key = ? LIMIT 1",
       [key]
     )
     if (existing.length) {
@@ -131,7 +131,7 @@ async function approveSubmission(db: any, sub: any, body: any, categories?: stri
       } catch (err: any) {
         if (err?.code === 'ER_DUP_ENTRY' || String(err?.message || '').includes('Duplicate entry')) {
           const [dup]: any = await db.query(
-            "SELECT id FROM directory_entries WHERE TRIM(TRAILING '/' FROM LOWER(url)) = ? LIMIT 1",
+            "SELECT id FROM directory_entries WHERE url_key = ? LIMIT 1",
             [key]
           )
           result.directory = 'exists'
