@@ -53,7 +53,7 @@ export default defineNuxtConfig({
 
   sitemap: {
     sources: ['/api/__sitemap__/urls'],
-    exclude: ['/login', '/register', '/settings', '/share', '/admin', '/admin/**'],
+    exclude: ['/login', '/register', '/settings', '/share', '/admin', '/admin/**', '/submit/status', '/offline'],
     cacheMaxAgeSeconds: 300
   },
 
@@ -83,7 +83,8 @@ export default defineNuxtConfig({
       }
     },
     workbox: {
-      navigateFallback: '/',
+      navigateFallback: '/offline',
+      additionalManifestEntries: [{ url: '/offline', revision: null }],
       globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
       runtimeCaching: [
         {

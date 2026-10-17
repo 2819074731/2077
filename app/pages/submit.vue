@@ -85,8 +85,23 @@ const loading = ref(false)
 const fetching = ref(false)
 const err = ref('')
 const ok = ref(false)
+const checking = ref(false)
+const check = ref<{ exists: boolean; inDirectory: boolean; status: string | null; token: string | null } | null>(null)
+const submitted = ref<{ id: number; token: string } | null>(null)
+const copyMsg = ref('')
+let checkSeq = 0
+let copyTimer: any = null
 
 const metaLoaded = computed(() => !!(form.value.title || form.value.description || form.value.keywords))
+const groupValue = computed(() => form.value.group.trim())
+const groupUnmatched = computed(() => !!groupValue.value && !siteCategories.value.includes(groupValue.value))
+const checkHint = computed(() => {
+  if (!check.value) return ''
+  if (check.value.exists && check.value.inDirectory) return '该站点已提交过，且已收录在分类目录'
+  if (check.value.exists) return '该站点已提交过，请勿重复提交'
+  if (check.value.inDirectory) return '该站点已收录在分类目录'
+  return ''
+})
 
 function chooseTarget(target: 'nav' | 'directory') {
   form.value.target = target
@@ -121,12 +136,78 @@ async function fetchMeta() {
   } finally {
     fetching.value = false
   }
+  if (validUrl(raw)) void precheck()
+}
+
+async function precheck() {
+  const raw = form.value.url.trim()
+  if (!raw || !validUrl(raw)) {
+    check.value = null
+    checking.value = false
+    return
+  }
+  const seq = ++checkSeq
+  checking.value = true
+  try {
+    const d: any = await $fetch('/api/submit/check', { method: 'POST', body: { url: raw } })
+    if (seq !== checkSeq || form.value.url.trim() !== raw) return
+    check.value = {
+      exists: !!d?.exists,
+      inDirectory: !!d?.inDirectory,
+      status: d?.status ? String(d.status) : null,
+      token: d?.token ? String(d.token) : null
+    }
+  } catch {
+    if (seq === checkSeq) check.value = null
+  } finally {
+    if (seq === checkSeq) checking.value = false
+  }
+}
+
+function onUrlBlur() {
+  void precheck()
+}
+
+function fallbackCopy(text: string) {
+  const input = document.createElement('textarea')
+  input.value = text
+  input.setAttribute('readonly', '')
+  input.style.position = 'fixed'
+  input.style.opacity = '0'
+  document.body.appendChild(input)
+  input.select()
+  document.execCommand('copy')
+  document.body.removeChild(input)
+}
+
+async function copyStatusLink() {
+  if (!submitted.value?.token) return
+  const link = `${window.location.origin}/submit/status?token=${submitted.value.token}`
+  try {
+    if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(link)
+    else fallbackCopy(link)
+    copyMsg.value = '已复制查询链接'
+  } catch {
+    try {
+      fallbackCopy(link)
+      copyMsg.value = '已复制查询链接'
+    } catch {
+      copyMsg.value = '复制失败，请手动复制浏览器地址'
+    }
+  }
+  clearTimeout(copyTimer)
+  copyTimer = setTimeout(() => (copyMsg.value = ''), 2400)
 }
 
 function resetForm() {
   form.value = { url: '', name: '', title: '', description: '', keywords: '', icon: '', group: '', target: 'nav', _trap: '' }
   err.value = ''
   ok.value = false
+  submitted.value = null
+  check.value = null
+  checking.value = false
+  copyMsg.value = ''
+  checkSeq++
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
@@ -137,8 +218,16 @@ async function submit() {
   if (!name || !raw) { err.value = '请填写站点名称和网址'; return }
   if (!validUrl(raw)) { err.value = '请输入有效的 http/https 网址'; return }
   loading.value = true
+  const group = siteCategories.value.includes(groupValue.value) ? groupValue.value : ''
   try {
-    await $fetch('/api/submit', { method: 'POST', body: { ...form.value, name, url: raw } })
+    const d: any = await $fetch('/api/submit', {
+      method: 'POST',
+      body: { ...form.value, name, url: raw, group }
+    })
+    submitted.value = {
+      id: Number(d?.id || 0),
+      token: String(d?.token || '')
+    }
     ok.value = true
     window.scrollTo({ top: 0, behavior: 'smooth' })
   } catch (e: any) {
@@ -166,19 +255,23 @@ async function submit() {
         <p class="mt-1.5 text-[13px] leading-6 text-ink2">填写网址后点「一键获取」，自动抓取标题、描述、关键词与图标，也可以手动修改。</p>
       </header>
 
-      <div v-if="ok" class="card p-7 sm:p-9 text-center">
+      <div v-if="ok" class="card p-7 sm:p-9 text-center" role="status" aria-live="polite" aria-atomic="true">
         <div class="grid place-items-center w-14 h-14 rounded-2xl bg-card2 border border-line mx-auto mb-4">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5" /></svg>
         </div>
         <h2 class="font-semibold text-xl">提交成功</h2>
+        <p v-if="submitted?.id" class="text-[12.5px] text-ink3 mt-1.5">提交编号 #{{ submitted.id }}</p>
         <p class="text-ink2 text-[13.5px] leading-6 mt-2 max-w-[420px] mx-auto">
           我们已收到你的收录申请，通常会在 1-3 个工作日内完成审核。审核期间请勿重复提交。
         </p>
         <div class="flex flex-wrap justify-center gap-2 mt-6">
-          <button type="button" class="btn btn-primary" @click="resetForm">继续提交</button>
+          <NuxtLink v-if="submitted?.token" :to="`/submit/status?token=${submitted.token}`" class="btn btn-primary">查看提交状态</NuxtLink>
+          <button v-if="submitted?.token" type="button" class="btn" @click="copyStatusLink">复制查询链接</button>
+          <button type="button" class="btn" :class="!submitted?.token ? 'btn-primary' : ''" @click="resetForm">继续提交</button>
           <NuxtLink to="/" class="btn">返回首页</NuxtLink>
           <NuxtLink to="/site" class="btn">浏览分类目录</NuxtLink>
         </div>
+        <p v-if="copyMsg" class="text-[12px] text-ink3 mt-3" role="status" aria-live="polite">{{ copyMsg }}</p>
       </div>
 
       <form v-else class="card p-4 sm:p-7 flex flex-col gap-6" novalidate @submit.prevent="submit">
@@ -201,6 +294,8 @@ async function submit() {
                 autocapitalize="off"
                 spellcheck="false"
                 maxlength="500"
+                :aria-describedby="checkHint ? 'submit-url-hint submit-check-hint' : 'submit-url-hint'"
+                @blur="onUrlBlur"
                 @keyup.enter.prevent="fetchMeta"
               />
               <button type="button" class="btn shrink-0 !h-11 sm:!h-[38px]" :disabled="fetching" @click="fetchMeta">
@@ -208,7 +303,16 @@ async function submit() {
                 {{ fetching ? '抓取中…' : '一键获取' }}
               </button>
             </div>
-            <span class="text-[12px] leading-5 text-ink2">仅支持公开可访问的 http/https 网址，单次提交一个站点。</span>
+            <span id="submit-url-hint" class="text-[12px] leading-5 text-ink2">仅支持公开可访问的 http/https 网址，单次提交一个站点。</span>
+            <p v-if="checkHint" id="submit-check-hint" class="text-[12px] leading-5 text-warning" aria-live="polite">
+              {{ checkHint }}
+              <NuxtLink
+                v-if="check?.token"
+                :to="`/submit/status?token=${check.token}`"
+                class="ml-1 text-ink underline decoration-line2 underline-offset-4 hover:decoration-ink"
+              >查看状态</NuxtLink>
+            </p>
+            <p v-else-if="checking" class="text-[12px] leading-5 text-ink3">正在检查收录状态…</p>
           </label>
 
           <div class="grid sm:grid-cols-2 gap-3.5">
@@ -218,10 +322,19 @@ async function submit() {
             </label>
             <label class="flex flex-col gap-1.5">
               <span class="text-[13.5px] font-medium">网站分类</span>
-              <select v-model="form.group" class="field !h-11 sm:!h-[38px]">
-                <option value="">由站长决定</option>
-                <option v-for="g in siteCategories" :key="g" :value="g">{{ g }}</option>
-              </select>
+              <input
+                v-model="form.group"
+                class="field !h-11 sm:!h-[38px]"
+                list="submit-categories"
+                placeholder="搜索或留空，由站长决定"
+                maxlength="60"
+                autocomplete="off"
+              />
+              <datalist id="submit-categories">
+                <option v-for="g in siteCategories" :key="g" :value="g" />
+              </datalist>
+              <span class="text-[12px] leading-5 text-ink2">可输入分类名称，留空表示由站长决定。</span>
+              <p v-if="groupUnmatched" class="text-[12px] leading-5 text-warning">未匹配到现有分类，本次将按「由站长决定」提交。</p>
             </label>
           </div>
         </section>

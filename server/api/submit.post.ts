@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto'
 import { normalizeSiteUrl } from '../utils/site'
 import { cleanText, safeIcon } from '../utils/sanitize'
 import { rateLimit } from '../utils/rateLimit'
@@ -30,13 +31,22 @@ export default defineEventHandler(async (event) => {
   const key = urlKey(u.toString()).toLowerCase()
 
   const [dup]: any = await db.query(
-    'SELECT id FROM submissions WHERE TRIM(TRAILING \'/\' FROM LOWER(url)) = ? LIMIT 1',
+    'SELECT id FROM submissions WHERE url_key = ? LIMIT 1',
     [key]
   )
   if (dup.length) throw createError({ statusCode: 409, statusMessage: '该站点已提交过' })
 
-  await db.execute(
-    'INSERT INTO submissions (user_id, name, url, icon, title, description, keywords, grp, target, status) VALUES (?,?,?,?,?,?,?,?,?,?)',
+  const [inDirectory]: any = await db.query(
+    'SELECT id FROM directory_entries WHERE url_key = ? LIMIT 1',
+    [key]
+  )
+  if (inDirectory.length) {
+    throw createError({ statusCode: 409, statusMessage: '该站点已收录在分类目录' })
+  }
+
+  const accessToken = randomBytes(24).toString('hex')
+  const [result]: any = await db.execute(
+    'INSERT INTO submissions (user_id, name, url, icon, title, description, keywords, grp, target, status, access_token) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
     [
       user?.id || null,
       name,
@@ -47,8 +57,9 @@ export default defineEventHandler(async (event) => {
       cleanText(body?.keywords, 300),
       group,
       target,
-      'pending'
+      'pending',
+      accessToken
     ]
   )
-  return { ok: true }
+  return { ok: true, id: Number(result?.insertId || 0), token: accessToken }
 })

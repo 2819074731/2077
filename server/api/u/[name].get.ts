@@ -17,5 +17,9 @@ export default defineEventHandler(async (event) => {
     'SELECT name, url, icon FROM user_links WHERE user_id = ? AND is_public = 1 ORDER BY sort ASC, id ASC',
     [u.id]
   )
-  return { profile: { id: u.id, nickname: u.nickname, avatar: u.avatar || qqAvatarUrl(u.qq) }, links }
+  return {
+    profile: { id: u.id, nickname: u.nickname, avatar: u.avatar || qqAvatarUrl(u.qq) },
+    links,
+    hasPublicLinks: links.length > 0
+  }
 })

@@ -527,6 +527,10 @@ async function revokeOthers() {
           <span class="mx-1.5 opacity-40">·</span>{{ user?.email }}
         </p>
       </div>
+      <NuxtLink to="/submit/status" class="btn btn-sm btn-ghost shrink-0" title="我的提交" aria-label="我的提交">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5h11M9 12h11M9 19h11M4 5h.01M4 12h.01M4 19h.01" /></svg>
+        <span class="hidden sm:inline">我的提交</span>
+      </NuxtLink>
       <button class="btn btn-sm btn-ghost shrink-0" title="退出登录" @click="onLogout">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" /></svg>
         <span class="hidden sm:inline">退出登录</span>

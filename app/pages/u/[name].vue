@@ -15,7 +15,7 @@ if (profile.value?.id && key.value !== String(profile.value.id)) {
 useSeoMeta({
   title: () => profile.value ? `${profile.value.nickname} 的云端网址 · my2077` : '用户 · my2077',
   description: () => profile.value ? `${profile.value.nickname} 在 my2077 分享的云端网址导航。` : '',
-  robots: 'index,follow'
+  robots: () => (links.value.length ? 'index,follow' : 'noindex,follow')
 })
 useHead({
   link: [{ rel: 'canonical', href: () => siteUrl + canonical.value }],
