@@ -8,6 +8,11 @@ export default defineEventHandler(async () => {
      FROM directory_entries WHERE status = 'published'
      GROUP BY category ORDER BY n DESC, category ASC`
   )
+  const [provinces]: any = await db.query(
+    `SELECT province, COUNT(*) AS n, MAX(updated_at) AS updated_at
+     FROM directory_entries WHERE status = 'published' AND category = '高校' AND province <> ''
+     GROUP BY province ORDER BY n DESC, province ASC`
+  )
   const [users]: any = await db.query(
     `SELECT u.id, u.created_at, COUNT(ul.id) AS public_links
      FROM users u
@@ -29,6 +34,14 @@ export default defineEventHandler(async () => {
       lastmod: c.updated_at ? new Date(c.updated_at).toISOString() : undefined,
       changefreq: 'weekly',
       priority: 0.8
+    })
+  }
+  for (const p of provinces) {
+    urls.push({
+      loc: `/site?category=${encodeURIComponent('高校')}&province=${encodeURIComponent(p.province)}`,
+      lastmod: p.updated_at ? new Date(p.updated_at).toISOString() : undefined,
+      changefreq: 'weekly',
+      priority: 0.75
     })
   }
   for (const r of rows) {

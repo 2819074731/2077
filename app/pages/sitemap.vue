@@ -22,10 +22,6 @@ const grouped = computed(() => {
   return Array.from(map.entries()).map(([category, list]) => ({ category, items: list }))
 })
 
-function iconOf(url: string) {
-  try { return `/api/icon?url=${encodeURIComponent(new URL(url).hostname)}` } catch { return '' }
-}
-
 const title = '站点地图 · 2077 导航'
 const description = `2077 导航的完整站点地图：首页导航分类、分类目录站点与主要页面入口，共 ${items.value.length} 个目录站点。`
 
@@ -120,7 +116,6 @@ useHead(() => ({
             :to="`/site/${it.id}.html`"
             class="flex items-center gap-2.5 rounded-xl border border-line px-3 py-2 hover:border-ink/30 transition-colors"
           >
-            <SiteIcon :src="iconOf(it.url)" :name="it.name" :url="it.url" class="w-7 h-7 rounded-lg shrink-0 text-[11px]" />
             <span class="min-w-0">
               <span class="block text-[13px] font-medium truncate">{{ it.name }}</span>
               <span class="block text-[11px] text-ink3 truncate">详情页</span>
@@ -133,7 +128,6 @@ useHead(() => ({
             rel="nofollow noopener"
             class="flex items-center gap-2.5 rounded-xl border border-line px-3 py-2 hover:border-ink/30 transition-colors"
           >
-            <SiteIcon :src="iconOf(it.url)" :name="it.name" :url="it.url" class="w-7 h-7 rounded-lg shrink-0 text-[11px]" />
             <span class="min-w-0">
               <span class="block text-[13px] font-medium truncate">{{ it.name }}</span>
               <span class="block text-[11px] text-ink3 truncate">官网直达</span>

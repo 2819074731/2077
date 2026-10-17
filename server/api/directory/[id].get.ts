@@ -1,11 +1,25 @@
 import { parseDirectoryId } from '../../utils/directory'
 
+const CATEGORY_TTL = 5 * 60 * 1000
+let categoryCache: { at: number; rows: any[] } | null = null
+
+async function categorySnapshot() {
+  if (categoryCache && Date.now() - categoryCache.at < CATEGORY_TTL) return categoryCache.rows
+  const db = useDb()
+  const [rows]: any = await db.query(
+    `SELECT category, COUNT(*) AS n FROM directory_entries WHERE status = 'published'
+     GROUP BY category ORDER BY n DESC, category ASC`
+  )
+  categoryCache = { at: Date.now(), rows }
+  return rows
+}
+
 export default defineEventHandler(async (event) => {
   const id = parseDirectoryId(getRouterParam(event, 'id'))
   if (!id) throw createError({ statusCode: 404, statusMessage: '页面不存在' })
   const db = useDb()
   const [rows]: any = await db.query(
-    `SELECT id, name, url, icon, category, title, description, keywords, content, featured, created_at, updated_at
+    `SELECT id, name, url, icon, category, province, city, school_level, school_type, supervisor, title, description, keywords, content, featured, created_at, updated_at
      FROM directory_entries WHERE id = ? AND status = 'published' AND detail_enabled = 1 LIMIT 1`,
     [id]
   )
@@ -13,11 +27,18 @@ export default defineEventHandler(async (event) => {
   if (!item) throw createError({ statusCode: 404, statusMessage: '页面不存在' })
 
   const [related]: any = await db.query(
-    `SELECT id, name, url, icon, category, description, detail_enabled
-     FROM directory_entries WHERE status = 'published' AND category = ? AND id <> ?
-     ORDER BY ABS(id - ?) ASC, id DESC LIMIT 6`,
-    [item.category, id, id]
+    `(SELECT id, name, url, icon, category, description, detail_enabled
+      FROM directory_entries
+      WHERE status = 'published' AND category = ? AND id < ?
+      ORDER BY id DESC LIMIT 3)
+     UNION ALL
+     (SELECT id, name, url, icon, category, description, detail_enabled
+      FROM directory_entries
+      WHERE status = 'published' AND category = ? AND id > ?
+      ORDER BY id ASC LIMIT 3)`,
+    [item.category, id, item.category, id]
   )
+  related.sort((a: any, b: any) => Math.abs(a.id - id) - Math.abs(b.id - id))
   if (related.length < 6) {
     const seen = new Set<number>([id, ...related.map((r: any) => r.id)])
     const [fallback]: any = await db.query(
@@ -33,10 +54,7 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  const [categories]: any = await db.query(
-    `SELECT category, COUNT(*) AS n FROM directory_entries WHERE status = 'published'
-     GROUP BY category ORDER BY n DESC, category ASC`
-  )
+  const categories = await categorySnapshot()
   const [latest]: any = await db.query(
     `SELECT id, name, url, icon, category, detail_enabled
      FROM directory_entries WHERE status = 'published' AND id <> ? ORDER BY id DESC LIMIT 6`,

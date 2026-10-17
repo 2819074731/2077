@@ -23,19 +23,35 @@ const prev = computed<any>(() => (data.value as any)?.prev || null)
 const next = computed<any>(() => (data.value as any)?.next || null)
 const categories = computed<any[]>(() => (data.value as any)?.categories || [])
 const latest = computed<any[]>(() => (data.value as any)?.latest || [])
+function provinceLabel(p: string) {
+  return String(p || '').replace(/(壮族自治区|回族自治区|维吾尔自治区|特别行政区|自治区|省|市)$/, '')
+}
+function provinceHref(p: string) {
+  return `/site?category=${encodeURIComponent('高校')}&province=${encodeURIComponent(p)}`
+}
+const schoolMeta = computed<{ k: string; v: string }[]>(() => {
+  const it = item.value
+  const out: { k: string; v: string }[] = []
+  if (it.school_level) out.push({ k: '办学层次', v: it.school_level })
+  if (it.school_type) out.push({ k: '办学类型', v: it.school_type })
+  if (it.supervisor) out.push({ k: '主管部门', v: it.supervisor })
+  if (it.city) out.push({ k: '所在城市', v: it.city })
+  if (it.province) out.push({ k: '所在地区', v: it.province })
+  return out
+})
 const host = computed(() => {
   try { return new URL(item.value.url).hostname } catch { return item.value.url }
 })
 const pageUrl = computed(() => `${siteUrl}/site/${item.value.id}.html`)
 const pageTitle = computed(() => item.value.title || `${item.value.name} - ${item.value.category}网站推荐 | 2077 导航`)
 const pageDesc = computed(() =>
-  item.value.description || `${item.value.name}（${host.value}）收录在 2077 导航「${item.value.category}」分类，提供官网入口、站点简介与同类站点推荐。`
+  item.value.description || `${item.value.name}${item.value.province ? `位于${item.value.province}${item.value.school_level ? `，是一所${item.value.school_type || ''}${item.value.school_level}高校` : ''}` : ''}（${host.value}）收录在 2077 导航「${item.value.category}」分类，提供官网入口、院校信息与同类站点推荐。`
 )
 const paragraphs = computed<string[]>(() => {
   const text = String(item.value.content || '').trim()
   if (text) return text.split(/\n+/).map((s: string) => s.trim()).filter(Boolean)
   return [
-    `${item.value.name} 是收录在 2077 导航「${item.value.category}」分类下的站点，官网地址为 ${host.value}。`,
+    `${item.value.name}${item.value.province ? `位于${item.value.province}${item.value.city && item.value.city !== item.value.province ? `·${item.value.city}` : ''}` : ''}${item.value.school_level ? `，办学层次为${item.value.school_level}` : ''}${item.value.school_type ? `，办学类型为${item.value.school_type}` : ''}${item.value.supervisor ? `，主管部门为${item.value.supervisor}` : ''}，官网地址为 ${host.value}。`,
     `本页整理了该站点的基本信息、官网入口与同类站点推荐，方便你快速判断是否值得访问。`
   ]
 })
@@ -157,7 +173,11 @@ useHead(() => ({
               <h1 class="text-[24px] sm:text-[30px] font-extrabold tracking-tight leading-tight">{{ item.name }}</h1>
               <span v-if="item.featured" class="chip">精选</span>
             </div>
-            <p class="text-[12.5px] text-ink3 mt-1">{{ item.category }} · {{ host }}</p>
+            <p class="text-[12.5px] text-ink3 mt-1">
+              <NuxtLink :to="`/site?category=${encodeURIComponent(item.category)}`" class="hover:text-ink">{{ item.category }}</NuxtLink>
+              <template v-if="item.province"> · <NuxtLink :to="provinceHref(item.province)" class="hover:text-ink">{{ provinceLabel(item.province) }}</NuxtLink></template>
+              · {{ host }}
+            </p>
             <p class="text-[13.5px] text-ink2 mt-2 leading-relaxed">{{ pageDesc }}</p>
           </div>
         </header>
@@ -182,6 +202,10 @@ useHead(() => ({
           <div>
             <dt class="text-ink3 text-[11.5px] mb-0.5">所属分类</dt>
             <dd>{{ item.category }}</dd>
+          </div>
+          <div v-for="m in schoolMeta" :key="m.k">
+            <dt class="text-ink3 text-[11.5px] mb-0.5">{{ m.k }}</dt>
+            <dd>{{ m.v }}</dd>
           </div>
           <div>
             <dt class="text-ink3 text-[11.5px] mb-0.5">收录时间</dt>

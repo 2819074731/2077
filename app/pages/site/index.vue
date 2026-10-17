@@ -10,6 +10,7 @@ const siteUrl = useRuntimeConfig().public.siteUrl
 const PAGE_SIZE = 20
 const category = computed(() => String(route.query.category || ''))
 const q = computed(() => String(route.query.q || ''))
+const province = computed(() => String(route.query.province || ''))
 const page = computed(() => Math.max(1, Number(route.query.page) || 1))
 const keyword = ref(q.value)
 
@@ -17,8 +18,8 @@ const { recordClick } = useNav()
 
 const { data, pending } = await useAsyncData(
   'directory-list',
-  () => $fetch('/api/directory', { query: { category: category.value, q: q.value, page: page.value, size: PAGE_SIZE } }),
-  { watch: [category, q, page] }
+  () => $fetch('/api/directory', { query: { category: category.value, q: q.value, province: province.value, page: page.value, size: PAGE_SIZE } }),
+  { watch: [category, q, province, page] }
 )
 
 const { data: popularData, pending: popularPending } = await useAsyncData(
@@ -31,6 +32,7 @@ watch(q, (v) => { keyword.value = v })
 
 const items = computed<any[]>(() => (data.value as any)?.items || [])
 const categories = computed<any[]>(() => (data.value as any)?.categories || [])
+const provinces = computed<any[]>(() => (data.value as any)?.provinces || [])
 const total = computed(() => Number((data.value as any)?.total || 0))
 const all = computed(() => Number((data.value as any)?.all || 0))
 const popular = computed<any[]>(() => (popularData.value as any)?.items || [])
@@ -51,9 +53,18 @@ const pageNumbers = computed<(number | string)[]>(() => {
   }
   return out
 })
+function provinceLabel(p: string) {
+  return p.replace(/(壮族自治区|回族自治区|维吾尔自治区|特别行政区|自治区|省|市)$/, '')
+}
+function provinceHref(p: string) {
+  const qs = new URLSearchParams({ category: '高校' })
+  if (p) qs.set('province', p)
+  return '/site?' + qs.toString()
+}
 function pageHref(n: number) {
   const qs = new URLSearchParams()
   if (category.value) qs.set('category', category.value)
+  if (province.value) qs.set('province', province.value)
   if (q.value) qs.set('q', q.value)
   if (n > 1) qs.set('page', String(n))
   const s = qs.toString()
@@ -62,6 +73,7 @@ function pageHref(n: number) {
 const canonicalUrl = computed(() => {
   const qs = new URLSearchParams()
   if (category.value) qs.set('category', category.value)
+  if (province.value) qs.set('province', province.value)
   if (page.value > 1) qs.set('page', String(page.value))
   const s = qs.toString()
   return siteUrl + '/site' + (s ? '?' + s : '')
@@ -69,11 +81,16 @@ const canonicalUrl = computed(() => {
 
 const seoTitle = computed(() => {
   const c = category.value
+  if (province.value) return `${provinceLabel(province.value)}高校名单 · 院校网址导航 | 2077 导航`
   return c ? `${c}网站目录 · 2077 导航` : '网站目录 · 精选站点收录 | 2077 导航'
 })
-const intro = computed(() => (category.value ? categoryIntro(category.value) : ''))
+const intro = computed(() => {
+  if (province.value) return `汇总${provinceLabel(province.value)}的普通高校、职业院校与成人高校官网入口，按办学层次与类型整理，方便查询与访问。`
+  return category.value ? categoryIntro(category.value) : ''
+})
 const seoDesc = computed(() => {
   const c = category.value
+  if (province.value) return `${provinceLabel(province.value)}高校名单与官网入口，当前收录 ${total.value} 所院校，可按办学层次与类型筛选。`
   return c
     ? `${categoryIntro(c)} 当前收录 ${total.value} 个站点。`
     : `2077 导航网站目录，按分类浏览已收录网站，提供站点简介、官网入口与分类筛选，共 ${all.value} 个站点。`
@@ -98,10 +115,10 @@ useHead(() => ({
       '@graph': [
         {
           '@type': 'CollectionPage',
-          '@id': siteUrl + '/site#webpage',
+          '@id': canonicalUrl.value + '#webpage',
           name: seoTitle.value,
           description: seoDesc.value,
-          url: siteUrl + '/site',
+          url: canonicalUrl.value,
           inLanguage: 'zh-CN',
           isPartOf: { '@id': siteUrl + '/#website' },
           publisher: { '@id': siteUrl + '/#organization' },
@@ -121,7 +138,9 @@ useHead(() => ({
           '@id': siteUrl + '/site#breadcrumb',
           itemListElement: [
             { '@type': 'ListItem', position: 1, name: '首页', item: siteUrl + '/' },
-            { '@type': 'ListItem', position: 2, name: '网站目录', item: siteUrl + '/site' }
+            { '@type': 'ListItem', position: 2, name: '网站目录', item: siteUrl + '/site' },
+            ...(category.value ? [{ '@type': 'ListItem', position: 3, name: category.value, item: siteUrl + '/site?category=' + encodeURIComponent(category.value) }] : []),
+            ...(province.value ? [{ '@type': 'ListItem', position: category.value ? 4 : 3, name: provinceLabel(province.value), item: canonicalUrl.value }] : [])
           ]
         }
       ]
@@ -151,7 +170,7 @@ function search() {
 
 function resetAll() {
   keyword.value = ''
-  go({ category: '', q: '', page: 1 })
+  go({ category: '', province: '', q: '', page: 1 })
 }
 </script>
 
@@ -159,9 +178,9 @@ function resetAll() {
   <div class="max-w-wrap mx-auto px-4 py-5 sm:py-8">
     <header class="flex items-start justify-between gap-3 mb-4">
       <div class="min-w-0">
-        <h1 class="text-[24px] sm:text-[28px] font-extrabold tracking-tight leading-tight">网站目录</h1>
+        <h1 class="text-[24px] sm:text-[28px] font-extrabold tracking-tight leading-tight">{{ province ? provinceLabel(province) + '高校' : (category ? category : '网站目录') }}</h1>
         <p class="text-[12px] text-ink3 mt-1">
-          共 {{ all }} 个站点<span v-if="categories.length"> · {{ categories.length }} 个分类</span>
+          共 {{ total }} 个站点<span v-if="categories.length"> · {{ categories.length }} 个分类</span>
         </p>
       </div>
       <NuxtLink to="/submit" class="btn btn-sm shrink-0">提交网站</NuxtLink>
@@ -181,15 +200,30 @@ function resetAll() {
         <button
           class="shrink-0 h-8 px-3 rounded-full border text-[12.5px] font-medium transition-colors"
           :class="!category ? 'bg-ink text-bg border-transparent' : 'bg-card border-line text-ink2 hover:text-ink'"
-          @click="go({ category: '', page: 1 })"
+          @click="go({ category: '', province: '', page: 1 })"
         >全部 <span class="opacity-60">{{ all }}</span></button>
         <button
           v-for="c in categories"
           :key="c.category"
           class="shrink-0 h-8 px-3 rounded-full border text-[12.5px] font-medium transition-colors"
           :class="category === c.category ? 'bg-ink text-bg border-transparent' : 'bg-card border-line text-ink2 hover:text-ink'"
-          @click="go({ category: c.category, page: 1 })"
+          @click="go({ category: c.category, province: '', page: 1 })"
         >{{ c.category }} <span class="opacity-60">{{ c.n }}</span></button>
+      </div>
+
+      <div v-if="category === '高校' && provinces.length" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 pb-0.5">
+        <NuxtLink
+          to="/site?category=%E9%AB%98%E6%A0%A1"
+          class="shrink-0 h-7 px-2.5 rounded-full border text-[12px] font-medium transition-colors"
+          :class="!province ? 'bg-ink text-bg border-transparent' : 'bg-card border-line text-ink2 hover:text-ink'"
+        >全部地区</NuxtLink>
+        <NuxtLink
+          v-for="p in provinces"
+          :key="p.province"
+          :to="provinceHref(p.province)"
+          class="shrink-0 h-7 px-2.5 rounded-full border text-[12px] font-medium transition-colors"
+          :class="province === p.province ? 'bg-ink text-bg border-transparent' : 'bg-card border-line text-ink2 hover:text-ink'"
+        >{{ provinceLabel(p.province) }} <span class="opacity-60">{{ p.n }}</span></NuxtLink>
       </div>
     </div>
 

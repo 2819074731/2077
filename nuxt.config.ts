@@ -130,5 +130,11 @@ export default defineNuxtConfig({
 
   nitro: {
     preset: 'node-server'
+  },
+
+  routeRules: {
+    '/sitemap': { swr: 600 },
+    '/site': { swr: 120 },
+    '/site/**': { swr: 300 }
   }
 })
