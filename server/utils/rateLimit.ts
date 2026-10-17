@@ -3,7 +3,7 @@ import type { H3Event } from 'h3'
 interface Bucket { count: number; reset: number }
 const buckets = new Map<string, Bucket>()
 
-export function clientIp(event: H3Event): string {
+function clientIp(event: H3Event): string {
   const xff = getRequestHeader(event, 'x-forwarded-for') || ''
   return xff.split(',')[0].trim() || event.node.req.socket.remoteAddress || 'unknown'
 }

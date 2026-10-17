@@ -52,7 +52,7 @@ function extractUrls(): string[] {
 }
 
 function ensureGroup(name: string): string {
-  const hit = groups.value.find(g => g.name === name)
+  const hit = groups.value.find(g => g.name.toLowerCase() === name.toLowerCase())
   if (hit) return hit.id
   addGroup()
   const g = groups.value[groups.value.length - 1]

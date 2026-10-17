@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { assertPublicHttpUrl, readBodyCapped, safeFetch } from '../../utils/safeUrl'
+import { assertPublicHttpUrl, readBodyCapped, safeFetch } from '../utils/safeUrl'
 
 const TTL = 1000 * 60 * 60 * 24 * 7
 const MAX_MEM = 600

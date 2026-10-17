@@ -20,7 +20,7 @@ function extract(input: string): string {
 }
 
 function ensureGroup(nameText: string): string {
-  const hit = groups.value.find(g => g.name === nameText)
+  const hit = groups.value.find(g => g.name.toLowerCase() === nameText.toLowerCase())
   if (hit) return hit.id
   addGroup()
   const g = groups.value[groups.value.length - 1]

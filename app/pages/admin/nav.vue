@@ -304,8 +304,8 @@ async function checkLinks() {
   checkTotal.value = urls.length
   checkDone.value = 0
   try {
-    for (let i = 0; i < urls.length; i += 24) {
-      const batch = urls.slice(i, i + 24)
+    for (let i = 0; i < urls.length; i += 18) {
+      const batch = urls.slice(i, i + 18)
       const d: any = await $fetch('/api/admin/health/check', {
         method: 'POST',
         body: { urls: batch }
