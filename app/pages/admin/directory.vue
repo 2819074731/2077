@@ -356,6 +356,19 @@ function tdkIssues(e: Entry) {
   return out
 }
 
+function onMenuToggle(ev: Event) {
+  const el = ev.currentTarget as HTMLDetailsElement | null
+  if (!el?.open) return
+  document.querySelectorAll<HTMLDetailsElement>('details.row-menu[open]').forEach((d) => {
+    if (d !== el) d.removeAttribute('open')
+  })
+}
+
+function closeRowMenu(ev: Event) {
+  const el = (ev.currentTarget as HTMLElement | null)?.closest('details')
+  if (el) el.removeAttribute('open')
+}
+
 function iconOf(url: string) {
   try { return `/api/icon?url=${encodeURIComponent(new URL(url).hostname)}` } catch { return '' }
 }
@@ -493,40 +506,40 @@ onBeforeUnmount(() => {
         <button class="btn btn-sm btn-primary" :disabled="!selected.size || bulkActing" @click="bulk('publish')">批量发布</button>
         <button class="btn btn-sm btn-ghost" :disabled="!selected.size || bulkActing" @click="bulk('hide')">批量隐藏</button>
       </div>
-      <div class="card overflow-hidden divide-y divide-line">
-        <div v-for="e in items" :key="e.id" class="p-3.5 sm:p-4">
-          <div class="flex items-start gap-3">
-            <input
-              type="checkbox"
-              class="w-4 h-4 mt-1 shrink-0 accent-current"
-              :checked="selected.has(Number(e.id))"
-              :aria-label="`选择 ${e.name}`"
-              @change="toggleSelect(Number(e.id))"
-            />
-            <SiteIcon :src="e.icon || iconOf(e.url)" :name="e.name" :url="e.url" class="w-9 h-9 rounded-lg shrink-0 text-[13px]" />
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-1.5 flex-wrap">
-                <span class="font-medium text-[13.5px]">{{ e.name }}</span>
-                <span class="chip !text-[10px]">{{ e.category }}</span>
-                <span v-if="e.featured" class="chip !text-[10px]">推荐</span>
-                <span class="chip !text-[10px]" :class="{ 'text-success': e.status === 'published' }">{{ e.status === 'published' ? '已发布' : '已隐藏' }}</span>
-                <span v-if="!e.detail_enabled" class="chip !text-[10px]">无详情页</span>
-                <span v-for="b in tdkIssues(e)" :key="b" class="chip !text-[10px] text-warning">{{ b }}</span>
-                <span v-if="e.http_status && e.http_status >= 400" class="chip !text-[10px] text-danger">HTTP {{ e.http_status }}</span>
-              </div>
-              <a :href="e.url" target="_blank" rel="noopener" class="block text-[11.5px] text-ink2 truncate hover:text-ink">{{ e.url }}</a>
-              <a v-if="e.final_url && e.final_url.replace(/\/$/, '') !== e.url.replace(/\/$/, '')" :href="e.final_url" target="_blank" rel="noopener" class="block text-[11px] text-ink3 truncate hover:text-ink">跳转至 {{ e.final_url }}</a>
-              <p v-if="e.description" class="text-[11.5px] text-ink3 mt-0.5 line-clamp-1">{{ e.description }}</p>
+      <div class="card divide-y divide-line">
+        <div v-for="e in items" :key="e.id" class="flex items-start gap-2.5 px-3 py-2.5 first:rounded-t-2xl last:rounded-b-2xl hover:bg-card2/40">
+          <input
+            type="checkbox"
+            class="w-4 h-4 mt-1 shrink-0 accent-current"
+            :checked="selected.has(Number(e.id))"
+            :aria-label="`选择 ${e.name}`"
+            @change="toggleSelect(Number(e.id))"
+          />
+          <SiteIcon :src="e.icon || iconOf(e.url)" :name="e.name" :url="e.url" class="w-8 h-8 rounded-lg shrink-0 text-[12px]" />
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <button class="font-medium text-[13.5px] text-left hover:underline" @click="openEdit(e)">{{ e.name }}</button>
+              <span class="chip !text-[10px]">{{ e.category }}</span>
+              <span v-if="e.featured" class="chip !text-[10px]">推荐</span>
+              <span v-if="e.status !== 'published'" class="chip !text-[10px]">已隐藏</span>
+              <span v-if="!e.detail_enabled" class="chip !text-[10px]">无详情页</span>
+              <span v-for="b in tdkIssues(e)" :key="b" class="chip !text-[10px] text-warning">{{ b }}</span>
+              <span v-if="e.http_status && e.http_status >= 400" class="chip !text-[10px] text-danger" :title="`HTTP ${e.http_status} · ${fmtTime(e.checked_at)}`">HTTP {{ e.http_status }}</span>
             </div>
+            <a :href="e.url" target="_blank" rel="noopener" :title="e.url" class="mt-0.5 block text-[11.5px] text-ink3 truncate hover:text-ink">{{ e.url }}</a>
           </div>
-          <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-line">
-            <NuxtLink v-if="e.detail_enabled" :to="`/site/${e.id}.html`" target="_blank" class="btn btn-sm btn-ghost">查看详情</NuxtLink>
-            <a v-else :href="e.url" target="_blank" rel="noopener" class="btn btn-sm btn-ghost">访问官网</a>
-            <button class="btn btn-sm" @click="openEdit(e)">编辑</button>
-            <button class="btn btn-sm btn-ghost" @click="act(e, 'status')">{{ e.status === 'published' ? '隐藏' : '发布' }}</button>
-            <div class="flex-1" />
-            <button class="btn btn-sm btn-ghost text-danger" @click="act(e, 'delete')">删除</button>
-          </div>
+          <details class="relative shrink-0 row-menu" @toggle="onMenuToggle">
+            <summary class="btn btn-sm btn-ghost btn-icon-sm list-none cursor-pointer" aria-label="更多操作">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" /></svg>
+            </summary>
+            <div class="absolute right-0 top-full z-30 mt-1 w-32 rounded-xl border border-line bg-card p-1 shadow-soft">
+              <NuxtLink v-if="e.detail_enabled" :to="`/site/${e.id}.html`" target="_blank" class="flex items-center h-8 px-2.5 rounded-lg text-[12.5px] text-ink2 hover:bg-card2" @click="closeRowMenu">查看详情</NuxtLink>
+              <a v-else :href="e.url" target="_blank" rel="noopener" class="flex items-center h-8 px-2.5 rounded-lg text-[12.5px] text-ink2 hover:bg-card2" @click="closeRowMenu">访问官网</a>
+              <button class="flex items-center w-full h-8 px-2.5 rounded-lg text-[12.5px] text-ink2 hover:bg-card2" @click="closeRowMenu($event); openEdit(e)">编辑</button>
+              <button class="flex items-center w-full h-8 px-2.5 rounded-lg text-[12.5px] text-ink2 hover:bg-card2" @click="closeRowMenu($event); act(e, 'status')">{{ e.status === 'published' ? '隐藏' : '发布' }}</button>
+              <button class="flex items-center w-full h-8 px-2.5 rounded-lg text-[12.5px] text-danger hover:bg-card2" @click="closeRowMenu($event); act(e, 'delete')">删除</button>
+            </div>
+          </details>
         </div>
       </div>
     </template>
