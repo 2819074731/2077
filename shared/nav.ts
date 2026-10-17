@@ -54,17 +54,22 @@ export const DEFAULT_GROUPS: NavGroup[] = [
     { id: 'l23', name: '智谱清言', url: 'https://chatglm.cn' },
     { id: 'l24', name: 'Ollama', url: 'https://ollama.com' }
   ]},
-  { id: 'g-geek', name: '社区资讯', recommended: true, links: [
+  { id: 'g-geek', name: '资讯阅读', recommended: true, links: [
     { id: 'l25', name: 'Hacker News', url: 'https://news.ycombinator.com' },
-    { id: 'l26', name: 'V2EX', url: 'https://www.v2ex.com' },
-    { id: 'l27', name: 'LINUX DO', url: 'https://linux.do' },
     { id: 'l28', name: '掘金', url: 'https://juejin.cn' },
     { id: 'l29', name: '少数派', url: 'https://sspai.com' },
     { id: 'l30', name: 'GitHub Trending', url: 'https://github.com/trending' },
     { id: 'l31', name: '知乎', url: 'https://www.zhihu.com' },
     { id: 'l32', name: '博客园', url: 'https://www.cnblogs.com' },
-    { id: 'l33', name: 'Reddit', url: 'https://www.reddit.com' },
     { id: 'l34', name: 'Product Hunt', url: 'https://www.producthunt.com' }
+  ]},
+  { id: 'g-forum', name: '论坛门户', links: [
+    { id: 'l26', name: 'V2EX', url: 'https://www.v2ex.com' },
+    { id: 'l27', name: 'LINUX DO', url: 'https://linux.do' },
+    { id: 'l33', name: 'Reddit', url: 'https://www.reddit.com' },
+    { id: 'l80', name: '大佬论坛', url: 'https://dalao.net' },
+    { id: 'l81', name: '侠客岛', url: 'https://bbs.lc' },
+    { id: 'l82', name: 'bbs1', url: 'https://bbs1.org' }
   ]},
   { id: 'g-media', name: '影音娱乐', recommended: true, links: [
     { id: 'l35', name: 'Bilibili', url: 'https://www.bilibili.com' },

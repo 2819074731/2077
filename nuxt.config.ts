@@ -83,6 +83,8 @@ export default defineNuxtConfig({
       }
     },
     workbox: {
+      navigateFallback: null,
+      importScripts: ['/sw-heal.js'],
       additionalManifestEntries: [{ url: '/offline', revision: null }],
       globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
       runtimeCaching: [

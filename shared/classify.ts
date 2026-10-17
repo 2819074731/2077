@@ -9,7 +9,8 @@ export interface ClassifyInput {
 const RULES: Array<{ group: string; words: string[] }> = [
   { group: 'AI 与模型', words: ['openai', 'anthropic', 'claude', 'chatgpt', 'gemini', 'midjourney', 'huggingface', 'stable diffusion', 'llm', '人工智能', '大模型', 'ai 工具'] },
   { group: '开发工具', words: ['github', 'gitlab', 'gitee', 'stackoverflow', 'npmjs', 'pypi', 'docker', 'kubernetes', 'vercel', 'netlify', 'cloudflare', 'postman', 'jetbrains', 'vscode', 'developer', '编程', '开发', '代码', 'api 文档'] },
-  { group: '社区资讯', words: ['reddit', 'hacker news', 'v2ex', 'zhihu', 'juejin', 'sspai', '36kr', '少数派', '知乎', '掘金', '社区', '论坛', '资讯'] },
+  { group: '论坛门户', words: ['v2ex', 'linux.do', 'reddit', 'bbs', 'forum', '论坛', '社区', '大佬论坛', '侠客岛'] },
+  { group: '资讯阅读', words: ['hacker news', 'zhihu', 'juejin', 'sspai', '36kr', '少数派', '知乎', '掘金', '资讯'] },
   { group: '影音娱乐', words: ['youtube', 'bilibili', 'netflix', 'spotify', 'twitch', '音乐', '视频', '电影', '影视', '动漫', '游戏'] },
   { group: '云服务', words: ['aws', 'azure', 'cloud.google', 'aliyun', 'aliyun.com', 'tencent cloud', 'cloud.tencent', 'console', '控制台', '云服务', '服务器'] },
   { group: '运维监控', words: ['uptime', 'statuspage', 'grafana', 'prometheus', '监控', '状态页', '运维'] },

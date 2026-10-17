@@ -35,6 +35,15 @@ test('分类接口可用', async () => {
   assert.ok(Array.isArray(data.categories))
 })
 
+test('分类已完成去重整理', async () => {
+  const res = await get('/api/categories')
+  assert.equal(res.status, 200)
+  const data = await res.json()
+  assert.ok(data.categories.includes('资讯阅读'))
+  assert.ok(data.categories.includes('论坛门户'))
+  assert.ok(!data.categories.includes('社区资讯'))
+})
+
 test('健康检查正常', async () => {
   const res = await get('/api/health')
   assert.equal(res.status, 200)
