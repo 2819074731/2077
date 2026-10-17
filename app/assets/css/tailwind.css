@@ -174,31 +174,83 @@ img {
 }
 
 /* ==========================================================================
-   壁纸模式：壁纸生效时，把页面主要表面改为半透明玻璃质感
+   壁纸模式：文字明暗跟随壁纸（wp-tone-light / wp-tone-dark）
+   - 自动模式由 WallpaperLayer 采样壁纸平均亮度后写入 wp-tone-*
+   - 这里只覆盖设计令牌，组件无需感知壁纸
    ========================================================================== */
+.wp-tone-light {
+  --text: #ffffff;
+  --text-2: rgba(255, 255, 255, 0.76);
+  --text-3: rgba(255, 255, 255, 0.54);
+  --border: rgba(255, 255, 255, 0.18);
+  --border-strong: rgba(255, 255, 255, 0.34);
+  --card: rgba(16, 16, 18, 0.56);
+  --card-2: rgba(255, 255, 255, 0.14);
+  --header: rgba(10, 10, 12, 0.46);
+  --bg: #0b0b0c;
+  --accent: #ffffff;
+  --accent-soft: rgba(255, 255, 255, 0.18);
+  --shadow: 0 10px 34px rgba(0, 0, 0, 0.28);
+  --shadow-hover: 0 16px 46px rgba(0, 0, 0, 0.38);
+  --field: rgba(255, 255, 255, 0.14);
+  --danger: #fca5a5;
+  --success: #86efac;
+  --warning: #fcd34d;
+  color-scheme: dark;
+}
+
+.wp-tone-dark {
+  --text: #141416;
+  --text-2: rgba(20, 20, 22, 0.68);
+  --text-3: rgba(20, 20, 22, 0.48);
+  --border: rgba(20, 20, 22, 0.14);
+  --border-strong: rgba(20, 20, 22, 0.26);
+  --card: rgba(255, 255, 255, 0.72);
+  --card-2: rgba(255, 255, 255, 0.5);
+  --header: rgba(255, 255, 255, 0.58);
+  --bg: #f7f7f8;
+  --accent: #17171a;
+  --accent-soft: rgba(20, 20, 22, 0.1);
+  --shadow: 0 10px 34px rgba(0, 0, 0, 0.16);
+  --shadow-hover: 0 16px 46px rgba(0, 0, 0, 0.24);
+  --field: rgba(255, 255, 255, 0.78);
+  --danger: #b91c1c;
+  --success: #15803d;
+  --warning: #b45309;
+  color-scheme: light;
+}
+
 .wp-on .card,
 .wp-on .linkcard {
-  background: color-mix(in srgb, var(--card) 78%, transparent);
-  backdrop-filter: blur(14px) saturate(1.1);
-  -webkit-backdrop-filter: blur(14px) saturate(1.1);
-  border-color: color-mix(in srgb, var(--border) 60%, transparent);
+  background: var(--card);
+  border-color: var(--border);
+  backdrop-filter: blur(16px) saturate(1.15);
+  -webkit-backdrop-filter: blur(16px) saturate(1.15);
+  box-shadow: var(--shadow);
 }
 .wp-on .linkcard:hover {
-  background: color-mix(in srgb, var(--card) 88%, transparent);
-}
-.wp-on header.bg-header {
-  background: color-mix(in srgb, var(--header) 55%, transparent);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-hover);
 }
 .wp-on .field {
-  background: color-mix(in srgb, var(--card) 82%, transparent);
+  background: var(--field);
+}
+.wp-on .chip {
+  background: var(--card-2);
 }
 .wp-on footer {
   background: color-mix(in srgb, var(--bg) 55%, transparent);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 .wp-on .wp-solid {
-  background: color-mix(in srgb, var(--card) 90%, transparent);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: var(--card);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+.wp-on h1 {
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.3);
+}
+.wp-on.wp-tone-dark h1 {
+  text-shadow: 0 2px 18px rgba(255, 255, 255, 0.45);
 }

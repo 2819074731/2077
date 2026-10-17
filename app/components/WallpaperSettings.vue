@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { useWallpaper, ROTATE_INTERVALS, EFFECT_PRESETS } from '~/composables/useWallpaper'
+import { useWallpaper, ROTATE_INTERVALS, EFFECT_PRESETS, TONE_MODES } from '~/composables/useWallpaper'
 
 const open = useState<boolean>('wp-settings-open', () => false)
 const wp = useWallpaper()
@@ -171,6 +171,29 @@ const list = computed(() => wp.items.value)
                   </button>
                 </div>
                 <p v-if="wp.effect.value === 'custom'" class="text-[11.5px] text-ink2 mt-2">当前为自定义效果，可拖动下方滑块微调。</p>
+              </div>
+
+              <div class="mb-6">
+                <div class="flex items-center gap-2 mb-3">
+                  <span class="h-4 w-1 rounded-full accent-bar" />
+                  <span class="text-[13.5px] font-semibold">文字颜色</span>
+                  <span class="text-[11.5px] text-ink2">保证壁纸上的内容清晰可见</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2.5">
+                  <button
+                    v-for="t in TONE_MODES"
+                    :key="t.id"
+                    class="rounded-xl border-2 p-3 flex flex-col items-center gap-1 transition-colors text-center"
+                    :class="wp.toneMode.value === t.id ? 'border-ink bg-card' : 'border-line bg-card hover:border-line2'"
+                    @click="wp.setToneMode(t.id)"
+                  >
+                    <span class="text-[13px] font-medium">{{ t.name }}</span>
+                    <span class="text-[10.5px] text-ink2 leading-tight">{{ t.desc }}</span>
+                  </button>
+                </div>
+                <p class="text-[11.5px] text-ink3 mt-2">
+                  当前判定为{{ wp.tone.value === 'light' ? '深色底，使用白色文字' : '浅色底，使用深色文字' }}；自动判定不准时可手动指定。
+                </p>
               </div>
 
               <div class="mb-6">

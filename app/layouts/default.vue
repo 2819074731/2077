@@ -29,7 +29,10 @@ const isDark = computed(() => colorMode.value === 'dark')
 </script>
 
 <template>
-  <div class="relative min-h-screen flex flex-col" :class="{ 'wp-on': wp.active.value }">
+  <div
+    class="relative min-h-screen flex flex-col"
+    :class="[{ 'wp-on': wp.active.value }, wp.active.value ? `wp-tone-${wp.tone.value}` : '']"
+  >
     <WallpaperLayer />
     <div v-if="!wp.active.value" class="pointer-events-none fixed inset-0 -z-10 grid-bg opacity-60" />
 

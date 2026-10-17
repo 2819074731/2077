@@ -18,6 +18,7 @@ const LS_OPACITY = 'my2077.wallpaper.opacity'
 const LS_BLUR = 'my2077.wallpaper.blur'
 const LS_OVERLAY = 'my2077.wallpaper.overlay'
 const LS_EFFECT = 'my2077.wallpaper.effect'
+const LS_TONE = 'my2077.wallpaper.tone'
 
 /** 轮播间隔可选值（分钟）。 */
 export const ROTATE_INTERVALS = [5, 10, 30, 60, 180, 1440]
@@ -40,6 +41,15 @@ export const EFFECT_PRESETS: EffectPreset[] = [
 
 export const DEFAULT_EFFECT = EFFECT_PRESETS[0]
 
+export type ToneMode = 'auto' | 'light' | 'dark'
+
+/** 壁纸文字颜色：自动按亮度判定，也可手动锁定。 */
+export const TONE_MODES: { id: ToneMode; name: string; desc: string }[] = [
+  { id: 'auto', name: '自动', desc: '跟随壁纸明暗' },
+  { id: 'light', name: '浅色', desc: '白色文字' },
+  { id: 'dark', name: '深色', desc: '深色文字' }
+]
+
 /** 轮播定时器（模块级，避免多处 useWallpaper 实例各起一个 interval）。 */
 let timer: any = null
 
@@ -55,6 +65,8 @@ export function useWallpaper() {
   const loading = useState<boolean>('wp-loading', () => false)
   const overlay = useState<number>('wp-overlay', () => DEFAULT_EFFECT.overlay)
   const effect = useState<string>('wp-effect', () => DEFAULT_EFFECT.id)
+  const toneMode = useState<ToneMode>('wp-tone-mode', () => 'auto')
+  const toneAuto = useState<'light' | 'dark'>('wp-tone-auto', () => 'light')
 
   /** 代理后的图片地址（走服务端缓存，避免跨域与防盗链）。 */
   function proxy(url: string): string {
@@ -71,6 +83,7 @@ export function useWallpaper() {
     localStorage.setItem(LS_BLUR, String(blur.value))
     localStorage.setItem(LS_OVERLAY, String(overlay.value))
     localStorage.setItem(LS_EFFECT, effect.value)
+    localStorage.setItem(LS_TONE, toneMode.value)
   }
 
   function loadLocal() {
@@ -90,6 +103,8 @@ export function useWallpaper() {
     if (!Number.isNaN(ov) && ov >= 0 && ov <= 100) overlay.value = ov
     const ef = localStorage.getItem(LS_EFFECT)
     effect.value = EFFECT_PRESETS.some(p => p.id === ef) ? (ef as string) : 'custom'
+    const tm = localStorage.getItem(LS_TONE)
+    toneMode.value = tm === 'light' || tm === 'dark' || tm === 'auto' ? tm : 'auto'
   }
 
   async function fetchList(n = 8) {
@@ -146,6 +161,11 @@ export function useWallpaper() {
   function setOverlay(v: number) { overlay.value = v; effect.value = 'custom'; persist() }
 
   /** 套用显示效果预设。 */
+  function setToneMode(v: ToneMode) {
+    toneMode.value = v
+    persist()
+  }
+
   function applyEffect(id: string) {
     const p = EFFECT_PRESETS.find(x => x.id === id)
     if (!p) return
@@ -159,9 +179,10 @@ export function useWallpaper() {
   /** 壁纸是否生效（用于布局层）。 */
   const active = computed(() => mode.value === 'bing' && !!current.value)
   const bgUrl = computed(() => active.value ? proxy(current.value) : '')
+  const tone = computed<'light' | 'dark'>(() => toneMode.value === 'auto' ? toneAuto.value : toneMode.value)
 
   return {
-    mode, rotate, interval, fixed, opacity, blur, overlay, effect, items, loading, current,
+    mode, rotate, interval, fixed, opacity, blur, overlay, effect, toneMode, toneAuto, tone, items, loading, current,
     active, bgUrl,
     proxy,
     loadLocal,
@@ -174,6 +195,7 @@ export function useWallpaper() {
     setOpacity,
     setBlur,
     setOverlay,
+    setToneMode,
     applyEffect,
     restart,
     stop
