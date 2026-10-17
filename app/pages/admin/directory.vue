@@ -217,6 +217,20 @@ async function batchTdk() {
   }
 }
 
+async function fixAllMissing() {
+  if (tdkRunning.value || !tdkMissing.value) return
+  if (!confirm(`补全全部 ${tdkMissing.value} 个缺失 TDK？将逐个访问官网抓取标题、描述与关键词，可能需要几分钟。`)) return
+  tdkScope.value = 'all'
+  await batchTdk()
+}
+
+function openTools() {
+  const el = document.querySelector<HTMLDetailsElement>('details.tools-panel')
+  if (!el) return
+  el.open = true
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
+
 async function pushSearch() {
   if (pushRunning.value) return
   if (!confirm('向 IndexNow 与百度推送全部已发布页面？')) return
@@ -442,7 +456,7 @@ onBeforeUnmount(() => {
         </form>
       </div>
 
-      <details class="card group">
+      <details class="card group tools-panel">
         <summary class="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2.5 cursor-pointer select-none list-none">
           <span class="text-[12.5px] font-medium text-ink">巡检与批量工具</span>
           <span v-if="maintenance" class="text-[12px] text-ink3">自动巡检每日 {{ maintenance.schedule }}</span>
@@ -496,6 +510,15 @@ onBeforeUnmount(() => {
       {{ missingOnly ? '当前没有缺 TDK 的站点。' : brokenOnly ? '当前没有链接异常的站点。' : '暂无目录站点，点击「新增站点」或到「链接发现」批量导入。' }}
     </div>
     <template v-else>
+      <div v-if="missingOnly" class="card p-3 mb-3 flex flex-wrap items-center gap-2">
+        <div class="min-w-0 flex-1">
+          <p class="text-[13px] font-medium">缺 TDK {{ total }} 个</p>
+          <p class="text-[11.5px] text-ink3">标题、描述、关键词任一为空。可批量重新抓取；抓不到的需点站点名进入编辑手动填写。</p>
+        </div>
+        <button class="btn btn-sm btn-primary shrink-0" :disabled="tdkRunning" @click="fixAllMissing">{{ tdkRunning ? '补全中…' : '补全缺失 TDK' }}</button>
+        <button class="btn btn-sm shrink-0" @click="openTools">调整范围</button>
+      </div>
+      <div v-if="tdkProgress" class="text-[12px] text-ink3 mb-2">{{ tdkProgress }}</div>
       <div class="card p-3 flex flex-wrap items-center gap-2 mb-3">
         <label class="flex items-center gap-2 text-[12.5px] text-ink2 cursor-pointer">
           <input type="checkbox" class="w-4 h-4 accent-current" :checked="allSelected" @change="toggleAll" />
@@ -518,7 +541,7 @@ onBeforeUnmount(() => {
           <SiteIcon :src="e.icon || iconOf(e.url)" :name="e.name" :url="e.url" class="w-8 h-8 rounded-lg shrink-0 text-[12px]" />
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-1.5 flex-wrap">
-              <button class="font-medium text-[13.5px] text-left hover:underline" @click="openEdit(e)">{{ e.name }}</button>
+              <button class="font-medium text-[13.5px] text-left hover:underline" title="编辑站点" @click="openEdit(e)">{{ e.name }}</button>
               <span class="chip !text-[10px]">{{ e.category }}</span>
               <span v-if="e.featured" class="chip !text-[10px]">推荐</span>
               <span v-if="e.status !== 'published'" class="chip !text-[10px]">已隐藏</span>
@@ -528,6 +551,7 @@ onBeforeUnmount(() => {
             </div>
             <a :href="e.url" target="_blank" rel="noopener" :title="e.url" class="mt-0.5 block text-[11.5px] text-ink3 truncate hover:text-ink">{{ e.url }}</a>
           </div>
+          <button v-if="missingOnly" class="btn btn-sm shrink-0" @click="openEdit(e)">编辑</button>
           <details class="relative shrink-0 row-menu" @toggle="onMenuToggle">
             <summary class="btn btn-sm btn-ghost btn-icon-sm list-none cursor-pointer" aria-label="更多操作">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" /></svg>
