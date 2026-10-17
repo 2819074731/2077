@@ -68,7 +68,7 @@ export async function fetchHtml(url: string, timeout = 8000): Promise<{ html: st
   if (ct && !ct.includes('text/html') && !ct.includes('application/xhtml+xml')) return null
   let buf: Buffer
   try {
-    buf = await readBodyCapped(hit.res, 512 * 1024)
+    buf = await readBodyCapped(hit.res, 2 * 1024 * 1024, timeout)
   } catch {
     return null
   }

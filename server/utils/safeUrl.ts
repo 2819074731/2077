@@ -100,22 +100,33 @@ export async function safeFetch(input: string, opts: SafeFetchOptions = {}): Pro
   return null
 }
 
-/** 限制响应体大小的读取；超限抛错。 */
-export async function readBodyCapped(res: Response, maxBytes: number): Promise<Buffer> {
+/** 限制响应体大小与读取时长的读取；超限抛错。 */
+export async function readBodyCapped(res: Response, maxBytes: number, timeoutMs = 8000): Promise<Buffer> {
   const reader = res.body?.getReader()
   if (!reader) return Buffer.alloc(0)
   const chunks: Uint8Array[] = []
   let total = 0
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    if (!value) continue
-    total += value.byteLength
-    if (total > maxBytes) {
-      await reader.cancel().catch(() => {})
-      throw new Error('body-too-large')
+  let timer: ReturnType<typeof setTimeout> | null = null
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      reader.cancel().catch(() => {})
+      reject(new Error('body-timeout'))
+    }, timeoutMs)
+  })
+  try {
+    while (true) {
+      const { done, value } = await Promise.race([reader.read(), timeout])
+      if (done) break
+      if (!value) continue
+      total += value.byteLength
+      if (total > maxBytes) {
+        await reader.cancel().catch(() => {})
+        throw new Error('body-too-large')
+      }
+      chunks.push(value)
     }
-    chunks.push(value)
+  } finally {
+    if (timer) clearTimeout(timer)
   }
   return Buffer.concat(chunks.map(c => Buffer.from(c)))
 }
