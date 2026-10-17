@@ -342,8 +342,7 @@ async function revokeOthers() {
     </header>
 
     <div class="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)] items-start">
-      <aside class="order-2 lg:order-1 flex flex-col gap-4">
-        <section class="card p-4 sm:p-5">
+      <section class="card p-4 sm:p-5 order-1 lg:col-start-1">
           <div class="flex items-center gap-2.5 mb-3">
             <span class="h-4 w-1 rounded-full accent-bar" />
             <h2 class="font-semibold">账号资料</h2>
@@ -371,9 +370,9 @@ async function revokeOthers() {
             </div>
             <button class="btn btn-sm btn-primary w-full" :disabled="profileSaving || !profileDirty || nicknameInvalid || usernameInvalid" @click="saveProfile">{{ profileSaving ? '保存中…' : '保存资料' }}</button>
           </div>
-        </section>
+      </section>
 
-        <section class="card p-4 sm:p-5">
+      <section class="card p-4 sm:p-5 order-3 lg:col-start-1">
           <div class="flex items-center gap-2.5 mb-2.5">
             <span class="h-4 w-1 rounded-full accent-bar" />
             <h2 class="font-semibold">账号安全</h2>
@@ -390,9 +389,9 @@ async function revokeOthers() {
             <button class="btn btn-sm btn-ghost w-full" :disabled="revoking" @click="revokeOthers">{{ revoking ? '处理中…' : '退出其他设备' }}</button>
             <p class="mt-2 text-[11.5px] text-ink3 leading-relaxed">清除除当前浏览器外的所有登录状态。</p>
           </div>
-        </section>
+      </section>
 
-        <section class="card p-4 sm:p-5">
+      <section class="card p-4 sm:p-5 order-4 lg:col-start-1">
           <div class="flex items-center gap-2.5 mb-2.5">
             <span class="h-4 w-1 rounded-full accent-bar" />
             <h2 class="font-semibold">导航配置同步</h2>
@@ -407,10 +406,9 @@ async function revokeOthers() {
           </div>
           <p class="mt-3 min-h-[18px] text-[12px] leading-snug" :class="syncFailed ? 'text-danger' : 'text-ink3'">{{ syncText }}</p>
           <NuxtLink :to="`/u/${user?.slug}`" class="btn btn-sm w-full mt-2">查看个人主页</NuxtLink>
-        </section>
-      </aside>
+      </section>
 
-      <section class="card order-1 lg:order-2 p-4 sm:p-6">
+      <section class="card order-2 lg:col-start-2 lg:row-start-1 lg:row-span-3 p-4 sm:p-6">
         <div class="flex items-start gap-2.5">
           <span class="h-4 w-1 mt-1 rounded-full accent-bar shrink-0" />
           <div class="min-w-0 flex-1">
