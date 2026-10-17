@@ -17,6 +17,9 @@ interface Entry {
   sort: number
   status: string
   detail_enabled?: number
+  http_status?: number | null
+  final_url?: string
+  checked_at?: string | null
 }
 
 const items = ref<Entry[]>([])
@@ -28,6 +31,8 @@ const page = ref(1)
 const kw = ref('')
 const category = ref('')
 const status = ref('')
+const missingOnly = ref(false)
+const brokenOnly = ref(false)
 const from = ref('')
 const to = ref('')
 const selected = ref<Set<number>>(new Set())
@@ -42,6 +47,8 @@ const size = 20
 const editing = ref<Entry | null>(null)
 const saving = ref(false)
 const metaFetching = ref(false)
+const tdkRunning = ref(false)
+const linkRunning = ref(false)
 const formError = ref('')
 
 useSeoMeta({ title: '分类目录 · 2077 管理后台', robots: 'noindex' })
@@ -74,6 +81,8 @@ async function load() {
     if (kw.value.trim()) qs.set('q', kw.value.trim())
     if (category.value) qs.set('category', category.value)
     if (status.value) qs.set('status', status.value)
+    if (missingOnly.value) qs.set('missing', '1')
+    if (brokenOnly.value) qs.set('broken', '1')
     if (from.value) qs.set('from', from.value)
     if (to.value) qs.set('to', to.value)
     const d: any = await $fetch(`/api/admin/directory?${qs}`)
@@ -105,6 +114,8 @@ function resetFilters() {
   kw.value = ''
   category.value = ''
   status.value = ''
+  missingOnly.value = false
+  brokenOnly.value = false
   from.value = ''
   to.value = ''
   search()
@@ -119,6 +130,51 @@ function toggleSelect(id: number) {
 
 function toggleAll() {
   selected.value = allSelected.value ? new Set() : new Set(items.value.map((item) => Number(item.id)))
+}
+
+async function batchTdk() {
+  if (tdkRunning.value) return
+  tdkRunning.value = true
+  let updated = 0
+  let failed = 0
+  let missing = 0
+  try {
+    for (let i = 0; i < 40; i++) {
+      const d: any = await $fetch('/api/admin/directory/tdk', { method: 'POST', body: { limit: 6 } })
+      updated += Number(d.updated || 0)
+      failed += Number(d.failed || 0)
+      missing = Number(d.missing || 0)
+      if (!d.processed || Number(d.remaining || 0) === 0) break
+    }
+    const tail = missing ? `，仍有 ${missing} 个站点 TDK 不完整（多受站点防护限制）` : ''
+    showToast(`TDK 补全完成：更新 ${updated} 个${failed ? `，失败 ${failed} 个` : ''}${tail}`, failed ? 'err' : 'ok')
+    await load()
+  } catch (err: any) {
+    showToast(err?.data?.statusMessage || err?.data?.message || '批量补全失败', 'err')
+  } finally {
+    tdkRunning.value = false
+  }
+}
+
+async function checkLinks() {
+  if (linkRunning.value) return
+  linkRunning.value = true
+  let checked = 0
+  let broken = 0
+  try {
+    for (let i = 0; i < 40; i++) {
+      const d: any = await $fetch('/api/admin/directory/check-links', { method: 'POST', body: { limit: 8 } })
+      checked += Number(d.checked || 0)
+      broken += Number(d.broken || 0)
+      if (!d.checked || Number(d.remaining || 0) === 0) break
+    }
+    showToast(`链接巡检完成：检查 ${checked} 个${broken ? `，异常 ${broken} 个` : ''}`, broken ? 'err' : 'ok')
+    await load()
+  } catch (err: any) {
+    showToast(err?.data?.statusMessage || err?.data?.message || '链接巡检失败', 'err')
+  } finally {
+    linkRunning.value = false
+  }
 }
 
 async function bulk(op: 'publish' | 'hide') {
@@ -260,7 +316,11 @@ onBeforeUnmount(() => {
           <option value="">全部分类</option>
           <option v-for="c in filterCategories" :key="c.category" :value="c.category">{{ c.category }}（{{ c.n }}）</option>
         </select>
+        <button class="btn btn-sm" :class="missingOnly ? 'btn-primary' : 'btn-ghost'" @click="missingOnly = !missingOnly; search()">缺 TDK</button>
+        <button class="btn btn-sm" :class="brokenOnly ? 'btn-primary' : 'btn-ghost'" @click="brokenOnly = !brokenOnly; search()">链接异常</button>
         <span class="text-[12.5px] text-ink2 ml-auto">共 {{ total }} 个 · 已发布 {{ published }}</span>
+        <button class="btn btn-sm" :disabled="tdkRunning" @click="batchTdk">{{ tdkRunning ? '补全中…' : '批量补 TDK' }}</button>
+        <button class="btn btn-sm" :disabled="linkRunning" @click="checkLinks">{{ linkRunning ? '巡检中…' : '巡检链接' }}</button>
         <button class="btn btn-sm btn-primary" @click="openCreate">新增站点</button>
       </div>
       <form class="flex flex-wrap gap-2" @submit.prevent="search">
@@ -269,7 +329,7 @@ onBeforeUnmount(() => {
         <span class="self-center text-[12px] text-ink3">至</span>
         <input v-model="to" type="date" class="field !w-auto" aria-label="结束日期" />
         <button class="btn shrink-0" type="submit">搜索</button>
-        <button v-if="kw || category || status || from || to" type="button" class="btn btn-ghost shrink-0" @click="resetFilters">重置</button>
+        <button v-if="kw || category || status || missingOnly || brokenOnly || from || to" type="button" class="btn btn-ghost shrink-0" @click="resetFilters">重置</button>
       </form>
       <p v-if="msg" class="text-[13px] text-ink2">{{ msg }}</p>
     </div>
@@ -307,8 +367,10 @@ onBeforeUnmount(() => {
                 <span v-if="e.featured" class="chip !text-[10px]">推荐</span>
                 <span class="chip !text-[10px]" :class="{ 'text-success': e.status === 'published' }">{{ e.status === 'published' ? '已发布' : '已隐藏' }}</span>
                 <span v-if="!e.detail_enabled" class="chip !text-[10px]">无详情页</span>
+                <span v-if="e.http_status && e.http_status >= 400" class="chip !text-[10px] text-danger">HTTP {{ e.http_status }}</span>
               </div>
               <a :href="e.url" target="_blank" rel="noopener" class="block text-[11.5px] text-ink2 truncate hover:text-ink">{{ e.url }}</a>
+              <a v-if="e.final_url && e.final_url.replace(/\/$/, '') !== e.url.replace(/\/$/, '')" :href="e.final_url" target="_blank" rel="noopener" class="block text-[11px] text-ink3 truncate hover:text-ink">跳转至 {{ e.final_url }}</a>
               <p v-if="e.description" class="text-[11.5px] text-ink3 mt-0.5 line-clamp-1">{{ e.description }}</p>
             </div>
           </div>

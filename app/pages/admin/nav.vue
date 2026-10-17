@@ -360,7 +360,9 @@ async function save() {
       body: { groups, recommended: payloadRec }
     })
     applyData(d.groups || [], d.recommended || [])
-    flash('已保存并同步到前台')
+    const synced = Number(d.sync?.created || 0)
+    if (d.syncError) flash(`已保存，目录同步失败：${d.syncError}`, 'err')
+    else flash(synced ? `已保存，并新增 ${synced} 个目录站点` : '已保存并同步到前台')
     return true
   } catch (e: any) {
     flash(e?.data?.statusMessage || e?.data?.message || '保存失败', 'err')

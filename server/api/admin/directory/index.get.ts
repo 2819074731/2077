@@ -12,6 +12,8 @@ export default defineEventHandler(async (event) => {
   const from = cleanDate(q.from)
   const to = cleanDate(q.to)
   const kw = String(q.q || '').trim().slice(0, 60)
+  const missing = String(q.missing || '') === '1'
+  const broken = String(q.broken || '') === '1'
 
   const db = useDb()
   const where: string[] = []
@@ -21,6 +23,8 @@ export default defineEventHandler(async (event) => {
   if (from) { where.push('created_at >= ?'); params.push(`${from} 00:00:00`) }
   if (to) { where.push('created_at <= ?'); params.push(`${to} 23:59:59`) }
   if (kw) { where.push('(name LIKE ? OR url LIKE ? OR description LIKE ?)'); params.push(`%${kw}%`, `%${kw}%`, `%${kw}%`) }
+  if (missing) where.push("(COALESCE(title, '') = '' OR COALESCE(description, '') = '')")
+  if (broken) where.push('(http_status IS NOT NULL AND http_status >= 400 AND http_status NOT IN (401, 403, 429))')
   const clause = where.length ? 'WHERE ' + where.join(' AND ') : ''
 
   const [[count]]: any = await db.query(`SELECT COUNT(*) AS n FROM directory_entries ${clause}`, params)
@@ -30,7 +34,8 @@ export default defineEventHandler(async (event) => {
      FROM directory_entries GROUP BY category ORDER BY n DESC, category ASC`
   )
   const [rows]: any = await db.query(
-    `SELECT id, name, url, icon, category, title, description, keywords, content, featured, sort, status, detail_enabled, created_at, updated_at
+    `SELECT id, name, url, icon, category, title, description, keywords, content, featured, sort, status, detail_enabled,
+       http_status, final_url, checked_at, created_at, updated_at
      FROM directory_entries ${clause} ORDER BY id DESC LIMIT ${size} OFFSET ${offset}`,
     params
   )

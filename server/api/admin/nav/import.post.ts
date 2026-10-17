@@ -1,5 +1,6 @@
 import { getSiteConfig, invalidateSiteConfig } from '../../../utils/siteConfig'
 import { setSetting } from '../../../utils/settings'
+import { syncNavDirectory } from '../../../utils/directorySync'
 
 interface NavLink { name: string; url: string; icon?: string }
 
@@ -52,5 +53,12 @@ export default defineEventHandler(async (event) => {
     : current.recommended
   await setSetting('site_config', { groups, recommended })
   invalidateSiteConfig()
-  return { ok: true, groups, recommended }
+  let sync: { created: number; skipped: number } | null = null
+  let syncError = ''
+  try {
+    sync = await syncNavDirectory(groups, recommended)
+  } catch (err: any) {
+    syncError = err?.message || '目录同步失败'
+  }
+  return { ok: true, groups, recommended, sync, syncError }
 })

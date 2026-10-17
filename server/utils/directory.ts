@@ -22,6 +22,15 @@ export function parseDirectoryId(input: unknown): number {
   return Number.isInteger(n) && n > 0 ? n : 0
 }
 
+export function canonicalKey(input: string): string {
+  try {
+    const u = new URL(String(input || ''))
+    return (u.hostname.toLowerCase().replace(/^www\./, '') + u.pathname.replace(/\/+$/, '') + u.search).toLowerCase()
+  } catch {
+    return String(input || '').trim().toLowerCase()
+  }
+}
+
 export function iconForUrl(url: string): string {
   try {
     return `/api/icon?url=${encodeURIComponent(new URL(url).hostname)}`

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { suggestGroupName } from '#shared/classify'
 
 const siteUrl = useRuntimeConfig().public.siteUrl
 const canonicalUrl = `${siteUrl}/submit`
@@ -129,6 +130,15 @@ async function fetchMeta() {
       form.value.name = m.title
         ? m.title.split(/[-_|·—]/)[0].trim().slice(0, 40)
         : new URL(raw).hostname.replace(/^www\./, '')
+    }
+    if (!form.value.group) {
+      form.value.group = suggestGroupName({
+        name: form.value.name,
+        url: raw,
+        title: form.value.title,
+        description: form.value.description,
+        keywords: form.value.keywords
+      }, siteCategories.value)
     }
   } catch (e: any) {
     err.value = e?.data?.statusMessage || e?.data?.message || '抓取失败，请手动填写'

@@ -1,5 +1,5 @@
 import { normalizeSiteUrl } from '../../utils/site'
-import { sanitizeDirectoryEntry } from '../../utils/directory'
+import { sanitizeDirectoryEntry, canonicalKey } from '../../utils/directory'
 import { cleanText, safeIcon } from '../../utils/sanitize'
 import { getSiteConfig, invalidateSiteConfig } from '../../utils/siteConfig'
 import { setSetting } from '../../utils/settings'
@@ -102,9 +102,10 @@ async function approveSubmission(db: any, sub: any, body: any, categories?: stri
   }
 
   if (toDirectory) {
+    const dirKey = canonicalKey(url)
     const [existing]: any = await db.query(
-      "SELECT id FROM directory_entries WHERE url_key = ? LIMIT 1",
-      [key]
+      "SELECT id FROM directory_entries WHERE canonical_key = ? LIMIT 1",
+      [dirKey]
     )
     if (existing.length) {
       result.directory = 'exists'
@@ -131,8 +132,8 @@ async function approveSubmission(db: any, sub: any, body: any, categories?: stri
       } catch (err: any) {
         if (err?.code === 'ER_DUP_ENTRY' || String(err?.message || '').includes('Duplicate entry')) {
           const [dup]: any = await db.query(
-            "SELECT id FROM directory_entries WHERE url_key = ? LIMIT 1",
-            [key]
+            "SELECT id FROM directory_entries WHERE canonical_key = ? LIMIT 1",
+            [dirKey]
           )
           result.directory = 'exists'
           if (dup.length) result.directoryId = Number(dup[0].id)

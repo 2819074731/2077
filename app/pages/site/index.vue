@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { categoryIntro } from '#shared/categoryIntro'
 
 const route = useRoute()
 const router = useRouter()
@@ -36,10 +37,11 @@ const seoTitle = computed(() => {
   const c = category.value
   return c ? `${c}网站目录 · 2077 导航` : '网站目录 · 精选站点收录 | 2077 导航'
 })
+const intro = computed(() => (category.value ? categoryIntro(category.value) : ''))
 const seoDesc = computed(() => {
   const c = category.value
   return c
-    ? `浏览 2077 导航「${c}」分类下的网站，查看站点简介、官网入口与同类站点。`
+    ? `${categoryIntro(c)} 当前收录 ${total.value} 个站点。`
     : `2077 导航网站目录，按分类浏览已收录网站，提供站点简介、官网入口与分类筛选，共 ${all.value} 个站点。`
 })
 
@@ -156,6 +158,8 @@ function resetAll() {
         >{{ c.category }} <span class="opacity-60">{{ c.n }}</span></button>
       </div>
     </div>
+
+    <p v-if="intro" class="text-[12.5px] sm:text-[13px] leading-6 text-ink2 mb-2.5">{{ intro }}</p>
 
     <div class="flex items-center gap-2 mb-2.5 min-h-[24px]">
       <span class="text-[12px] text-ink3">{{ category || (q ? `搜索「${q}」` : '全部站点') }} · {{ total }} 个</span>
