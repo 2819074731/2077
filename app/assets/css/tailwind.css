@@ -172,3 +172,33 @@ img {
     display: none;
   }
 }
+
+/* ==========================================================================
+   壁纸模式：壁纸生效时，把页面主要表面改为半透明玻璃质感
+   ========================================================================== */
+.wp-on .card,
+.wp-on .linkcard {
+  background: color-mix(in srgb, var(--card) 78%, transparent);
+  backdrop-filter: blur(14px) saturate(1.1);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+  border-color: color-mix(in srgb, var(--border) 60%, transparent);
+}
+.wp-on .linkcard:hover {
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+}
+.wp-on header.bg-header {
+  background: color-mix(in srgb, var(--header) 55%, transparent);
+}
+.wp-on .field {
+  background: color-mix(in srgb, var(--card) 82%, transparent);
+}
+.wp-on footer {
+  background: color-mix(in srgb, var(--bg) 55%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.wp-on .wp-solid {
+  background: color-mix(in srgb, var(--card) 90%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}

@@ -1,10 +1,14 @@
 <script setup lang="ts">
+import { useWallpaper } from '~/composables/useWallpaper'
+
 const colorMode = useColorMode()
 const { user, restore } = useAuth()
 const { diy, toggleDiy, loadLocal, syncMsg } = useNav()
-const { isMobile, mode, initServer, initClient, setMode } = useDevice()
+const { isMobile, initServer, initClient } = useDevice()
+const wp = useWallpaper()
 
 const drawerOpen = useState<boolean>('nav-drawer-open', () => false)
+const wpSettingsOpen = useState<boolean>('wp-settings-open', () => false)
 const friendLinks = useState<{ name: string; url: string; desc?: string }[]>('nav-friends', () => [])
 const { data: friendsData } = await useFetch('/api/friends', { key: 'friends-fetch', default: () => ({ links: [] }) })
 watchEffect(() => {
@@ -17,6 +21,7 @@ initServer()
 onMounted(() => {
   initClient()
   loadLocal()
+  wp.loadLocal()
   restore()
 })
 
@@ -24,8 +29,9 @@ const isDark = computed(() => colorMode.value === 'dark')
 </script>
 
 <template>
-  <div class="relative min-h-screen flex flex-col">
-    <div class="pointer-events-none fixed inset-0 -z-10 grid-bg opacity-60" />
+  <div class="relative min-h-screen flex flex-col" :class="{ 'wp-on': wp.active.value }">
+    <WallpaperLayer />
+    <div v-if="!wp.active.value" class="pointer-events-none fixed inset-0 -z-10 grid-bg opacity-60" />
 
     <header class="sticky top-0 z-30 border-b border-line bg-header backdrop-blur-xl">
       <div class="max-w-wrap mx-auto px-4 h-14 flex items-center gap-1.5 sm:gap-2">
@@ -41,10 +47,10 @@ const isDark = computed(() => colorMode.value === 'dark')
         <!-- PC：头部天气 -->
         <ClientOnly>
           <template v-if="!isMobile">
-            <WeatherCard compact class="flex" />
+            <WeatherCard variant="header" />
           </template>
           <template #fallback>
-            <div v-if="!isMobile" class="w-[168px] h-[44px] card animate-pulse" />
+            <div v-if="!isMobile" class="w-[120px] h-9 rounded-xl bg-card2 animate-pulse" />
           </template>
         </ClientOnly>
 
@@ -56,6 +62,16 @@ const isDark = computed(() => colorMode.value === 'dark')
           @click="toggleDiy"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+        </button>
+
+        <button
+          class="btn btn-sm btn-ghost btn-icon-sm"
+          :class="{ 'btn-primary': wp.active.value }"
+          title="外观设置"
+          aria-label="外观设置"
+          @click="wpSettingsOpen = true"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="3" /><circle cx="9" cy="10" r="1.6" /><path d="m4 17 5-5 4 4 3-3 4 4" /></svg>
         </button>
 
         <button class="btn btn-sm btn-ghost btn-icon-sm" title="切换主题" aria-label="切换主题" @click="colorMode.preference = isDark ? 'light' : 'dark'">
@@ -104,22 +120,12 @@ const isDark = computed(() => colorMode.value === 'dark')
           <span class="opacity-40">·</span>
           <NuxtLink to="/submit" class="hover:text-ink">提交收录</NuxtLink>
           <div class="flex-1" />
-          <ClientOnly>
-            <div v-if="!isMobile" class="flex items-center gap-1 text-[11.5px]">
-              <button
-                v-for="opt in [{ v: 'auto', t: '跟随设备' }, { v: 'pc', t: '电脑版' }, { v: 'mobile', t: '手机版' }]"
-                :key="opt.v"
-                class="px-2 h-6 rounded-md transition-colors"
-                :class="mode === opt.v ? 'bg-ink text-bg' : 'text-ink2 hover:text-ink'"
-                @click="setMode(opt.v as any)"
-              >{{ opt.t }}</button>
-            </div>
-          </ClientOnly>
           <SetHomeHint />
         </div>
       </div>
     </footer>
 
     <AppDrawer />
+    <WallpaperSettings />
   </div>
 </template>

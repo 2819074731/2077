@@ -2,15 +2,21 @@
 import { watch, onBeforeUnmount } from 'vue'
 
 const open = useState<boolean>('nav-drawer-open', () => false)
+const wpSettingsOpen = useState<boolean>('wp-settings-open', () => false)
 const { groups, activeCat, selectCat } = useNav()
 const { user } = useAuth()
-const { mode, setMode, isMobile } = useDevice()
+const { isMobile } = useDevice()
 
 const friendLinks = useState<{ name: string; url: string; desc?: string }[]>('nav-friends', () => [])
 
 function pickCat(id: string | null) {
   selectCat(id)
   open.value = false
+}
+
+function openSettings() {
+  open.value = false
+  wpSettingsOpen.value = true
 }
 
 function lockBody(locked: boolean) {
@@ -37,30 +43,17 @@ onBeforeUnmount(() => lockBody(false))
       </div>
 
       <div class="flex-1 overflow-y-auto p-4 flex flex-col gap-5">
-        <WeatherCard />
+        <WeatherCard variant="panel" />
+
+        <button class="flex items-center gap-2.5 h-10 px-3 rounded-xl text-[13.5px] text-ink2 hover:bg-card2 hover:text-ink text-left" @click="openSettings">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="3" /><circle cx="9" cy="10" r="1.6" /><path d="m4 17 5-5 4 4 3-3 4 4" /></svg>
+          外观设置
+        </button>
 
         <NuxtLink v-if="user?.is_admin" to="/admin" class="flex items-center gap-2.5 h-10 px-3 rounded-xl text-[13.5px] text-ink2 hover:bg-card2 hover:text-ink" @click="open = false">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h7V3H3v9Zm11 9h7v-9h-7v9ZM3 21h7v-6H3v6Zm11-12h7V3h-7v6Z" /></svg>
           管理后台
         </NuxtLink>
-
-        <div class="flex flex-col gap-2">
-          <div class="flex items-center gap-2">
-            <span class="h-3.5 w-1 rounded-full accent-bar" />
-            <span class="text-[13px] font-semibold">显示模式</span>
-          </div>
-          <div class="grid grid-cols-3 gap-1.5">
-            <button
-              v-for="opt in [{ v: 'auto', t: '跟随设备' }, { v: 'pc', t: '电脑版' }, { v: 'mobile', t: '手机版' }]"
-              :key="opt.v"
-              class="h-9 rounded-xl text-[12.5px] border transition-colors"
-              :class="mode === opt.v ? 'bg-ink text-bg border-transparent font-medium' : 'bg-card border-line text-ink2 hover:text-ink'"
-              @click="setMode(opt.v as any)"
-            >
-              {{ opt.t }}
-            </button>
-          </div>
-        </div>
 
         <div class="flex flex-col gap-2">
           <div class="flex items-center gap-2">
