@@ -81,3 +81,12 @@ test('验证文件已删除', async () => {
   const res = await get('/BingSiteAuth.xml')
   assert.equal(res.status, 404)
 })
+
+test('目录热门接口可用', async () => {
+  const res = await get('/api/directory/popular?days=7&limit=4')
+  assert.equal(res.status, 200)
+  const data = await res.json()
+  assert.ok(Array.isArray(data.items))
+  assert.ok(data.items.length <= 4)
+  if (data.items.length) assert.equal(typeof data.items[0].hits, 'number')
+})

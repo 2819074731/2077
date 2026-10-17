@@ -49,6 +49,8 @@ const saving = ref(false)
 const metaFetching = ref(false)
 const tdkRunning = ref(false)
 const linkRunning = ref(false)
+const maintainRunning = ref(false)
+const maintenance = ref<any>(null)
 const formError = ref('')
 
 useSeoMeta({ title: '分类目录 · 2077 管理后台', robots: 'noindex' })
@@ -90,6 +92,7 @@ async function load() {
     total.value = d.total || 0
     published.value = d.published || 0
     categories.value = d.categories || []
+    maintenance.value = d.maintenance || null
     selected.value = new Set()
   } finally {
     loading.value = false
@@ -132,6 +135,32 @@ function toggleAll() {
   selected.value = allSelected.value ? new Set() : new Set(items.value.map((item) => Number(item.id)))
 }
 
+function fmtTime(value?: string | null) {
+  if (!value) return ''
+  try {
+    return new Date(value).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })
+  } catch {
+    return ''
+  }
+}
+
+async function maintainNow() {
+  if (maintainRunning.value) return
+  if (!confirm('立即执行完整巡检？会检查到期链接并补全缺失 TDK，可能需要几分钟。')) return
+  maintainRunning.value = true
+  try {
+    const d: any = await $fetch('/api/admin/maintenance', { method: 'POST' })
+    const r = d.record || {}
+    const broken = Number(r.link?.broken || 0)
+    showToast(`巡检完成：检查 ${Number(r.link?.checked || 0)} 个链接，异常 ${broken} 个；TDK 更新 ${Number(r.tdk?.updated || 0)} 个`, broken ? 'err' : 'ok')
+    await load()
+  } catch (e: any) {
+    showToast(e?.data?.statusMessage || e?.data?.message || '巡检失败', 'err')
+  } finally {
+    maintainRunning.value = false
+  }
+}
+
 async function batchTdk() {
   if (tdkRunning.value) return
   tdkRunning.value = true
@@ -140,7 +169,7 @@ async function batchTdk() {
   let missing = 0
   try {
     for (let i = 0; i < 40; i++) {
-      const d: any = await $fetch('/api/admin/directory/tdk', { method: 'POST', body: { limit: 6 } })
+      const d: any = await $fetch('/api/admin/directory/tdk', { method: 'POST', body: { limit: 6, reset: i === 0 } })
       updated += Number(d.updated || 0)
       failed += Number(d.failed || 0)
       missing = Number(d.missing || 0)
@@ -322,6 +351,19 @@ onBeforeUnmount(() => {
         <button class="btn btn-sm" :disabled="tdkRunning" @click="batchTdk">{{ tdkRunning ? '补全中…' : '批量补 TDK' }}</button>
         <button class="btn btn-sm" :disabled="linkRunning" @click="checkLinks">{{ linkRunning ? '巡检中…' : '巡检链接' }}</button>
         <button class="btn btn-sm btn-primary" @click="openCreate">新增站点</button>
+      </div>
+      <div v-if="maintenance" class="flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-xl border border-line bg-card2/60 px-3 py-2 text-[12px] text-ink2" :title="maintenance.last ? `上次检查 ${maintenance.last.link?.checked || 0} 个链接，发现 ${maintenance.last.link?.broken || 0} 个异常；TDK 更新 ${maintenance.last.tdk?.updated || 0} 个` : '自动巡检尚未执行'">
+        <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="maintenance.broken ? 'bg-warning' : 'bg-success'" />
+        <span class="font-medium text-ink">自动巡检</span>
+        <span>每日 {{ maintenance.schedule }}</span>
+        <span class="text-ink3">·</span>
+        <span>{{ maintenance.last ? `最近 ${fmtTime(maintenance.last.at)}` : '尚未运行' }}</span>
+        <span class="text-ink3">·</span>
+        <span :class="maintenance.broken ? 'text-warning' : 'text-success'">链接异常 {{ maintenance.broken }}</span>
+        <span class="text-ink3">·</span>
+        <span :class="maintenance.missing ? 'text-warning' : 'text-success'">TDK 缺失 {{ maintenance.missing }}</span>
+        <span v-if="maintenance.dueLinks" class="text-ink3">· 待检 {{ maintenance.dueLinks }}</span>
+        <button class="btn btn-sm btn-ghost ml-auto" :disabled="maintainRunning || linkRunning || tdkRunning" @click="maintainNow">{{ maintainRunning ? '全量巡检中…' : '立即巡检' }}</button>
       </div>
       <form class="flex flex-wrap gap-2" @submit.prevent="search">
         <input v-model="kw" class="field grow sm:max-w-[280px]" placeholder="搜索名称、网址或简介" />

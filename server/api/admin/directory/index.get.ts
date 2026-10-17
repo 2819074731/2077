@@ -1,5 +1,6 @@
 import { getSiteCategories } from '../../../utils/categories'
 import { cleanDate } from '../../../utils/sanitize'
+import { getMaintenanceStatus } from '../../../utils/directoryMaintenance'
 
 export default defineEventHandler(async (event) => {
   await requireAdmin(event)
@@ -41,6 +42,7 @@ export default defineEventHandler(async (event) => {
   )
   const counts = new Map<string, any>(cats.map((c: any) => [String(c.category), c]))
   const siteCategories = await getSiteCategories()
+  const maintenance = await getMaintenanceStatus()
   const categories: { category: string; n: number; published: number }[] = siteCategories.map((name) => {
     const c: any = counts.get(name)
     counts.delete(name)
@@ -55,6 +57,7 @@ export default defineEventHandler(async (event) => {
     total: Number(count?.n || 0),
     published: Number(pub?.n || 0),
     categories,
+    maintenance,
     page,
     size
   }

@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useNav } from '~/composables/useNav'
 
 const route = useRoute()
 const siteUrl = useRuntimeConfig().public.siteUrl
+const { recordClick } = useNav()
 const id = computed(() => String(route.params.id || '').replace(/\.html?$/i, ''))
 
 const { data, error } = await useAsyncData(
@@ -159,7 +161,7 @@ useHead(() => ({
         </header>
 
         <div class="flex flex-wrap gap-2 mt-5">
-          <a :href="item.url" target="_blank" rel="nofollow noopener" class="btn btn-primary">访问官网</a>
+          <a :href="item.url" target="_blank" rel="nofollow noopener" class="btn btn-primary" @click="recordClick(item.url, item.name)">访问官网</a>
           <NuxtLink :to="`/site?category=${encodeURIComponent(item.category)}`" class="btn btn-ghost">同类站点</NuxtLink>
           <NuxtLink to="/sitemap" class="btn btn-ghost">站点地图</NuxtLink>
           <NuxtLink to="/submit" class="btn btn-ghost">提交纠错</NuxtLink>

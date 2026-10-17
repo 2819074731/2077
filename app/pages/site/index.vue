@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { categoryIntro } from '#shared/categoryIntro'
+import { useNav } from '~/composables/useNav'
 
 const route = useRoute()
 const router = useRouter()
@@ -12,10 +13,18 @@ const q = computed(() => String(route.query.q || ''))
 const page = computed(() => Math.max(1, Number(route.query.page) || 1))
 const keyword = ref(q.value)
 
+const { recordClick } = useNav()
+
 const { data, pending } = await useAsyncData(
   'directory-list',
   () => $fetch('/api/directory', { query: { category: category.value, q: q.value, page: page.value, size: PAGE_SIZE } }),
   { watch: [category, q, page] }
+)
+
+const { data: popularData, pending: popularPending } = await useAsyncData(
+  'directory-popular',
+  () => $fetch('/api/directory/popular', { query: { days: 7, limit: category.value ? 4 : 8, category: category.value } }),
+  { watch: [category] }
 )
 
 watch(q, (v) => { keyword.value = v })
@@ -24,6 +33,8 @@ const items = computed<any[]>(() => (data.value as any)?.items || [])
 const categories = computed<any[]>(() => (data.value as any)?.categories || [])
 const total = computed(() => Number((data.value as any)?.total || 0))
 const all = computed(() => Number((data.value as any)?.all || 0))
+const popular = computed<any[]>(() => (popularData.value as any)?.items || [])
+const showPopular = computed(() => !popularPending.value && !q.value && popular.value.length >= (category.value ? 2 : 3))
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)))
 const canonicalUrl = computed(() => {
   const qs = new URLSearchParams()
@@ -161,6 +172,31 @@ function resetAll() {
 
     <p v-if="intro" class="text-[12.5px] sm:text-[13px] leading-6 text-ink2 mb-2.5">{{ intro }}</p>
 
+    <section v-if="showPopular" class="mb-5">
+      <div class="flex items-center gap-2 mb-2.5">
+        <h2 class="text-[14px] font-semibold tracking-tight">{{ category ? '本类热门' : '本周热门' }}</h2>
+        <span class="chip !text-[10px]">近 7 天点击</span>
+      </div>
+      <div class="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 snap-x">
+        <a
+          v-for="(it, index) in popular"
+          :key="it.id"
+          :href="it.url"
+          target="_blank"
+          rel="nofollow noopener"
+          class="card group flex w-[216px] sm:w-[236px] shrink-0 snap-start items-center gap-2.5 p-3 transition-colors hover:border-ink/25"
+          @click="recordClick(it.url, it.name)"
+        >
+          <span class="grid place-items-center w-6 h-6 rounded-lg text-[11px] font-semibold shrink-0" :class="index < 3 ? 'bg-ink text-bg' : 'bg-card2 text-ink3'">{{ index + 1 }}</span>
+          <SiteIcon :src="it.icon || iconOf(it.url)" :name="it.name" :url="it.url" class="w-9 h-9 rounded-xl shrink-0 text-[12px]" />
+          <span class="min-w-0 flex-1">
+            <span class="block text-[13px] font-medium truncate group-hover:text-accent transition-colors">{{ it.name }}</span>
+            <span class="block text-[11px] text-ink3 truncate mt-0.5">{{ it.category }} · 近 7 天 {{ it.hits }} 次</span>
+          </span>
+        </a>
+      </div>
+    </section>
+
     <div class="flex items-center gap-2 mb-2.5 min-h-[24px]">
       <span class="text-[12px] text-ink3">{{ category || (q ? `搜索「${q}」` : '全部站点') }} · {{ total }} 个</span>
       <div class="flex-1" />
@@ -202,18 +238,18 @@ function resetAll() {
           <div class="hidden sm:flex items-center gap-2 shrink-0 self-center">
             <template v-if="it.detail_enabled">
               <NuxtLink :to="`/site/${it.id}.html`" class="btn btn-sm btn-primary">查看详情</NuxtLink>
-              <a :href="it.url" target="_blank" rel="nofollow noopener" class="btn btn-sm btn-ghost">官网</a>
+              <a :href="it.url" target="_blank" rel="nofollow noopener" class="btn btn-sm btn-ghost" @click="recordClick(it.url, it.name)">官网</a>
             </template>
-            <a v-else :href="it.url" target="_blank" rel="nofollow noopener" class="btn btn-sm btn-primary">访问网站</a>
+            <a v-else :href="it.url" target="_blank" rel="nofollow noopener" class="btn btn-sm btn-primary" @click="recordClick(it.url, it.name)">访问网站</a>
           </div>
         </div>
 
         <div class="flex gap-2 mt-3 sm:hidden">
           <template v-if="it.detail_enabled">
             <NuxtLink :to="`/site/${it.id}.html`" class="btn btn-sm btn-primary flex-1 justify-center">查看详情</NuxtLink>
-            <a :href="it.url" target="_blank" rel="nofollow noopener" class="btn btn-sm flex-1 justify-center">访问官网</a>
+            <a :href="it.url" target="_blank" rel="nofollow noopener" class="btn btn-sm flex-1 justify-center" @click="recordClick(it.url, it.name)">访问官网</a>
           </template>
-          <a v-else :href="it.url" target="_blank" rel="nofollow noopener" class="btn btn-sm btn-primary flex-1 justify-center">访问网站</a>
+          <a v-else :href="it.url" target="_blank" rel="nofollow noopener" class="btn btn-sm btn-primary flex-1 justify-center" @click="recordClick(it.url, it.name)">访问网站</a>
         </div>
       </article>
     </div>
