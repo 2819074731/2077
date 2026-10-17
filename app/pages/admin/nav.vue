@@ -403,9 +403,13 @@ async function importBookmarks(e: Event) {
     if (!totalCount) { flash('未识别到书签，请确认是浏览器导出的 HTML 文件', 'err'); return }
     if (!confirm(`识别到 ${totalCount} 个书签（${folders.length} 个文件夹），按文件夹导入并立即保存？`)) return
     let added = 0
+    let mapped = 0
+    const known = new Set(categories.value)
+    const fallbackCategory = category.value || '其他'
     const seen = new Set(links.value.map((x) => normalizeKey(x.url)))
     for (const f of folders) {
-      const categoryName = f.folder || '其他'
+      const categoryName = known.has(f.folder) ? f.folder : fallbackCategory
+      if (f.folder && !known.has(f.folder)) mapped++
       for (const l of f.links) {
         const k = normalizeKey(l.url)
         if (!k || seen.has(k)) continue
@@ -421,7 +425,8 @@ async function importBookmarks(e: Event) {
     }
     if (!added) { flash('没有新增书签（均已存在）'); return }
     const ok = await save()
-    flash(ok ? `已导入并保存 ${added} 个书签` : `已导入 ${added} 个书签，请手动保存`, ok ? 'ok' : 'err')
+    const note = mapped ? `，${mapped} 个文件夹已归入「${fallbackCategory}」` : ''
+    flash(ok ? `已导入并保存 ${added} 个书签${note}` : `已导入 ${added} 个书签${note}，请手动保存`, ok ? 'ok' : 'err')
   } catch (err: any) {
     flash(err?.message || '书签解析失败', 'err')
   }
