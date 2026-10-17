@@ -23,7 +23,7 @@ export default defineEventHandler(async (event) => {
      FROM directory_entries GROUP BY category ORDER BY n DESC, category ASC`
   )
   const [rows]: any = await db.query(
-    `SELECT id, name, url, icon, category, title, description, keywords, content, featured, sort, status, created_at, updated_at
+    `SELECT id, name, url, icon, category, title, description, keywords, content, featured, sort, status, detail_enabled, created_at, updated_at
      FROM directory_entries ${clause} ORDER BY id DESC LIMIT ${size} OFFSET ${offset}`,
     params
   )

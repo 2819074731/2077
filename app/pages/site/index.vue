@@ -131,8 +131,11 @@ function search() {
         </div>
         <p class="text-[12.5px] text-ink2 leading-relaxed line-clamp-2 min-h-[36px]">{{ it.description || '收录于 2077 导航分类目录。' }}</p>
         <div class="flex items-center gap-2 mt-auto">
-          <NuxtLink :to="`/site/${it.id}.html`" class="btn btn-sm btn-primary flex-1 justify-center">查看详情</NuxtLink>
-          <a :href="it.url" target="_blank" rel="nofollow noopener" class="btn btn-sm btn-ghost">官网</a>
+          <template v-if="it.detail_enabled">
+            <NuxtLink :to="`/site/${it.id}.html`" class="btn btn-sm btn-primary flex-1 justify-center">查看详情</NuxtLink>
+            <a :href="it.url" target="_blank" rel="nofollow noopener" class="btn btn-sm btn-ghost">官网</a>
+          </template>
+          <a v-else :href="it.url" target="_blank" rel="nofollow noopener" class="btn btn-sm btn-primary flex-1 justify-center">访问网站</a>
         </div>
       </article>
     </div>

@@ -13,6 +13,7 @@ export interface DirectoryEntry {
   featured: number
   sort: number
   status: string
+  detail_enabled?: number
 }
 
 export function parseDirectoryId(input: unknown): number {
@@ -45,7 +46,8 @@ export function sanitizeDirectoryEntry(input: any): DirectoryEntry {
     content: String(input?.content || '').trim().slice(0, 20000),
     featured: input?.featured ? 1 : 0,
     sort: Math.max(0, Math.min(9999, Number(input?.sort) || 0)),
-    status
+    status,
+    detail_enabled: input?.detail_enabled === 0 || input?.detail_enabled === false ? 0 : 1
   }
 }
 

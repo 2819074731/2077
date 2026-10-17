@@ -137,10 +137,11 @@ useHead(() => ({
           <h2 class="font-semibold text-[14px] mb-3">相关推荐</h2>
           <div v-if="!related.length" class="text-[12.5px] text-ink3">暂无相关站点</div>
           <div v-else class="flex flex-col gap-2.5">
-            <NuxtLink
+            <component
+              :is="r.detail_enabled ? 'NuxtLink' : 'a'"
               v-for="r in related"
               :key="r.id"
-              :to="`/site/${r.id}.html`"
+              v-bind="r.detail_enabled ? { to: `/site/${r.id}.html` } : { href: r.url, target: '_blank', rel: 'nofollow noopener' }"
               class="flex items-center gap-2.5 group"
             >
               <img :src="r.icon || `/api/icon?url=${encodeURIComponent(new URL(r.url).hostname)}`" alt="" class="w-7 h-7 rounded-lg shrink-0" loading="lazy" referrerpolicy="no-referrer" />
@@ -148,7 +149,7 @@ useHead(() => ({
                 <span class="block text-[13px] font-medium truncate group-hover:underline">{{ r.name }}</span>
                 <span class="block text-[11px] text-ink3 truncate">{{ r.category }}</span>
               </span>
-            </NuxtLink>
+            </component>
           </div>
         </section>
         <section class="card p-4 text-[12.5px] text-ink2 leading-relaxed">

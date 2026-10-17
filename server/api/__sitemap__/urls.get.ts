@@ -1,7 +1,7 @@
 export default defineEventHandler(async () => {
   const db = useDb()
   const [rows]: any = await db.query(
-    `SELECT id, updated_at FROM directory_entries WHERE status = 'published' ORDER BY id ASC`
+    `SELECT id, updated_at FROM directory_entries WHERE status = 'published' AND detail_enabled = 1 ORDER BY id ASC`
   )
   const urls: any[] = [
     { loc: '/', changefreq: 'daily', priority: 1 },

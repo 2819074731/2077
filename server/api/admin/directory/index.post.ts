@@ -39,8 +39,8 @@ export default defineEventHandler(async (event) => {
           description: raw?.description || ''
         })
         await db.execute(
-          `INSERT INTO directory_entries (name, url, icon, category, description, status)
-           VALUES (?, ?, ?, ?, ?, 'published')`,
+          `INSERT INTO directory_entries (name, url, icon, category, description, status, detail_enabled)
+           VALUES (?, ?, ?, ?, ?, 'published', 1)`,
           [e.name, e.url, e.icon, e.category, e.description]
         )
         created++
@@ -57,16 +57,16 @@ export default defineEventHandler(async (event) => {
     if (id) {
       await db.execute(
         `UPDATE directory_entries SET name = ?, url = ?, icon = ?, category = ?, title = ?,
-           description = ?, keywords = ?, content = ?, featured = ?, sort = ?, status = ?
+           description = ?, keywords = ?, content = ?, featured = ?, sort = ?, status = ?, detail_enabled = ?
          WHERE id = ?`,
-        [e.name, e.url, e.icon, e.category, e.title, e.description, e.keywords, e.content, e.featured, e.sort, e.status, id]
+        [e.name, e.url, e.icon, e.category, e.title, e.description, e.keywords, e.content, e.featured, e.sort, e.status, e.detail_enabled, id]
       )
       return { ok: true, id }
     }
     const [r]: any = await db.execute(
-      `INSERT INTO directory_entries (name, url, icon, category, title, description, keywords, content, featured, sort, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [e.name, e.url, e.icon, e.category, e.title, e.description, e.keywords, e.content, e.featured, e.sort, e.status]
+      `INSERT INTO directory_entries (name, url, icon, category, title, description, keywords, content, featured, sort, status, detail_enabled)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [e.name, e.url, e.icon, e.category, e.title, e.description, e.keywords, e.content, e.featured, e.sort, e.status, e.detail_enabled]
     )
     return { ok: true, id: Number(r.insertId) }
   } catch (err: any) {

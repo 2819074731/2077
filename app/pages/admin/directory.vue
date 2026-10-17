@@ -16,6 +16,7 @@ interface Entry {
   featured: number
   sort: number
   status: string
+  detail_enabled?: number
 }
 
 const items = ref<Entry[]>([])
@@ -38,7 +39,7 @@ useSeoMeta({ title: '分类目录 · 2077 管理后台', robots: 'noindex' })
 
 const emptyEntry = (): Entry => ({
   name: '', url: '', icon: '', category: '其他', title: '', description: '',
-  keywords: '', content: '', featured: 0, sort: 0, status: 'published'
+  keywords: '', content: '', featured: 0, sort: 0, status: 'published', detail_enabled: 1
 })
 
 async function load() {
@@ -157,13 +158,15 @@ onMounted(load)
               <span class="chip !text-[10px]">{{ e.category }}</span>
               <span v-if="e.featured" class="chip !text-[10px]">推荐</span>
               <span class="chip !text-[10px]" :class="{ 'text-success': e.status === 'published' }">{{ e.status === 'published' ? '已发布' : '已隐藏' }}</span>
+              <span v-if="!e.detail_enabled" class="chip !text-[10px]">无详情页</span>
             </div>
             <a :href="e.url" target="_blank" rel="noopener" class="block text-[11.5px] text-ink2 truncate hover:text-ink">{{ e.url }}</a>
             <p v-if="e.description" class="text-[11.5px] text-ink3 mt-0.5 line-clamp-1">{{ e.description }}</p>
           </div>
         </div>
         <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-line">
-          <NuxtLink :to="`/site/${e.id}.html`" target="_blank" class="btn btn-sm btn-ghost">查看详情</NuxtLink>
+          <NuxtLink v-if="e.detail_enabled" :to="`/site/${e.id}.html`" target="_blank" class="btn btn-sm btn-ghost">查看详情</NuxtLink>
+          <a v-else :href="e.url" target="_blank" rel="noopener" class="btn btn-sm btn-ghost">访问官网</a>
           <button class="btn btn-sm" @click="openEdit(e)">编辑</button>
           <button class="btn btn-sm btn-ghost" @click="act(e, 'status')">{{ e.status === 'published' ? '隐藏' : '发布' }}</button>
           <div class="flex-1" />
@@ -235,6 +238,10 @@ onMounted(load)
             <label class="flex items-center gap-2 h-[38px]">
               <input v-model="editing.featured" type="checkbox" :true-value="1" :false-value="0" class="w-4 h-4 accent-current" />
               <span class="text-[12.5px] text-ink2">设为推荐</span>
+            </label>
+            <label class="flex items-center gap-2 h-[38px]">
+              <input v-model="editing.detail_enabled" type="checkbox" :true-value="1" :false-value="0" class="w-4 h-4 accent-current" />
+              <span class="text-[12.5px] text-ink2">启用详情页</span>
             </label>
           </div>
           <p v-if="formError" class="text-[12.5px] text-danger">{{ formError }}</p>

@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
 
   const [[count]]: any = await db.query(`SELECT COUNT(*) AS n FROM directory_entries ${clause}`, params)
   const [rows]: any = await db.query(
-    `SELECT id, name, url, icon, category, title, description, keywords, featured, created_at
+    `SELECT id, name, url, icon, category, title, description, keywords, featured, detail_enabled, created_at
      FROM directory_entries ${clause}
      ORDER BY featured DESC, sort ASC, id DESC LIMIT ${size} OFFSET ${offset}`,
     params

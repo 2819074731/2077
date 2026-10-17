@@ -6,21 +6,21 @@ export default defineEventHandler(async (event) => {
   const db = useDb()
   const [rows]: any = await db.query(
     `SELECT id, name, url, icon, category, title, description, keywords, content, featured, created_at
-     FROM directory_entries WHERE id = ? AND status = 'published' LIMIT 1`,
+     FROM directory_entries WHERE id = ? AND status = 'published' AND detail_enabled = 1 LIMIT 1`,
     [id]
   )
   const item = rows[0]
   if (!item) throw createError({ statusCode: 404, statusMessage: '页面不存在' })
 
   const [related]: any = await db.query(
-    `SELECT id, name, url, icon, category, description
+    `SELECT id, name, url, icon, category, description, detail_enabled
      FROM directory_entries WHERE status = 'published' AND category = ? AND id <> ?
      ORDER BY featured DESC, sort ASC, id DESC LIMIT 6`,
     [item.category, id]
   )
   if (!related.length) {
     const [latest]: any = await db.query(
-      `SELECT id, name, url, icon, category, description
+      `SELECT id, name, url, icon, category, description, detail_enabled
        FROM directory_entries WHERE status = 'published' AND id <> ?
        ORDER BY id DESC LIMIT 6`,
       [id]
