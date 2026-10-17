@@ -49,6 +49,7 @@ const saving = ref(false)
 const metaFetching = ref(false)
 const tdkRunning = ref(false)
 const linkRunning = ref(false)
+const pushRunning = ref(false)
 const maintainRunning = ref(false)
 const maintenance = ref<any>(null)
 const tdkScope = ref<'all' | 'category' | 'batch'>('all')
@@ -209,6 +210,24 @@ async function batchTdk() {
   } finally {
     tdkRunning.value = false
     tdkProgress.value = ''
+  }
+}
+
+async function pushSearch() {
+  if (pushRunning.value) return
+  if (!confirm('向 IndexNow 与百度推送全部已发布页面？')) return
+  pushRunning.value = true
+  try {
+    const d: any = await $fetch('/api/admin/seo/push', { method: 'POST', body: { scope: 'all' } })
+    const ix = d.indexnow || {}
+    const bd = d.baidu || {}
+    const ixText = ix.ok ? 'IndexNow 成功' : ix.skipped ? 'IndexNow 跳过' : `IndexNow 失败${ix.status ? `(${ix.status})` : ''}`
+    const bdText = bd.ok ? `百度成功 ${Number(bd.pushed || 0)} 条` : bd.skipped ? '百度未配置 token' : `百度失败${bd.status ? `(${bd.status})` : ''}`
+    showToast(`已推送 ${Number(d.count || 0)} 个 URL：${ixText}；${bdText}`, ix.ok ? 'ok' : 'err')
+  } catch (err: any) {
+    showToast(err?.data?.statusMessage || err?.data?.message || '推送失败', 'err')
+  } finally {
+    pushRunning.value = false
   }
 }
 
@@ -376,6 +395,7 @@ onBeforeUnmount(() => {
         <button class="btn btn-sm" :class="brokenOnly ? 'btn-primary' : 'btn-ghost'" @click="brokenOnly = !brokenOnly; search()">链接异常</button>
         <span class="text-[12.5px] text-ink2 ml-auto">共 {{ total }} 个 · 已发布 {{ published }}</span>
         <button class="btn btn-sm" :disabled="linkRunning" @click="checkLinks">{{ linkRunning ? '巡检中…' : '巡检链接' }}</button>
+        <button class="btn btn-sm" :disabled="pushRunning" @click="pushSearch">{{ pushRunning ? '推送中…' : '推送搜索' }}</button>
         <button class="btn btn-sm btn-primary" @click="openCreate">新增站点</button>
       </div>
       <div v-if="maintenance" class="flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-xl border border-line bg-card2/60 px-3 py-2 text-[12px] text-ink2" :title="maintenance.last ? `上次检查 ${maintenance.last.link?.checked || 0} 个链接，发现 ${maintenance.last.link?.broken || 0} 个异常；TDK 更新 ${maintenance.last.tdk?.updated || 0} 个` : '自动巡检尚未执行'">

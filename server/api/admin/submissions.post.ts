@@ -6,6 +6,7 @@ import { setSetting } from '../../utils/settings'
 import { getSiteCategories, resolveSiteCategory } from '../../utils/categories'
 import { DEFAULT_CATEGORY } from '#shared/categories'
 import { notifyAdmin } from '../../utils/notify'
+import { notifySearchUrls } from '../../utils/searchPush'
 
 function urlKey(input: string): string {
   try {
@@ -205,6 +206,7 @@ export default defineEventHandler(async (event) => {
     let deleted = 0
     let skipped = 0
     let errors = 0
+    const pushed: string[] = []
 
     for (const id of ids) {
       const sub = byId.get(id)
@@ -218,7 +220,10 @@ export default defineEventHandler(async (event) => {
             skipped++
             continue
           }
-          await approveSubmission(db, sub, { category: body?.category, targets }, categories)
+          const approvedResult = await approveSubmission(db, sub, { category: body?.category, targets }, categories)
+          if (approvedResult.directoryId) {
+            pushed.push(`/site/${approvedResult.directoryId}.html`, `/site?category=${encodeURIComponent(approvedResult.category)}`)
+          }
           approved++
         } else if (op === 'delete') {
           if (sub.status !== 'rejected') {
@@ -236,6 +241,7 @@ export default defineEventHandler(async (event) => {
       }
     }
 
+    if (pushed.length) notifySearchUrls(pushed)
     if (op === 'approve' && approved) {
       await notifyAdmin(`批量通过 ${approved} 条收录提交`, { approved, skipped, errors })
     }
@@ -284,6 +290,9 @@ export default defineEventHandler(async (event) => {
 
   if (action === 'approve') {
     const result = await approveSubmission(db, sub, body)
+    if (result.directoryId) {
+      notifySearchUrls([`/site/${result.directoryId}.html`, `/site?category=${encodeURIComponent(result.category)}`])
+    }
     await notifyAdmin(`收录通过：${result.category} · ${sub.name}`, { id, category: result.category })
     return result
   }
