@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { clientIp } from '../utils/weather'
 
 interface Body { url?: string; name?: string }
@@ -9,12 +10,12 @@ export default defineEventHandler(async (event) => {
   const url = raw.slice(0, 500)
   const name = String(body?.name || '').trim().slice(0, 80)
   const user = await getSessionUser(event)
-  const ip = clientIp(event).slice(0, 64)
+  const ipHash = createHash('sha256').update(clientIp(event)).digest('hex').slice(0, 16)
 
   const db = useDb()
   try {
     await db.execute('INSERT INTO link_clicks (url, name, user_id, ip) VALUES (?, ?, ?, ?)', [
-      url, name, user?.id ?? null, ip
+      url, name, user?.id ?? null, ipHash
     ])
     await db.execute(
       `INSERT INTO link_click_agg (url, name, hits, last_at)

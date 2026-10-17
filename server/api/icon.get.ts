@@ -4,12 +4,15 @@ import { join } from 'node:path'
 import { assertPublicHttpUrl, readBodyCapped, safeFetch } from '../utils/safeUrl'
 
 const TTL = 1000 * 60 * 60 * 24 * 7
+const NEG_TTL = 1000 * 60 * 10
 const MAX_MEM = 600
+const MAX_NEG = 5000
 const ICON_DIR = process.env.ICON_CACHE_DIR || join(process.cwd(), 'data', 'icons')
 
 interface Cached { body: Buffer; type: string; at: number }
 
 const mem = new Map<string, Cached>()
+const neg = new Map<string, number>()
 
 function normalize(input: string): string {
   const raw = String(input || '').trim()
@@ -89,6 +92,53 @@ async function fetchImage(url: string, timeout: number, guarded: boolean): Promi
   }
 }
 
+async function firstImage(
+  candidates: Array<{ url: string; guarded: boolean }>,
+  deadline: number
+): Promise<Cached | null> {
+  return new Promise((resolve) => {
+    let pending = candidates.length
+    let settled = false
+    const timer = setTimeout(() => finish(null), deadline)
+
+    function finish(img: Cached | null) {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      resolve(img)
+    }
+
+    for (const c of candidates) {
+      fetchImage(c.url, deadline, c.guarded)
+        .then((img) => {
+          if (img) finish(img)
+          else if (!settled) {
+            pending -= 1
+            if (pending === 0) finish(null)
+          }
+        })
+        .catch(() => {
+          if (!settled) {
+            pending -= 1
+            if (pending === 0) finish(null)
+          }
+        })
+    }
+  })
+}
+
+function rememberNegative(host: string): void {
+  const now = Date.now()
+  if (neg.size >= MAX_NEG) {
+    for (const [k, exp] of neg) if (exp <= now) neg.delete(k)
+    if (neg.size >= MAX_NEG) {
+      const oldest = neg.keys().next().value
+      if (oldest) neg.delete(oldest)
+    }
+  }
+  neg.set(host, now + NEG_TTL)
+}
+
 export default defineEventHandler(async (event) => {
   const q = getQuery(event)
   const host = normalize(String(q.url || q.host || ''))
@@ -121,16 +171,32 @@ export default defineEventHandler(async (event) => {
     return disk.body
   }
 
-  const candidates: Array<{ url: string; guarded: boolean }> = [
-    { url: `https://${host}/favicon.ico`, guarded: true },
-    { url: `https://www.google.com/s2/favicons?domain=${host}&sz=64`, guarded: false },
-    { url: `https://icons.duckduckgo.com/ip3/${host}.ico`, guarded: false },
-    { url: `https://favicon.im/${host}`, guarded: false }
-  ]
+  const negUntil = neg.get(host)
+  if (negUntil) {
+    if (negUntil > Date.now()) {
+      setResponseStatus(event, 404)
+      setHeader(event, 'Cache-Control', 'public, max-age=600')
+      setHeader(event, 'X-Icon-Cache', 'NEG')
+      return ''
+    }
+    neg.delete(host)
+  }
 
-  for (const c of candidates) {
-    const img = await fetchImage(c.url, c.guarded ? 5000 : 4000, c.guarded)
-    if (!img) continue
+  // 第一梯队：官网 favicon 与 Google 并行，整体 3.5s 截止，避免单个慢上游拖住请求。
+  let img = await firstImage([
+    { url: `https://${host}/favicon.ico`, guarded: true },
+    { url: `https://www.google.com/s2/favicons?domain=${host}&sz=64`, guarded: false }
+  ], 3500)
+
+  // 第二梯队：第一梯队失败后再并行尝试 DuckDuckGo 与 favicon.im。
+  if (!img) {
+    img = await firstImage([
+      { url: `https://icons.duckduckgo.com/ip3/${host}.ico`, guarded: false },
+      { url: `https://favicon.im/${host}`, guarded: false }
+    ], 2500)
+  }
+
+  if (img) {
     if (mem.size >= MAX_MEM) mem.delete(mem.keys().next().value as string)
     mem.set(host, img)
     await diskPut(host, img)
@@ -140,6 +206,9 @@ export default defineEventHandler(async (event) => {
     return img.body
   }
 
+  rememberNegative(host)
   setResponseStatus(event, 404)
+  setHeader(event, 'Cache-Control', 'public, max-age=600')
+  setHeader(event, 'X-Icon-Cache', 'NEG')
   return ''
 })
