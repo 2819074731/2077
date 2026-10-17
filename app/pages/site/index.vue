@@ -36,6 +36,29 @@ const all = computed(() => Number((data.value as any)?.all || 0))
 const popular = computed<any[]>(() => (popularData.value as any)?.items || [])
 const showPopular = computed(() => !popularPending.value && !q.value && popular.value.length >= (category.value ? 2 : 3))
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)))
+const pageNumbers = computed<(number | string)[]>(() => {
+  const totalCount = totalPages.value
+  const current = page.value
+  const picked = new Set<number>([1, totalCount])
+  for (let n = Math.max(1, current - 2); n <= Math.min(totalCount, current + 2); n++) picked.add(n)
+  const sorted = [...picked].sort((a, b) => a - b)
+  const out: (number | string)[] = []
+  let last = 0
+  for (const n of sorted) {
+    if (last && n - last > 1) out.push('...')
+    out.push(n)
+    last = n
+  }
+  return out
+})
+function pageHref(n: number) {
+  const qs = new URLSearchParams()
+  if (category.value) qs.set('category', category.value)
+  if (q.value) qs.set('q', q.value)
+  if (n > 1) qs.set('page', String(n))
+  const s = qs.toString()
+  return '/site' + (s ? '?' + s : '')
+}
 const canonicalUrl = computed(() => {
   const qs = new URLSearchParams()
   if (category.value) qs.set('category', category.value)
@@ -255,9 +278,15 @@ function resetAll() {
     </div>
 
     <div v-if="totalPages > 1" class="flex items-center justify-center gap-2 mt-6 flex-wrap">
-      <button class="btn btn-sm" :disabled="page <= 1" @click="go({ page: page - 1 })">上一页</button>
-      <span class="text-[12.5px] text-ink2">{{ page }} / {{ totalPages }}</span>
-      <button class="btn btn-sm" :disabled="page >= totalPages" @click="go({ page: page + 1 })">下一页</button>
+      <NuxtLink v-if="page > 1" :to="pageHref(page - 1)" class="btn btn-sm">上一页</NuxtLink>
+      <span v-else class="btn btn-sm opacity-45 cursor-not-allowed">上一页</span>
+      <template v-for="(n, i) in pageNumbers" :key="`${n}-${i}`">
+        <span v-if="n === '...'" class="text-[12px] text-ink3 px-1">…</span>
+        <span v-else-if="n === page" class="btn btn-sm btn-primary min-w-9 justify-center">{{ n }}</span>
+        <NuxtLink v-else :to="pageHref(Number(n))" class="btn btn-sm min-w-9 justify-center">{{ n }}</NuxtLink>
+      </template>
+      <NuxtLink v-if="page < totalPages" :to="pageHref(page + 1)" class="btn btn-sm">下一页</NuxtLink>
+      <span v-else class="btn btn-sm opacity-45 cursor-not-allowed">下一页</span>
     </div>
 
     <div class="mt-8 pt-5 border-t border-line flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12px] text-ink2">

@@ -15,8 +15,8 @@ export default defineEventHandler(async (event) => {
   const [related]: any = await db.query(
     `SELECT id, name, url, icon, category, description, detail_enabled
      FROM directory_entries WHERE status = 'published' AND category = ? AND id <> ?
-     ORDER BY featured DESC, sort ASC, id DESC LIMIT 6`,
-    [item.category, id]
+     ORDER BY ABS(id - ?) ASC, id DESC LIMIT 6`,
+    [item.category, id, id]
   )
   if (related.length < 6) {
     const seen = new Set<number>([id, ...related.map((r: any) => r.id)])
@@ -42,6 +42,18 @@ export default defineEventHandler(async (event) => {
      FROM directory_entries WHERE status = 'published' AND id <> ? ORDER BY id DESC LIMIT 6`,
     [id]
   )
+  const [prevRows]: any = await db.query(
+    `SELECT id, name FROM directory_entries
+     WHERE status = 'published' AND detail_enabled = 1 AND category = ? AND id < ?
+     ORDER BY id DESC LIMIT 1`,
+    [item.category, id]
+  )
+  const [nextRows]: any = await db.query(
+    `SELECT id, name FROM directory_entries
+     WHERE status = 'published' AND detail_enabled = 1 AND category = ? AND id > ?
+     ORDER BY id ASC LIMIT 1`,
+    [item.category, id]
+  )
 
-  return { item, related, categories, latest }
+  return { item, related, latest, prev: prevRows[0] || null, next: nextRows[0] || null, categories }
 })

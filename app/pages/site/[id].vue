@@ -19,6 +19,8 @@ if (error.value || !(data.value as any)?.item) {
 
 const item = computed<any>(() => (data.value as any)?.item || {})
 const related = computed<any[]>(() => (data.value as any)?.related || [])
+const prev = computed<any>(() => (data.value as any)?.prev || null)
+const next = computed<any>(() => (data.value as any)?.next || null)
 const categories = computed<any[]>(() => (data.value as any)?.categories || [])
 const latest = computed<any[]>(() => (data.value as any)?.latest || [])
 const host = computed(() => {
@@ -200,6 +202,26 @@ useHead(() => ({
             </div>
           </dl>
         </section>
+
+        <nav v-if="prev || next" class="mt-7 pt-6 border-t border-line grid sm:grid-cols-2 gap-2" aria-label="同分类上下站">
+          <NuxtLink
+            v-if="prev"
+            :to="`/site/${prev.id}.html`"
+            class="flex flex-col rounded-xl border border-line px-3 py-2.5 hover:border-ink/30 transition-colors"
+          >
+            <span class="text-[11.5px] text-ink3">上一站</span>
+            <span class="text-[13.5px] font-medium truncate">← {{ prev.name }}</span>
+          </NuxtLink>
+          <span v-else />
+          <NuxtLink
+            v-if="next"
+            :to="`/site/${next.id}.html`"
+            class="flex flex-col rounded-xl border border-line px-3 py-2.5 hover:border-ink/30 transition-colors sm:text-right sm:items-end"
+          >
+            <span class="text-[11.5px] text-ink3">下一站</span>
+            <span class="text-[13.5px] font-medium truncate">{{ next.name }} →</span>
+          </NuxtLink>
+        </nav>
       </article>
 
       <aside class="flex flex-col gap-4">
@@ -207,19 +229,32 @@ useHead(() => ({
           <h2 class="font-semibold text-[14px] mb-3">相关推荐</h2>
           <div v-if="!related.length" class="text-[12.5px] text-ink3">暂无相关站点</div>
           <div v-else class="flex flex-col gap-2.5">
-            <component
-              :is="r.detail_enabled ? 'NuxtLink' : 'a'"
-              v-for="r in related"
-              :key="r.id"
-              v-bind="r.detail_enabled ? { to: `/site/${r.id}.html` } : { href: r.url, target: '_blank', rel: 'nofollow noopener' }"
-              class="flex items-center gap-2.5 group"
-            >
-              <SiteIcon :src="r.icon || iconOf(r.url)" :name="r.name" :url="r.url" class="w-7 h-7 rounded-lg shrink-0 text-[11px]" />
-              <span class="min-w-0">
-                <span class="block text-[13px] font-medium truncate group-hover:underline">{{ r.name }}</span>
-                <span class="block text-[11px] text-ink3 truncate">{{ r.category }}</span>
-              </span>
-            </component>
+            <template v-for="r in related" :key="r.id">
+              <NuxtLink
+                v-if="r.detail_enabled"
+                :to="`/site/${r.id}.html`"
+                class="flex items-center gap-2.5 group"
+              >
+                <SiteIcon :src="r.icon || iconOf(r.url)" :name="r.name" :url="r.url" class="w-7 h-7 rounded-lg shrink-0 text-[11px]" />
+                <span class="min-w-0">
+                  <span class="block text-[13px] font-medium truncate group-hover:underline">{{ r.name }}</span>
+                  <span class="block text-[11px] text-ink3 truncate">{{ r.category }}</span>
+                </span>
+              </NuxtLink>
+              <a
+                v-else
+                :href="r.url"
+                target="_blank"
+                rel="nofollow noopener"
+                class="flex items-center gap-2.5 group"
+              >
+                <SiteIcon :src="r.icon || iconOf(r.url)" :name="r.name" :url="r.url" class="w-7 h-7 rounded-lg shrink-0 text-[11px]" />
+                <span class="min-w-0">
+                  <span class="block text-[13px] font-medium truncate group-hover:underline">{{ r.name }}</span>
+                  <span class="block text-[11px] text-ink3 truncate">{{ r.category }}</span>
+                </span>
+              </a>
+            </template>
           </div>
         </section>
 
@@ -238,19 +273,32 @@ useHead(() => ({
         <section class="card p-4">
           <h2 class="font-semibold text-[14px] mb-3">最新收录</h2>
           <div class="flex flex-col gap-2.5">
-            <component
-              :is="r.detail_enabled ? 'NuxtLink' : 'a'"
-              v-for="r in latest"
-              :key="'latest-' + r.id"
-              v-bind="r.detail_enabled ? { to: `/site/${r.id}.html` } : { href: r.url, target: '_blank', rel: 'nofollow noopener' }"
-              class="flex items-center gap-2.5 group"
-            >
-              <SiteIcon :src="r.icon || iconOf(r.url)" :name="r.name" :url="r.url" class="w-7 h-7 rounded-lg shrink-0 text-[11px]" />
-              <span class="min-w-0">
-                <span class="block text-[13px] font-medium truncate group-hover:underline">{{ r.name }}</span>
-                <span class="block text-[11px] text-ink3 truncate">{{ r.category }}</span>
-              </span>
-            </component>
+            <template v-for="r in latest" :key="'latest-' + r.id">
+              <NuxtLink
+                v-if="r.detail_enabled"
+                :to="`/site/${r.id}.html`"
+                class="flex items-center gap-2.5 group"
+              >
+                <SiteIcon :src="r.icon || iconOf(r.url)" :name="r.name" :url="r.url" class="w-7 h-7 rounded-lg shrink-0 text-[11px]" />
+                <span class="min-w-0">
+                  <span class="block text-[13px] font-medium truncate group-hover:underline">{{ r.name }}</span>
+                  <span class="block text-[11px] text-ink3 truncate">{{ r.category }}</span>
+                </span>
+              </NuxtLink>
+              <a
+                v-else
+                :href="r.url"
+                target="_blank"
+                rel="nofollow noopener"
+                class="flex items-center gap-2.5 group"
+              >
+                <SiteIcon :src="r.icon || iconOf(r.url)" :name="r.name" :url="r.url" class="w-7 h-7 rounded-lg shrink-0 text-[11px]" />
+                <span class="min-w-0">
+                  <span class="block text-[13px] font-medium truncate group-hover:underline">{{ r.name }}</span>
+                  <span class="block text-[11px] text-ink3 truncate">{{ r.category }}</span>
+                </span>
+              </a>
+            </template>
           </div>
         </section>
 

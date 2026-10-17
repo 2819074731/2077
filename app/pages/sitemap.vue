@@ -114,19 +114,32 @@ useHead(() => ({
         <NuxtLink :to="`/site?category=${encodeURIComponent(g.category)}`" class="text-[12.5px] text-ink2 hover:text-ink">查看分类</NuxtLink>
       </div>
       <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-        <component
-          :is="it.detail_enabled ? 'NuxtLink' : 'a'"
-          v-for="it in g.items"
-          :key="it.id"
-          v-bind="it.detail_enabled ? { to: `/site/${it.id}.html` } : { href: it.url, target: '_blank', rel: 'nofollow noopener' }"
-          class="flex items-center gap-2.5 rounded-xl border border-line px-3 py-2 hover:border-ink/30 transition-colors"
-        >
-          <SiteIcon :src="iconOf(it.url)" :name="it.name" :url="it.url" class="w-7 h-7 rounded-lg shrink-0 text-[11px]" />
-          <span class="min-w-0">
-            <span class="block text-[13px] font-medium truncate">{{ it.name }}</span>
-            <span class="block text-[11px] text-ink3 truncate">{{ it.detail_enabled ? '详情页' : '官网直达' }}</span>
-          </span>
-        </component>
+        <template v-for="it in g.items" :key="it.id">
+          <NuxtLink
+            v-if="it.detail_enabled"
+            :to="`/site/${it.id}.html`"
+            class="flex items-center gap-2.5 rounded-xl border border-line px-3 py-2 hover:border-ink/30 transition-colors"
+          >
+            <SiteIcon :src="iconOf(it.url)" :name="it.name" :url="it.url" class="w-7 h-7 rounded-lg shrink-0 text-[11px]" />
+            <span class="min-w-0">
+              <span class="block text-[13px] font-medium truncate">{{ it.name }}</span>
+              <span class="block text-[11px] text-ink3 truncate">详情页</span>
+            </span>
+          </NuxtLink>
+          <a
+            v-else
+            :href="it.url"
+            target="_blank"
+            rel="nofollow noopener"
+            class="flex items-center gap-2.5 rounded-xl border border-line px-3 py-2 hover:border-ink/30 transition-colors"
+          >
+            <SiteIcon :src="iconOf(it.url)" :name="it.name" :url="it.url" class="w-7 h-7 rounded-lg shrink-0 text-[11px]" />
+            <span class="min-w-0">
+              <span class="block text-[13px] font-medium truncate">{{ it.name }}</span>
+              <span class="block text-[11px] text-ink3 truncate">官网直达</span>
+            </span>
+          </a>
+        </template>
       </div>
     </section>
 
