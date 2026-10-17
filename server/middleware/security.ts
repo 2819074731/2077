@@ -20,6 +20,11 @@ export default defineEventHandler((event) => {
   setHeader(event, 'Cross-Origin-Opener-Policy', 'same-origin')
   setHeader(event, 'Content-Security-Policy-Report-Only', CSP)
 
+  const accept = getRequestHeader(event, 'accept') || ''
+  if (accept.includes('text/html') && !getResponseHeader(event, 'cache-control')) {
+    setHeader(event, 'Cache-Control', 'no-cache, must-revalidate')
+  }
+
   const forwarded = getRequestHeader(event, 'x-forwarded-proto') || ''
   if (forwarded.split(',')[0].trim() === 'https' || event.node.req.socket.encrypted) {
     setHeader(event, 'Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
