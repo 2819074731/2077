@@ -61,7 +61,12 @@ useHead({
 })
 
 const totalLinks = computed(() => groups.value.reduce((n, g) => n + g.links.length, 0))
-const shownGroups = computed(() => visibleGroups())
+const shownGroups = computed(() => {
+  const list = visibleGroups()
+  if (activeCat.value) return list
+  const university = groups.value.find((g) => g.name === '高校')
+  return university && !list.some((g) => g.name === '高校') ? [...list, university] : list
+})
 const hasMoreGroups = computed(() => groups.value.length > INLINE_GROUP_COUNT && !activeCat.value)
 const drawerOpen = useState<boolean>('nav-drawer-open', () => false)
 const importOpen = ref(false)
