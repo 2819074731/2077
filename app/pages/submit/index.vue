@@ -88,9 +88,7 @@ const ok = ref(false)
 const checking = ref(false)
 const check = ref<{ exists: boolean; inDirectory: boolean; status: string | null; token: string | null } | null>(null)
 const submitted = ref<{ id: number; token: string } | null>(null)
-const copyMsg = ref('')
 let checkSeq = 0
-let copyTimer: any = null
 
 const metaLoaded = computed(() => !!(form.value.title || form.value.description || form.value.keywords))
 const checkHint = computed(() => {
@@ -166,37 +164,6 @@ function onUrlBlur() {
   void precheck()
 }
 
-function fallbackCopy(text: string) {
-  const input = document.createElement('textarea')
-  input.value = text
-  input.setAttribute('readonly', '')
-  input.style.position = 'fixed'
-  input.style.opacity = '0'
-  document.body.appendChild(input)
-  input.select()
-  document.execCommand('copy')
-  document.body.removeChild(input)
-}
-
-async function copyStatusLink() {
-  if (!submitted.value?.token) return
-  const link = `${window.location.origin}/submit/status?token=${submitted.value.token}`
-  try {
-    if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(link)
-    else fallbackCopy(link)
-    copyMsg.value = '已复制查询链接'
-  } catch {
-    try {
-      fallbackCopy(link)
-      copyMsg.value = '已复制查询链接'
-    } catch {
-      copyMsg.value = '复制失败，请手动复制浏览器地址'
-    }
-  }
-  clearTimeout(copyTimer)
-  copyTimer = setTimeout(() => (copyMsg.value = ''), 2400)
-}
-
 function resetForm() {
   form.value = { url: '', name: '', title: '', description: '', keywords: '', icon: '', group: '', target: 'nav', _trap: '' }
   err.value = ''
@@ -204,7 +171,6 @@ function resetForm() {
   submitted.value = null
   check.value = null
   checking.value = false
-  copyMsg.value = ''
   checkSeq++
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
@@ -264,12 +230,9 @@ async function submit() {
         </p>
         <div class="flex flex-wrap justify-center gap-2 mt-6">
           <NuxtLink v-if="submitted?.token" :to="`/submit/status?token=${submitted.token}`" class="btn btn-primary">查看提交状态</NuxtLink>
-          <button v-if="submitted?.token" type="button" class="btn" @click="copyStatusLink">复制查询链接</button>
           <button type="button" class="btn" :class="!submitted?.token ? 'btn-primary' : ''" @click="resetForm">继续提交</button>
           <NuxtLink to="/" class="btn">返回首页</NuxtLink>
-          <NuxtLink to="/site" class="btn">浏览分类目录</NuxtLink>
         </div>
-        <p v-if="copyMsg" class="text-[12px] text-ink3 mt-3" role="status" aria-live="polite">{{ copyMsg }}</p>
       </div>
 
       <form v-else class="card p-4 sm:p-7 flex flex-col gap-6" novalidate @submit.prevent="submit">
