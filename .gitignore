@@ -1,0 +1,23 @@
+# 依赖与构建产物
+node_modules/
+.nuxt/
+.output/
+.nitro/
+.cache/
+dist/
+dist-admin/
+
+# 环境变量与密钥（切勿提交）
+.env
+.env.local
+*.local
+
+# 日志
+*.log
+logs/
+
+# 编辑器 / 系统
+.DS_Store
+.idea/
+.vscode/
+*.swp
