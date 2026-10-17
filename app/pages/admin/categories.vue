@@ -22,6 +22,7 @@ const formError = ref('')
 const deleting = ref<CategoryRow | null>(null)
 const moveTarget = ref('其他')
 const deletingBusy = ref(false)
+const movingName = ref('')
 const moveOptions = computed(() => items.value.map(item => item.name).filter(name => name !== deleting.value?.name))
 
 useSeoMeta({ title: '分类管理 · 2077 管理后台', robots: 'noindex' })
@@ -32,13 +33,13 @@ function flash(text: string, kind: 'ok' | 'err' = 'ok') {
   setTimeout(() => { if (msg.value === text) msg.value = '' }, kind === 'err' ? 4800 : 2400)
 }
 
-async function load() {
-  loading.value = true
+async function load(silent = false) {
+  if (!silent) loading.value = true
   try {
     const d: any = await $fetch('/api/admin/categories')
     items.value = d.categories || []
   } finally {
-    loading.value = false
+    if (!silent) loading.value = false
   }
 }
 
@@ -69,7 +70,7 @@ async function save() {
     })
     editing.value = null
     flash(e.mode === 'add' ? '已新增分类' : '分类已重命名，相关数据已同步')
-    await load()
+    await load(true)
   } catch (err: any) {
     formError.value = err?.data?.statusMessage || err?.data?.message || '保存失败'
   } finally {
@@ -87,7 +88,7 @@ async function doDelete(item: CategoryRow, moveTo?: string) {
     })
     deleting.value = null
     flash(d?.moved ? `已迁移 ${d.moved} 条数据并删除分类` : '分类已删除')
-    await load()
+    await load(true)
   } catch (err: any) {
     flash(err?.data?.statusMessage || err?.data?.message || '删除失败', 'err')
   } finally {
@@ -114,12 +115,28 @@ async function confirmMoveDelete() {
 }
 
 async function move(item: CategoryRow, dir: number) {
+  if (movingName.value) return
+  const index = items.value.findIndex((row) => row.name === item.name)
+  const next = index + dir
+  if (index < 0 || next < 0 || next >= items.value.length) return
+  const before = items.value
+  const rows = items.value.slice()
+  const [row] = rows.splice(index, 1)
+  rows.splice(next, 0, row)
+  items.value = rows
+  movingName.value = item.name
   try {
-    await $fetch('/api/admin/categories', { method: 'POST', body: { action: 'move', name: item.name, dir } })
+    const d: any = await $fetch('/api/admin/categories', { method: 'POST', body: { action: 'move', name: item.name, dir } })
+    if (Array.isArray(d?.categories)) {
+      const byName = new Map(items.value.map((entry) => [entry.name, entry]))
+      items.value = d.categories.map((name: string) => byName.get(name)).filter(Boolean) as CategoryRow[]
+    }
     flash('分类顺序已更新')
-    await load()
   } catch (err: any) {
+    items.value = before
     flash(err?.data?.statusMessage || err?.data?.message || '调整失败', 'err')
+  } finally {
+    movingName.value = ''
   }
 }
 
@@ -170,8 +187,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
         <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-line">
           <button class="btn btn-sm" @click="openRename(item)" :disabled="item.name === '其他'">重命名</button>
           <div class="flex-1" />
-          <button class="btn btn-sm btn-ghost" :disabled="index === 0" @click="move(item, -1)">上移</button>
-          <button class="btn btn-sm btn-ghost" :disabled="index === items.length - 1" @click="move(item, 1)">下移</button>
+          <button class="btn btn-sm btn-ghost" :disabled="index === 0 || !!movingName" @click="move(item, -1)">{{ movingName === item.name ? '调整中…' : '上移' }}</button>
+          <button class="btn btn-sm btn-ghost" :disabled="index === items.length - 1 || !!movingName" @click="move(item, 1)">下移</button>
           <button class="btn btn-sm btn-ghost text-danger" :disabled="item.name === '其他'" @click="remove(item)">删除</button>
         </div>
       </div>
