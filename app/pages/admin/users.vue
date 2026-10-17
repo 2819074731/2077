@@ -79,11 +79,11 @@ function fmtDate(v: string) {
               <span v-if="u.is_admin" class="chip !text-[10px]">管理员</span>
             </div>
             <p class="text-[11.5px] text-ink2 truncate">{{ u.email }}<span v-if="u.qq"> · QQ {{ u.qq }}</span></p>
-            <p class="text-[11.5px] text-ink3 mt-0.5">/u/{{ u.slug }} · {{ u.links }} 个云端链接 · 注册于 {{ fmtDate(u.created_at) }}</p>
+            <p class="text-[11.5px] text-ink3 mt-0.5">UID {{ u.id }} · /u/{{ u.id }} · {{ u.links }} 个云端链接 · 注册于 {{ fmtDate(u.created_at) }}</p>
           </div>
         </div>
         <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-line">
-          <NuxtLink :to="`/u/${u.slug}`" target="_blank" class="btn btn-sm btn-ghost">查看主页</NuxtLink>
+          <NuxtLink :to="`/u/${u.id}`" target="_blank" class="btn btn-sm btn-ghost">查看主页</NuxtLink>
           <button class="btn btn-sm" @click="act(u, 'toggle-admin')">{{ u.is_admin ? '取消管理员' : '设为管理员' }}</button>
           <div class="flex-1" />
           <button class="btn btn-sm btn-ghost text-danger" @click="act(u, 'delete')">删除用户</button>

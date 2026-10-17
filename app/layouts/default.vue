@@ -3,7 +3,7 @@ import { useWallpaper } from '~/composables/useWallpaper'
 
 const colorMode = useColorMode()
 const { user, restore } = useAuth()
-const { diy, toggleDiy, loadLocal, syncMsg } = useNav()
+const { diy, toggleDiy, loadLocal, syncMsg, selectCat } = useNav()
 const { isMobile, initServer, initClient } = useDevice()
 const wp = useWallpaper()
 
@@ -26,6 +26,11 @@ onMounted(() => {
 })
 
 const isDark = computed(() => colorMode.value === 'dark')
+
+function goHome() {
+  selectCat(null)
+  drawerOpen.value = false
+}
 </script>
 
 <template>
@@ -38,7 +43,7 @@ const isDark = computed(() => colorMode.value === 'dark')
 
     <header class="sticky top-0 z-30 border-b border-line bg-header backdrop-blur-xl">
       <div class="max-w-wrap mx-auto px-4 h-14 flex items-center gap-1.5 sm:gap-2">
-        <NuxtLink to="/" class="flex items-center gap-2 font-semibold shrink-0" aria-label="2077 导航">
+        <NuxtLink to="/" class="flex items-center gap-2 font-semibold shrink-0" aria-label="2077 导航" @click="goHome">
           <span class="grid place-items-center w-8 h-8 rounded-xl bg-ink text-bg text-[11px] font-mono font-bold tracking-tight">2077</span>
           <span v-if="!isMobile" class="text-[15px] tracking-tight">2077 导航</span>
         </NuxtLink>
@@ -126,8 +131,6 @@ const isDark = computed(() => colorMode.value === 'dark')
           <NuxtLink to="/sitemap" class="hover:text-ink">站点地图</NuxtLink>
           <span class="opacity-40">·</span>
           <NuxtLink to="/submit" class="hover:text-ink">提交收录</NuxtLink>
-          <div class="flex-1" />
-          <SetHomeHint />
         </div>
       </div>
     </footer>

@@ -523,7 +523,7 @@ async function revokeOthers() {
       <div class="min-w-0 flex-1">
         <h1 class="text-lg sm:text-xl font-semibold truncate">{{ user?.nickname || '我的设置' }}</h1>
         <p class="text-[12.5px] sm:text-[13px] text-ink2 truncate">
-          <NuxtLink :to="`/u/${user?.slug}`" class="hover:text-ink hover:underline">/u/{{ user?.slug }}</NuxtLink>
+          <NuxtLink :to="`/u/${user?.id}`" class="hover:text-ink hover:underline">/u/{{ user?.id }}</NuxtLink>
           <span class="mx-1.5 opacity-40">·</span>{{ user?.email }}
         </p>
       </div>
@@ -745,7 +745,7 @@ async function revokeOthers() {
         </div>
       </div>
       <p class="mt-3 min-h-[18px] text-[12px] leading-snug" :class="syncFailed ? 'text-danger' : 'text-ink3'">{{ syncText }}</p>
-      <NuxtLink :to="`/u/${user?.slug}`" class="btn btn-sm w-full mt-2">查看个人主页</NuxtLink>
+      <NuxtLink :to="`/u/${user?.id}`" class="btn btn-sm w-full mt-2">查看个人主页</NuxtLink>
     </section>
 
     <div

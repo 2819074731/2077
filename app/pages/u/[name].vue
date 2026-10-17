@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 const route = useRoute()
-const slug = computed(() => String(route.params.name || ''))
-const { data, error } = await useFetch(() => `/api/u/${slug.value}`)
+const key = computed(() => String(route.params.name || '').trim())
+const { data, error } = await useFetch(() => `/api/u/${key.value}`)
 const profile = computed(() => (data.value as any)?.profile)
 const links = computed(() => (data.value as any)?.links || [])
 const siteUrl = useRuntimeConfig().public.siteUrl
+const canonical = computed(() => profile.value?.id ? `/u/${profile.value.id}` : '')
+
+if (profile.value?.id && key.value !== String(profile.value.id)) {
+  await navigateTo(`/u/${profile.value.id}`, { redirectCode: import.meta.server ? 301 : 302, replace: true })
+}
 
 useSeoMeta({
   title: () => profile.value ? `${profile.value.nickname} 的云端网址 · my2077` : '用户 · my2077',
@@ -13,14 +18,15 @@ useSeoMeta({
   robots: 'index,follow'
 })
 useHead({
-  link: [{ rel: 'canonical', href: () => siteUrl + '/u/' + slug.value }],
+  link: [{ rel: 'canonical', href: () => siteUrl + canonical.value }],
   script: computed(() => profile.value ? [{
     type: 'application/ld+json',
     innerHTML: JSON.stringify({
       '@context': 'https://schema.org',
       '@type': 'Person',
       name: profile.value.nickname,
-      url: siteUrl + '/u/' + slug.value,
+      identifier: String(profile.value.id),
+      url: siteUrl + canonical.value,
       sameAs: links.value.map((l: any) => l.url)
     })
   }] : [])
@@ -36,9 +42,12 @@ useHead({
     <template v-else>
       <header class="flex items-center gap-4 mb-8 animate-fade-up">
         <UserAvatar :src="profile.avatar" :name="profile.nickname" class="w-14 h-14 rounded-2xl text-xl shadow-soft" />
-        <div>
-          <h1 class="text-xl font-semibold">{{ profile.nickname }}</h1>
-          <p class="text-[13px] text-ink2">my2077 用户 · {{ links.length }} 个云端网址</p>
+        <div class="min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <h1 class="text-xl font-semibold truncate">{{ profile.nickname }}</h1>
+            <span class="chip !text-[10.5px] font-mono">UID {{ profile.id }}</span>
+          </div>
+          <p class="text-[13px] text-ink2 mt-0.5">my2077 用户 · {{ links.length }} 个云端网址</p>
         </div>
       </header>
 
