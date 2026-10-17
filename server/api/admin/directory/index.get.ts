@@ -1,4 +1,4 @@
-import { SITE_CATEGORIES } from '#shared/categories'
+import { getSiteCategories } from '../../../utils/categories'
 
 export default defineEventHandler(async (event) => {
   await requireAdmin(event)
@@ -30,7 +30,8 @@ export default defineEventHandler(async (event) => {
     params
   )
   const counts = new Map<string, any>(cats.map((c: any) => [String(c.category), c]))
-  const categories: { category: string; n: number; published: number }[] = SITE_CATEGORIES.map((name) => {
+  const siteCategories = await getSiteCategories()
+  const categories: { category: string; n: number; published: number }[] = siteCategories.map((name) => {
     const c: any = counts.get(name)
     counts.delete(name)
     return { category: name, n: Number(c?.n || 0), published: Number(c?.published || 0) }

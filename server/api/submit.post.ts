@@ -2,7 +2,7 @@ import { normalizeSiteUrl } from '../utils/site'
 import { cleanText, safeIcon } from '../utils/sanitize'
 import { rateLimit } from '../utils/rateLimit'
 import { urlKey } from '#shared/nav'
-import { SITE_CATEGORIES } from '#shared/categories'
+import { getSiteCategories } from '../utils/categories'
 
 export default defineEventHandler(async (event) => {
   const length = Number(getRequestHeader(event, 'content-length') || 0)
@@ -22,7 +22,8 @@ export default defineEventHandler(async (event) => {
   const u = normalizeSiteUrl(String(body?.url || ''))
   const target = String(body?.target || '') === 'directory' ? 'directory' : 'nav'
   const groupRaw = cleanText(body?.group, 60)
-  const group = (SITE_CATEGORIES as readonly string[]).includes(groupRaw) ? groupRaw : ''
+  const categories = await getSiteCategories()
+  const group = categories.includes(groupRaw) ? groupRaw : ''
 
   const user = await getSessionUser(event)
   const db = useDb()

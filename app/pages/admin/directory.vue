@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue'
-import { SITE_CATEGORIES } from '#shared/categories'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
@@ -24,6 +23,7 @@ const items = ref<Entry[]>([])
 const total = ref(0)
 const published = ref(0)
 const categories = ref<any[]>([])
+const siteCategories = ref<string[]>([])
 const page = ref(1)
 const kw = ref('')
 const category = ref('')
@@ -40,9 +40,9 @@ const formError = ref('')
 useSeoMeta({ title: '分类目录 · 2077 管理后台', robots: 'noindex' })
 
 const categoryOptions = computed(() => {
-  const seen = new Set<string>(SITE_CATEGORIES)
+  const seen = new Set<string>(siteCategories.value)
   const extra = categories.value.map((c: any) => String(c.category)).filter((c) => c && !seen.has(c))
-  return [...SITE_CATEGORIES, ...extra]
+  return [...siteCategories.value, ...extra]
 })
 
 const filterCategories = computed(() => categories.value.filter((c: any) => Number(c.n) > 0))
@@ -51,6 +51,13 @@ const emptyEntry = (): Entry => ({
   name: '', url: '', icon: '', category: '其他', title: '', description: '',
   keywords: '', content: '', featured: 0, sort: 0, status: 'published', detail_enabled: 1
 })
+
+async function loadCategories() {
+  try {
+    const d: any = await $fetch('/api/categories')
+    siteCategories.value = d.categories || []
+  } catch {}
+}
 
 async function load() {
   loading.value = true
@@ -159,8 +166,9 @@ function onKey(e: KeyboardEvent) {
   if (e.key === 'Escape') editing.value = null
 }
 
-onMounted(() => {
-  load()
+onMounted(async () => {
+  await loadCategories()
+  await load()
   window.addEventListener('keydown', onKey)
 })
 

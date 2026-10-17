@@ -1,9 +1,9 @@
 import { normalizeSiteUrl } from '../../utils/site'
 import { sanitizeDirectoryEntry } from '../../utils/directory'
-import { safeIcon } from '../../utils/sanitize'
+import { cleanText, safeIcon } from '../../utils/sanitize'
 import { getSiteConfig, invalidateSiteConfig } from '../../utils/siteConfig'
 import { setSetting } from '../../utils/settings'
-import { DEFAULT_CATEGORY, isSiteCategory } from '#shared/categories'
+import { resolveSiteCategory } from '../../utils/categories'
 
 function urlKey(input: string): string {
   try {
@@ -13,6 +13,42 @@ function urlKey(input: string): string {
   } catch {
     return ''
   }
+}
+
+function patchInput(body: any): any | null {
+  return body?.data && typeof body.data === 'object' ? body.data : null
+}
+
+async function normalizePatch(body: any, current: any, normalizeCategory: boolean) {
+  const input = patchInput(body)
+  if (!input) return null
+
+  const name = cleanText(input.name, 80)
+  if (!name) throw createError({ statusCode: 400, statusMessage: '请填写站点名称' })
+  const u = normalizeSiteUrl(String(input.url || ''))
+  const icon = safeIcon(input.icon) || `/api/icon?url=${encodeURIComponent(u.hostname)}`
+  const grp = normalizeCategory
+    ? await resolveSiteCategory(input.grp || current.grp)
+    : cleanText(input.grp ?? current.grp, 60)
+
+  return {
+    name,
+    url: u.toString(),
+    icon,
+    title: cleanText(input.title, 200),
+    description: cleanText(input.description, 500),
+    keywords: cleanText(input.keywords, 300),
+    grp
+  }
+}
+
+async function assertUniqueUrl(url: string, id: number) {
+  const db = useDb()
+  const [dup]: any = await db.query(
+    "SELECT id FROM submissions WHERE TRIM(TRAILING '/' FROM LOWER(url)) = ? AND id <> ? LIMIT 1",
+    [urlKey(url), id]
+  )
+  if (dup.length) throw createError({ statusCode: 409, statusMessage: '该网址已在其他提交记录中' })
 }
 
 export default defineEventHandler(async (event) => {
@@ -31,6 +67,18 @@ export default defineEventHandler(async (event) => {
     return { ok: true, status: 'rejected' }
   }
 
+  if (action === 'update') {
+    const patch = await normalizePatch(body, sub, true)
+    if (!patch) throw createError({ statusCode: 400, statusMessage: '缺少修改内容' })
+    await assertUniqueUrl(patch.url, id)
+    await db.execute(
+      `UPDATE submissions SET name = ?, url = ?, icon = ?, title = ?, description = ?, keywords = ?, grp = ?
+       WHERE id = ?`,
+      [patch.name, patch.url, patch.icon, patch.title, patch.description, patch.keywords, patch.grp, id]
+    )
+    return { ok: true, status: sub.status, category: patch.grp }
+  }
+
   if (action === 'approve') {
     const targets = body?.targets && typeof body.targets === 'object' ? body.targets : null
     const legacyTarget = String(body?.target || sub.target || 'nav')
@@ -40,17 +88,18 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, statusMessage: '请至少选择一个收录位置' })
     }
 
-    const requested = String(body?.category || body?.group || sub.grp || '').trim()
-    const category = isSiteCategory(requested)
-      ? requested
-      : isSiteCategory(sub.grp)
-        ? sub.grp
-        : DEFAULT_CATEGORY
-
-    const u = normalizeSiteUrl(sub.url)
+    const patch = await normalizePatch(body, { ...sub, grp: body?.category || sub.grp }, true)
+    const name = patch?.name || cleanText(sub.name, 80)
+    const u = normalizeSiteUrl(patch?.url || sub.url)
     const url = u.toString()
     const key = urlKey(url)
-    const icon = safeIcon(sub.icon) || `/api/icon?url=${encodeURIComponent(u.hostname)}`
+    if (patch) await assertUniqueUrl(url, id)
+    const category = patch?.grp || await resolveSiteCategory(body?.category || sub.grp)
+    const icon = patch?.icon || safeIcon(sub.icon) || `/api/icon?url=${encodeURIComponent(u.hostname)}`
+    const title = patch?.title ?? cleanText(sub.title, 200)
+    const description = patch?.description ?? cleanText(sub.description, 500)
+    const keywords = patch?.keywords ?? cleanText(sub.keywords, 300)
+
     const result: {
       ok: boolean
       status: string
@@ -78,13 +127,13 @@ export default defineEventHandler(async (event) => {
         result.directoryId = Number(existing[0].id)
       } else {
         const e = sanitizeDirectoryEntry({
-          name: sub.name,
+          name,
           url,
-          icon: sub.icon,
+          icon,
           category,
-          title: sub.title,
-          description: sub.description,
-          keywords: sub.keywords,
+          title,
+          description,
+          keywords,
           status: 'published'
         })
         try {
@@ -121,7 +170,7 @@ export default defineEventHandler(async (event) => {
       if (grp.links.some((l) => urlKey(l.url) === key)) {
         result.nav = 'exists'
       } else {
-        grp.links.push({ name: sub.name, url, icon })
+        grp.links.push({ name, url, icon })
         await setSetting('site_config', { groups, recommended: cfg.recommended })
         invalidateSiteConfig()
         result.nav = 'created'
@@ -129,11 +178,11 @@ export default defineEventHandler(async (event) => {
     }
 
     result.target = toNav && toDirectory ? 'both' : toNav ? 'nav' : 'directory'
-    await db.execute("UPDATE submissions SET status = 'approved', target = ?, grp = ? WHERE id = ?", [
-      result.target,
-      category,
-      id
-    ])
+    await db.execute(
+      `UPDATE submissions SET name = ?, url = ?, icon = ?, title = ?, description = ?, keywords = ?,
+         status = 'approved', target = ?, grp = ? WHERE id = ?`,
+      [name, url, icon, title, description, keywords, result.target, category, id]
+    )
     return result
   }
 

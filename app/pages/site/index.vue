@@ -5,6 +5,7 @@ const route = useRoute()
 const router = useRouter()
 const siteUrl = useRuntimeConfig().public.siteUrl
 
+const PAGE_SIZE = 20
 const category = computed(() => String(route.query.category || ''))
 const q = computed(() => String(route.query.q || ''))
 const page = computed(() => Math.max(1, Number(route.query.page) || 1))
@@ -12,7 +13,7 @@ const keyword = ref(q.value)
 
 const { data, pending } = await useAsyncData(
   'directory-list',
-  () => $fetch('/api/directory', { query: { category: category.value, q: q.value, page: page.value, size: 24 } }),
+  () => $fetch('/api/directory', { query: { category: category.value, q: q.value, page: page.value, size: PAGE_SIZE } }),
   { watch: [category, q, page] }
 )
 
@@ -22,7 +23,7 @@ const items = computed<any[]>(() => (data.value as any)?.items || [])
 const categories = computed<any[]>(() => (data.value as any)?.categories || [])
 const total = computed(() => Number((data.value as any)?.total || 0))
 const all = computed(() => Number((data.value as any)?.all || 0))
-const totalPages = computed(() => Math.max(1, Math.ceil(total.value / 24)))
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)))
 const canonicalUrl = computed(() => {
   const qs = new URLSearchParams()
   if (category.value) qs.set('category', category.value)
@@ -31,34 +32,15 @@ const canonicalUrl = computed(() => {
   return siteUrl + '/site' + (s ? '?' + s : '')
 })
 
-const faqs = [
-  {
-    q: '2077 分类目录是什么？',
-    a: '2077 分类目录按主题收录网站，每个开启详情页的站点都有独立介绍页，提供官网入口、站点简介与同类推荐。'
-  },
-  {
-    q: '首页导航和分类目录有什么区别？',
-    a: '首页导航展示精选站点，审核标准较高；分类目录面向更广泛的站点，按分类长期收录，并生成独立的详情页。'
-  },
-  {
-    q: '如何提交网站到分类目录？',
-    a: '在提交收录页面填写网址与站点信息，选择「分类目录」即可。审核通过后会出现在对应分类中。'
-  },
-  {
-    q: '分类目录如何排序？',
-    a: '默认按精选、人工排序与收录时间排列，也可以通过分类筛选和关键词搜索快速定位站点。'
-  }
-]
-
 const seoTitle = computed(() => {
   const c = category.value
-  return c ? `${c}网站目录 · 精选站点导航 | 2077` : '分类目录 · 精选网站导航 | 2077'
+  return c ? `${c}网站目录 · 2077 导航` : '网站目录 · 精选站点收录 | 2077 导航'
 })
 const seoDesc = computed(() => {
   const c = category.value
   return c
-    ? `浏览 2077 导航「${c}」分类下的精选网站，查看站点简介、官网入口与同类推荐。`
-    : `2077 导航分类目录，按分类浏览精选网站，提供站点简介、官网入口与同类站点推荐，共 ${all.value} 个站点。`
+    ? `浏览 2077 导航「${c}」分类下的网站，查看站点简介、官网入口与同类站点。`
+    : `2077 导航网站目录，按分类浏览已收录网站，提供站点简介、官网入口与分类筛选，共 ${all.value} 个站点。`
 })
 
 useSeoMeta({
@@ -103,16 +85,8 @@ useHead(() => ({
           '@id': siteUrl + '/site#breadcrumb',
           itemListElement: [
             { '@type': 'ListItem', position: 1, name: '首页', item: siteUrl + '/' },
-            { '@type': 'ListItem', position: 2, name: '分类目录', item: siteUrl + '/site' }
+            { '@type': 'ListItem', position: 2, name: '网站目录', item: siteUrl + '/site' }
           ]
-        },
-        {
-          '@type': 'FAQPage',
-          mainEntity: faqs.map(f => ({
-            '@type': 'Question',
-            name: f.q,
-            acceptedAnswer: { '@type': 'Answer', text: f.a }
-          }))
         }
       ]
     })
@@ -121,6 +95,10 @@ useHead(() => ({
 
 function iconOf(url: string) {
   try { return `/api/icon?url=${encodeURIComponent(new URL(url).hostname)}` } catch { return '' }
+}
+
+function hostOf(url: string) {
+  try { return new URL(url).hostname.replace(/^www\./i, '') } catch { return url }
 }
 
 function go(patch: Record<string, any>) {
@@ -134,87 +112,119 @@ function go(patch: Record<string, any>) {
 function search() {
   go({ q: keyword.value.trim(), page: 1 })
 }
+
+function resetAll() {
+  keyword.value = ''
+  go({ category: '', q: '', page: 1 })
+}
 </script>
 
 <template>
-  <div class="max-w-wrap mx-auto px-4 py-8 sm:py-10">
-    <header class="mb-6">
-      <p class="text-[12px] text-ink3 mb-1">2077 导航 · 分类目录</p>
-      <h1 class="text-[26px] sm:text-[32px] font-extrabold tracking-tight">精选网站目录</h1>
-      <p class="text-ink2 text-[13px] mt-2 max-w-[720px] leading-relaxed">
-        按分类浏览已收录的网站，每个站点拥有独立介绍页，方便检索、分享与被搜索引擎收录。
-      </p>
-      <div class="flex items-center gap-3 flex-wrap mt-2">
-        <p class="text-[12px] text-ink3">共 {{ all }} 个站点 · 当前筛选 {{ total }} 个</p>
-        <span class="opacity-40 text-[12px]">·</span>
-        <NuxtLink to="/" class="text-[12px] text-ink3 hover:text-ink">首页导航</NuxtLink>
-        <NuxtLink to="/sitemap" class="text-[12px] text-ink3 hover:text-ink">站点地图</NuxtLink>
+  <div class="max-w-wrap mx-auto px-4 py-5 sm:py-8">
+    <header class="flex items-start justify-between gap-3 mb-4">
+      <div class="min-w-0">
+        <h1 class="text-[24px] sm:text-[28px] font-extrabold tracking-tight leading-tight">网站目录</h1>
+        <p class="text-[12px] text-ink3 mt-1">
+          共 {{ all }} 个站点<span v-if="categories.length"> · {{ categories.length }} 个分类</span>
+        </p>
       </div>
+      <NuxtLink to="/submit" class="btn btn-sm shrink-0">提交网站</NuxtLink>
     </header>
 
-    <div class="flex flex-col gap-3 mb-5">
+    <div class="flex flex-col gap-2.5 mb-3">
       <form class="flex gap-2" @submit.prevent="search">
-        <input v-model="keyword" class="field grow" placeholder="搜索站点名称、简介或网址" />
-        <button class="btn shrink-0" type="submit">搜索</button>
-        <button v-if="q" type="button" class="btn btn-ghost shrink-0" @click="keyword = ''; go({ q: '', page: 1 })">清除</button>
+        <div class="relative grow min-w-0">
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-ink3 pointer-events-none" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+          <input v-model="keyword" class="field pl-9" placeholder="搜索网站名称、网址或简介" />
+        </div>
+        <button class="btn shrink-0 px-4" type="submit">搜索</button>
+        <button v-if="q" type="button" class="btn btn-ghost shrink-0" @click="resetAll">清除</button>
       </form>
-      <div class="flex flex-wrap gap-2">
-        <button class="btn btn-sm" :class="!category ? 'btn-primary' : 'btn-ghost'" @click="go({ category: '', page: 1 })">全部</button>
+
+      <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 pb-0.5">
+        <button
+          class="shrink-0 h-8 px-3 rounded-full border text-[12.5px] font-medium transition-colors"
+          :class="!category ? 'bg-ink text-bg border-transparent' : 'bg-card border-line text-ink2 hover:text-ink'"
+          @click="go({ category: '', page: 1 })"
+        >全部 <span class="opacity-60">{{ all }}</span></button>
         <button
           v-for="c in categories"
           :key="c.category"
-          class="btn btn-sm"
-          :class="category === c.category ? 'btn-primary' : 'btn-ghost'"
+          class="shrink-0 h-8 px-3 rounded-full border text-[12.5px] font-medium transition-colors"
+          :class="category === c.category ? 'bg-ink text-bg border-transparent' : 'bg-card border-line text-ink2 hover:text-ink'"
           @click="go({ category: c.category, page: 1 })"
         >{{ c.category }} <span class="opacity-60">{{ c.n }}</span></button>
       </div>
     </div>
 
-    <div v-if="pending" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-      <div v-for="i in 6" :key="i" class="card p-4 h-[132px] animate-pulse" />
+    <div class="flex items-center gap-2 mb-2.5 min-h-[24px]">
+      <span class="text-[12px] text-ink3">{{ category || (q ? `搜索「${q}」` : '全部站点') }} · {{ total }} 个</span>
+      <div class="flex-1" />
+      <button v-if="category || q" class="text-[12px] text-ink2 hover:text-ink" @click="resetAll">清除筛选</button>
+    </div>
+
+    <div v-if="pending" class="flex flex-col gap-2">
+      <div v-for="i in 5" :key="i" class="card h-[112px] animate-pulse" />
     </div>
     <div v-else-if="!items.length" class="card p-10 text-center text-ink2 text-[13px]">
       没有找到符合条件的站点。
-      <button class="btn btn-sm btn-ghost ml-2" @click="go({ category: '', q: '', page: 1 })">查看全部</button>
+      <button class="btn btn-sm btn-ghost ml-2" @click="resetAll">查看全部</button>
     </div>
-    <div v-else class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-      <article v-for="it in items" :key="it.id" class="card p-4 flex flex-col gap-2.5 hover:border-ink/30 transition-colors">
-        <div class="flex items-start gap-3">
-          <SiteIcon :src="it.icon || iconOf(it.url)" :name="it.name" :url="it.url" class="w-9 h-9 rounded-xl shrink-0 text-[13px]" />
+    <div v-else class="flex flex-col gap-2">
+      <article
+        v-for="it in items"
+        :key="it.id"
+        class="card group p-4 sm:px-5 sm:py-4 transition-all duration-200 hover:border-ink/25"
+      >
+        <div class="flex items-start gap-3.5">
+          <SiteIcon :src="it.icon || iconOf(it.url)" :name="it.name" :url="it.url" class="w-11 h-11 rounded-2xl shrink-0 text-[14px]" />
           <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-1.5">
-              <h2 class="font-semibold text-[14.5px] truncate">{{ it.name }}</h2>
+            <div class="flex items-center gap-x-2 gap-y-1 flex-wrap">
+              <h2 class="font-semibold text-[15px] sm:text-[16px] leading-6">{{ it.name }}</h2>
               <span v-if="it.featured" class="chip !text-[10px]">精选</span>
+              <span class="chip !text-[10px]">{{ it.category }}</span>
             </div>
-            <span class="text-[11.5px] text-ink3">{{ it.category }}</span>
+            <p class="text-[12.5px] sm:text-[13px] text-ink2 leading-relaxed line-clamp-2 mt-1">
+              {{ it.description || `收录于 2077 导航「${it.category}」分类。` }}
+            </p>
+            <div class="flex items-center gap-1.5 mt-1.5 text-[11.5px] text-ink3 min-w-0">
+              <span class="truncate">{{ hostOf(it.url) }}</span>
+              <template v-if="it.detail_enabled">
+                <span class="opacity-40">·</span>
+                <span class="shrink-0">详情页</span>
+              </template>
+            </div>
+          </div>
+          <div class="hidden sm:flex items-center gap-2 shrink-0 self-center">
+            <template v-if="it.detail_enabled">
+              <NuxtLink :to="`/site/${it.id}.html`" class="btn btn-sm btn-primary">查看详情</NuxtLink>
+              <a :href="it.url" target="_blank" rel="nofollow noopener" class="btn btn-sm btn-ghost">官网</a>
+            </template>
+            <a v-else :href="it.url" target="_blank" rel="nofollow noopener" class="btn btn-sm btn-primary">访问网站</a>
           </div>
         </div>
-        <p class="text-[12.5px] text-ink2 leading-relaxed line-clamp-2 min-h-[36px]">{{ it.description || '收录于 2077 导航分类目录。' }}</p>
-        <div class="flex items-center gap-2 mt-auto">
+
+        <div class="flex gap-2 mt-3 sm:hidden">
           <template v-if="it.detail_enabled">
             <NuxtLink :to="`/site/${it.id}.html`" class="btn btn-sm btn-primary flex-1 justify-center">查看详情</NuxtLink>
-            <a :href="it.url" target="_blank" rel="nofollow noopener" class="btn btn-sm btn-ghost">官网</a>
+            <a :href="it.url" target="_blank" rel="nofollow noopener" class="btn btn-sm flex-1 justify-center">访问官网</a>
           </template>
           <a v-else :href="it.url" target="_blank" rel="nofollow noopener" class="btn btn-sm btn-primary flex-1 justify-center">访问网站</a>
         </div>
       </article>
     </div>
 
-    <section class="mt-10 pt-7 border-t border-line">
-      <h2 class="text-[18px] font-semibold mb-4">常见问题</h2>
-      <dl class="grid sm:grid-cols-2 gap-5">
-        <div v-for="f in faqs" :key="f.q">
-          <dt class="text-[13.5px] font-medium">{{ f.q }}</dt>
-          <dd class="text-[13px] text-ink2 leading-7 mt-1">{{ f.a }}</dd>
-        </div>
-      </dl>
-      <p class="text-[12.5px] text-ink2 mt-5">想推荐网站？<NuxtLink to="/submit" class="text-ink hover:underline">提交收录</NuxtLink>，首页导航审核标准较高，分类目录长期开放。</p>
-    </section>
-
     <div v-if="totalPages > 1" class="flex items-center justify-center gap-2 mt-6 flex-wrap">
       <button class="btn btn-sm" :disabled="page <= 1" @click="go({ page: page - 1 })">上一页</button>
       <span class="text-[12.5px] text-ink2">{{ page }} / {{ totalPages }}</span>
       <button class="btn btn-sm" :disabled="page >= totalPages" @click="go({ page: page + 1 })">下一页</button>
+    </div>
+
+    <div class="mt-8 pt-5 border-t border-line flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12px] text-ink2">
+      <span>没找到想要的站点？</span>
+      <NuxtLink to="/submit" class="text-ink hover:underline">提交收录</NuxtLink>
+      <span class="opacity-40">·</span>
+      <NuxtLink to="/sitemap" class="hover:text-ink">站点地图</NuxtLink>
     </div>
   </div>
 </template>

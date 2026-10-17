@@ -17,14 +17,6 @@ const siteUrl = useRuntimeConfig().public.siteUrl
 const { data: siteData } = await useFetch('/api/site', { key: 'site-config' })
 applySite(siteData.value, { groups: true })
 
-const { data: dirData } = await useFetch('/api/directory', { query: { size: 6 }, key: 'home-directory' })
-const directoryItems = computed<any[]>(() => (dirData.value as any)?.items || [])
-const directoryTotal = computed(() => Number((dirData.value as any)?.all || 0))
-
-function iconOf(url: string) {
-  try { return `/api/icon?url=${encodeURIComponent(new URL(url).hostname)}` } catch { return '' }
-}
-
 useSeoMeta({
   title: '2077 导航 · 可自定义的浏览器起始页',
   description: '2077 导航：可自定义的浏览器起始页，聚合常用站点，支持离线使用与云端同步。',
@@ -127,35 +119,6 @@ function openDrawer() { drawerOpen.value = true }
         更多分类（{{ groups.length - INLINE_GROUP_COUNT }} 个）已收起，点击上方分类或右上角「自定义」可编辑。
       </span>
     </div>
-
-    <section v-if="directoryItems.length" class="mb-10 animate-fade-up">
-      <div class="flex items-center gap-2.5 mb-3.5">
-        <span class="h-4 w-1 rounded-full accent-bar" />
-        <h2 class="text-[15px] font-semibold tracking-tight">精选网站目录</h2>
-        <span class="chip">{{ directoryTotal }}</span>
-        <div class="flex-1" />
-        <NuxtLink to="/site" class="btn btn-sm btn-ghost">查看全部站点</NuxtLink>
-      </div>
-      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        <component
-          :is="it.detail_enabled ? 'NuxtLink' : 'a'"
-          v-for="it in directoryItems"
-          :key="it.id"
-          v-bind="it.detail_enabled ? { to: `/site/${it.id}.html` } : { href: it.url, target: '_blank', rel: 'nofollow noopener' }"
-          class="card p-4 flex items-start gap-3 hover:border-ink/30 transition-colors"
-        >
-          <SiteIcon :src="it.icon || iconOf(it.url)" :name="it.name" :url="it.url" class="w-9 h-9 rounded-xl shrink-0 text-[13px]" />
-          <span class="min-w-0 flex-1">
-            <span class="flex items-center gap-1.5">
-              <span class="font-semibold text-[14px] truncate">{{ it.name }}</span>
-              <span v-if="it.featured" class="chip !text-[10px]">精选</span>
-            </span>
-            <span class="block text-[11.5px] text-ink3 mt-0.5">{{ it.category }}</span>
-            <span class="block text-[12px] text-ink2 leading-relaxed line-clamp-2 mt-1.5">{{ it.description || `收录于 2077 导航「${it.category}」分类。` }}</span>
-          </span>
-        </component>
-      </div>
-    </section>
 
     <p v-if="user" class="text-[12px] text-ink2 mb-10 text-center">
       已登录 {{ user.nickname }}，配置已开启云端同步。

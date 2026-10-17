@@ -1,7 +1,8 @@
-import { SITE_CATEGORIES } from '#shared/categories'
+import { getSiteCategories } from '../utils/categories'
 
 export default defineEventHandler(async (event) => {
   const siteUrl = useRuntimeConfig().public.siteUrl
+  const siteCategories = await getSiteCategories()
   const db = useDb()
   const [categories]: any = await db.query(
     `SELECT category, COUNT(*) AS n FROM directory_entries WHERE status = 'published'
@@ -47,7 +48,7 @@ export default defineEventHandler(async (event) => {
     '',
     '## 可提交分类（首页导航与分类目录共用）',
     '',
-    ...SITE_CATEGORIES.map(c => `- ${c}`),
+    ...siteCategories.map(c => `- ${c}`),
     '',
     '## 数据',
     '',

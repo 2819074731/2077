@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { SITE_CATEGORIES } from '#shared/categories'
 
 const siteUrl = useRuntimeConfig().public.siteUrl
 const canonicalUrl = `${siteUrl}/submit`
+const { data: categoryData } = await useFetch('/api/categories')
+const siteCategories = computed<string[]>(() => (categoryData.value as any)?.categories || [])
 
 const faqs = [
   {
@@ -211,7 +212,7 @@ async function submit() {
               <span class="text-[13.5px] font-medium">网站分类</span>
               <select v-model="form.group" class="field !h-11 sm:!h-[38px]">
                 <option value="">由站长决定</option>
-                <option v-for="g in SITE_CATEGORIES" :key="g" :value="g">{{ g }}</option>
+                <option v-for="g in siteCategories" :key="g" :value="g">{{ g }}</option>
               </select>
             </label>
           </div>

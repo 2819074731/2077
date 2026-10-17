@@ -38,8 +38,8 @@ const allSelected = computed(() => items.value.length > 0 && selected.value.size
 
 async function loadCategories() {
   try {
-    const d: any = await $fetch('/api/admin/directory?size=1')
-    categories.value = (d.categories || []).map((c: any) => c.category)
+    const d: any = await $fetch('/api/categories')
+    categories.value = d.categories || []
   } catch {}
 }
 

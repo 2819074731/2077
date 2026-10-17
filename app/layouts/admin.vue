@@ -22,6 +22,7 @@ const menus = [
       { to: '/admin/submissions', label: '收录审核', icon: 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11' },
       { to: '/admin/nav', label: '导航管理', icon: 'M4 6h16M4 12h16M4 18h16' },
       { to: '/admin/directory', label: '分类目录', icon: 'M4 5h16v14H4zM4 10h16M10 10v9' },
+      { to: '/admin/categories', label: '分类管理', icon: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z' },
       { to: '/admin/discover', label: '链接发现', icon: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm10 2-4.35-4.35' }
     ]
   },
