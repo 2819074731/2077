@@ -36,9 +36,15 @@ useSeoMeta({ title: '收录审核 · 2077 管理后台', robots: 'noindex' })
 
 async function loadCategories() {
   try {
-    const d: any = await $fetch('/api/categories')
-    categories.value = d.categories || []
+    const d: any = await $fetch('/api/admin/categories')
+    categories.value = (d.categories || []).map((item: any) => String(item.name || item)).filter(Boolean)
   } catch {}
+}
+
+function categoryOf(item: any): string {
+  const value = String(item?.grp || '').trim() || DEFAULT_CATEGORY
+  if (!categories.value.includes(value)) categories.value = [...categories.value, value]
+  return value
 }
 
 async function load() {
@@ -70,7 +76,7 @@ function openReview(item: any) {
     title: item.title || '',
     description: item.description || '',
     keywords: item.keywords || '',
-    grp: categories.value.includes(item.grp) ? item.grp : DEFAULT_CATEGORY
+    grp: categoryOf(item)
   }
   msg.value = ''
   msgKind.value = 'ok'
@@ -91,7 +97,7 @@ function openEdit(item: any) {
     title: item.title || '',
     description: item.description || '',
     keywords: item.keywords || '',
-    grp: categories.value.includes(item.grp) ? item.grp : DEFAULT_CATEGORY
+    grp: categoryOf(item)
   }
   msg.value = ''
   msgKind.value = 'ok'
@@ -139,7 +145,6 @@ async function bulk(op: 'approve' | 'reject') {
   try {
     const body: any = { action: 'bulk', ids, op }
     if (op === 'approve') {
-      body.category = category.value || DEFAULT_CATEGORY
       body.targets = { nav: true, directory: true }
     }
     const d: any = await $fetch('/api/admin/submissions', { method: 'POST', body })
