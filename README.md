@@ -5,12 +5,15 @@
 ## 功能
 
 - **自定义导航**：分组与链接的增删改，本地保存，登录后同步到云端
-- **推荐 / 常用**：推荐站点置顶，常用站点按点击习惯自动排序
+- **推荐 / 常用**：推荐为站长精选，常用按用户点击习惯独立排序
+- **分类切换**：分类栏与抽屉按分类切换首页内容（SPA，不刷新整页）
 - **搜索直达**：内置多搜索引擎（默认必应），支持自定义搜索引擎，输入网址回车直达
 - **天气**：按访问 IP 自动定位（清秋 IP 接口），支持手动切换城市
 - **站点图标**：服务端 `/api/icon` 代理，多级回退（站点 favicon → Google s2 → DuckDuckGo → favicon.im），7 天缓存
 - **提交收录**：一键抓取站点 TDK（title / description / keywords）与图标，提交后由后台审核
-- **管理后台** `/admin`：概览、收录审核、导航管理、点击统计、用户管理（响应式，适配手机与 PC）
+- **友情链接**：后台维护，前台页脚展示
+- **PC / 手机自适应**：按 UA 自动判定，也可在页脚 / 抽屉手动切换「跟随设备 / 电脑版 / 手机版」
+- **管理后台** `/admin`：概览、收录审核、导航管理、友情链接、点击统计、用户管理（响应式，适配手机与 PC）
 - **导航导入导出**：后台「导航管理」支持站点配置导出为 JSON 与导入恢复
 - **点击统计**：匿名记录站点点击，后台「点击统计」展示总点击、今日点击、趋势与热门榜
 - **PWA**：离线可用，可添加到主屏幕
@@ -33,13 +36,16 @@ app/
   components/
     SearchBar.vue         # 搜索框（内置引擎切换 + 自定义）
     WeatherCard.vue       # 天气（compact 模式用于头部）
-    FrequentLinks.vue     # 推荐 / 常用
+    RecommendLinks.vue    # 站长推荐
+    FrequentLinks.vue     # 个人常用
+    CategoryBar.vue       # 分类切换栏（SPA）
     LinkGroup.vue         # 分组
     LinkItem.vue          # 链接项（记录点击频次）
-    AppDrawer.vue         # 手机抽屉菜单
+    AppDrawer.vue         # 手机抽屉菜单（分类切换 + 显示模式）
   composables/
     useNav.ts             # 导航数据、频次、引擎、云端同步
     useAuth.ts            # 登录态
+    useDevice.ts          # PC / 手机自适应（UA + 手动偏好）
   middleware/
     admin.ts              # 后台鉴权
   pages/
@@ -50,8 +56,8 @@ app/
     admin/                # 后台页面
 shared/nav.ts             # 前后端共用：内置引擎、推荐站点、默认分组
 server/
-  api/                    # 接口（auth / config / links / meta / submit / icon / weather / click / admin）
-  utils/                  # db / auth / site / weather / settings / siteConfig
+  api/                    # 接口（auth / config / links / meta / submit / icon / weather / click / friends / admin）
+  utils/                  # db / auth / site / weather / settings / siteConfig / friendLinks
   schema.sql / migrate-*.sql
 ```
 

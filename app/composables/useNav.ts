@@ -1,4 +1,4 @@
-import { DEFAULT_GROUPS, DEFAULT_ENGINE, ENGINES, RECOMMENDED_LINKS, type NavGroup, type Engine } from '~/data/nav'
+import { DEFAULT_GROUPS, DEFAULT_ENGINE, ENGINES, RECOMMENDED_LINKS, INLINE_GROUP_COUNT, type NavGroup, type Engine } from '~/data/nav'
 const uid = () => 'x' + Math.random().toString(36).slice(2, 10)
 const LS_GROUPS = 'my2077.groups'
 const LS_FREQ = 'my2077.freq'
@@ -35,6 +35,8 @@ export function useNav() {
   const syncMsg = useState<string>('nav-sync-msg', () => '')
   const freq = useState<FreqMap>('nav-freq', () => ({}))
   const recommended = useState<{ name: string; url: string; icon?: string }[]>('nav-recommended', () => RECOMMENDED_LINKS.map(l => ({ name: l.name, url: l.url })))
+  /** 首页当前分类：null = 全部；否则只展示该分组。 */
+  const activeCat = useState<string | null>('nav-active-cat', () => null)
   const engineId = useState<string>('nav-engine', () => DEFAULT_ENGINE)
   const customEngine = useState<Engine | null>('nav-engine-custom', () => null)
   let syncTimer: any = null
@@ -98,27 +100,39 @@ export function useNav() {
     try { $fetch('/api/click', { method: 'POST', body: { url: key, name } }).catch(() => {}) } catch {}
   }
 
-  /** 首页置顶列表：推荐站点优先在前，其后追加按使用频率排序的常用站点（去重）。 */
-  function topLinks(limit = 12) {
-    const out: { name: string; url: string; count: number; recommended: boolean }[] = []
+  /** 站长推荐站点（固定展示，独立于用户习惯）。 */
+  function recommendList() {
+    return recommended.value.map(r => ({ name: r.name, url: r.url, icon: r.icon }))
+  }
+
+  /** 用户个人常用站点：仅按点击频次排序，独立于推荐。 */
+  function frequentList(limit = 12) {
     const seen = new Set<string>()
-    for (const r of recommended.value) {
-      if (seen.has(r.url)) continue
-      seen.add(r.url)
-      out.push({ name: r.name, url: r.url, count: freq.value[r.url] || 0, recommended: true })
-    }
-    const frequent: { name: string; url: string; count: number; recommended: boolean }[] = []
-    const map = new Map<string, { name: string; url: string; count: number; recommended: boolean }>()
+    for (const r of recommended.value) seen.add(r.url)
+    const map = new Map<string, { name: string; url: string; count: number }>()
     for (const g of groups.value) {
       for (const l of g.links) {
         const c = freq.value[l.url] || 0
-        if (c <= 0 || seen.has(l.url)) continue
+        if (c <= 0) continue
         const prev = map.get(l.url)
-        if (!prev || c > prev.count) map.set(l.url, { name: l.name, url: l.url, count: c, recommended: false })
+        if (!prev || c > prev.count) map.set(l.url, { name: l.name, url: l.url, count: c })
       }
     }
-    frequent.push(...Array.from(map.values()).sort((a, b) => b.count - a.count))
-    return [...out, ...frequent].slice(0, limit)
+    return Array.from(map.values()).sort((a, b) => b.count - a.count).slice(0, limit)
+  }
+
+  /** 首页当前展示的分组：选中分类时仅该组，否则内联前 N 组。 */
+  function visibleGroups() {
+    if (activeCat.value) {
+      const g = groups.value.find(x => x.id === activeCat.value || x.name === activeCat.value)
+      return g ? [g] : groups.value.slice(0, INLINE_GROUP_COUNT)
+    }
+    return groups.value.slice(0, INLINE_GROUP_COUNT)
+  }
+
+  function selectCat(id: string | null) {
+    activeCat.value = id
+    if (import.meta.client) window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   /** 所有可用搜索引擎：内置 + 用户自定义。 */
@@ -193,13 +207,17 @@ export function useNav() {
     syncMsg,
     freq,
     recommended,
+    activeCat,
     engineId,
     customEngine,
     loadLocal,
     pullFromCloud,
     pushToCloud,
     recordClick,
-    topLinks,
+    recommendList,
+    frequentList,
+    visibleGroups,
+    selectCat,
     allEngines,
     currentEngine,
     setEngine,

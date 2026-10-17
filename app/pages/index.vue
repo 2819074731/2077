@@ -2,8 +2,9 @@
 import { onMounted, computed } from 'vue'
 import { DEFAULT_GROUPS, INLINE_GROUP_COUNT } from '~/data/nav'
 
-const { groups, diy, syncMsg, loadLocal, addGroup, resetAll } = useNav()
+const { groups, diy, syncMsg, loadLocal, addGroup, resetAll, activeCat, visibleGroups } = useNav()
 const { user, refresh } = useAuth()
+const { isMobile } = useDevice()
 
 onMounted(async () => {
   loadLocal()
@@ -41,8 +42,8 @@ useHead({
 })
 
 const totalLinks = computed(() => groups.value.reduce((n, g) => n + g.links.length, 0))
-const inlineGroups = computed(() => groups.value.slice(0, INLINE_GROUP_COUNT))
-const hasMoreGroups = computed(() => groups.value.length > INLINE_GROUP_COUNT)
+const shownGroups = computed(() => visibleGroups())
+const hasMoreGroups = computed(() => groups.value.length > INLINE_GROUP_COUNT && !activeCat.value)
 const drawerOpen = useState<boolean>('nav-drawer-open', () => false)
 function openDrawer() { drawerOpen.value = true }
 </script>
@@ -75,9 +76,17 @@ function openDrawer() { drawerOpen.value = true }
     </div>
 
     <ClientOnly>
-      <div class="animate-fade-up">
+      <template v-if="!activeCat">
+        <RecommendLinks />
         <FrequentLinks />
-        <LinkGroup v-for="g in inlineGroups" :key="g.id" :group="g" />
+      </template>
+    </ClientOnly>
+
+    <CategoryBar />
+
+    <ClientOnly>
+      <div class="animate-fade-up">
+        <LinkGroup v-for="g in shownGroups" :key="g.id" :group="g" />
       </div>
       <template #fallback>
         <div>
@@ -87,9 +96,9 @@ function openDrawer() { drawerOpen.value = true }
     </ClientOnly>
 
     <div v-if="hasMoreGroups" class="text-center mb-8">
-      <button class="btn btn-sm lg:hidden" @click="openDrawer">查看全部 {{ groups.length }} 个分类</button>
-      <span class="hidden lg:inline text-[12.5px] text-ink2">
-        更多分类（{{ groups.length - INLINE_GROUP_COUNT }} 个）已收起，点击右上角「自定义」可编辑。
+      <button v-if="isMobile" class="btn btn-sm" @click="openDrawer">查看全部 {{ groups.length }} 个分类</button>
+      <span v-else class="text-[12.5px] text-ink2">
+        更多分类（{{ groups.length - INLINE_GROUP_COUNT }} 个）已收起，点击上方分类或右上角「自定义」可编辑。
       </span>
     </div>
 

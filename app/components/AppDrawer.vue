@@ -1,23 +1,23 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { iconFor, hostOf, INLINE_GROUP_COUNT } from '~/data/nav'
 
 const open = useState<boolean>('nav-drawer-open', () => false)
 const colorMode = useColorMode()
-const { groups, recordClick } = useNav()
+const { groups, activeCat, selectCat } = useNav()
 const { user } = useAuth()
+const { mode, setMode, isMobile } = useDevice()
 
-const overflowGroups = computed(() => groups.value.slice(INLINE_GROUP_COUNT))
 const isDark = computed(() => colorMode.value === 'dark')
+const friendLinks = useState<{ name: string; url: string; desc?: string }[]>('nav-friends', () => [])
 
-function go(url: string, name = '') {
-  recordClick(url, name)
+function pickCat(id: string | null) {
+  selectCat(id)
   open.value = false
 }
 </script>
 
 <template>
-  <div v-if="open" class="fixed inset-0 z-50 lg:hidden">
+  <div v-if="open && isMobile" class="fixed inset-0 z-50">
     <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="open = false" />
     <aside class="absolute inset-y-0 right-0 w-[86%] max-w-[340px] bg-bg border-l border-line flex flex-col animate-fade-up">
       <div class="h-14 flex items-center gap-2 px-4 border-b border-line shrink-0">
@@ -56,27 +56,65 @@ function go(url: string, name = '') {
           </button>
         </div>
 
-        <div v-if="overflowGroups.length" class="flex flex-col gap-4">
+        <div class="flex flex-col gap-2">
           <div class="flex items-center gap-2">
             <span class="h-3.5 w-1 rounded-full accent-bar" />
-            <span class="text-[13px] font-semibold">更多分类</span>
+            <span class="text-[13px] font-semibold">显示模式</span>
           </div>
-          <div v-for="g in overflowGroups" :key="g.id" class="flex flex-col gap-2">
-            <span class="text-[12px] text-ink2">{{ g.name }}</span>
-            <div class="grid grid-cols-3 gap-2">
-              <a
-                v-for="l in g.links"
-                :key="l.id"
-                :href="l.url"
-                target="_blank"
-                rel="noopener"
-                class="flex flex-col items-center gap-1.5 py-2.5 rounded-xl bg-card border border-line text-center"
-                @click="go(l.url, l.name)"
-              >
-                <img :src="iconFor(l.url)" :alt="l.name" class="w-5 h-5 object-contain" loading="lazy" referrerpolicy="no-referrer" />
-                <span class="text-[11px] text-ink2 leading-tight line-clamp-2 px-1">{{ l.name }}</span>
-              </a>
-            </div>
+          <div class="grid grid-cols-3 gap-1.5">
+            <button
+              v-for="opt in [{ v: 'auto', t: '跟随设备' }, { v: 'pc', t: '电脑版' }, { v: 'mobile', t: '手机版' }]"
+              :key="opt.v"
+              class="h-9 rounded-xl text-[12.5px] border transition-colors"
+              :class="mode === opt.v ? 'bg-ink text-bg border-transparent font-medium' : 'bg-card border-line text-ink2 hover:text-ink'"
+              @click="setMode(opt.v as any)"
+            >
+              {{ opt.t }}
+            </button>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <div class="flex items-center gap-2">
+            <span class="h-3.5 w-1 rounded-full accent-bar" />
+            <span class="text-[13px] font-semibold">分类</span>
+          </div>
+          <div class="flex flex-col gap-1">
+            <button
+              class="flex items-center justify-between h-10 px-3 rounded-xl text-[13.5px] transition-colors"
+              :class="activeCat === null ? 'bg-ink text-bg font-medium' : 'text-ink2 hover:bg-card2 hover:text-ink'"
+              @click="pickCat(null)"
+            >
+              <span>全部</span>
+              <span class="text-[11.5px] opacity-60">{{ groups.length }}</span>
+            </button>
+            <button
+              v-for="g in groups"
+              :key="g.id"
+              class="flex items-center justify-between h-10 px-3 rounded-xl text-[13.5px] transition-colors"
+              :class="activeCat === g.id ? 'bg-ink text-bg font-medium' : 'text-ink2 hover:bg-card2 hover:text-ink'"
+              @click="pickCat(g.id)"
+            >
+              <span class="truncate">{{ g.name }}</span>
+              <span class="text-[11.5px] opacity-60">{{ g.links.length }}</span>
+            </button>
+          </div>
+        </div>
+
+        <div v-if="friendLinks.length" class="flex flex-col gap-2">
+          <div class="flex items-center gap-2">
+            <span class="h-3.5 w-1 rounded-full accent-bar" />
+            <span class="text-[13px] font-semibold">友情链接</span>
+          </div>
+          <div class="flex flex-wrap gap-1.5">
+            <a
+              v-for="f in friendLinks"
+              :key="f.url"
+              :href="f.url"
+              target="_blank"
+              rel="noopener nofollow"
+              class="inline-flex items-center h-8 px-3 rounded-lg bg-card border border-line text-[12.5px] text-ink2 hover:text-ink"
+            >{{ f.name }}</a>
           </div>
         </div>
       </div>

@@ -2,10 +2,20 @@
 const colorMode = useColorMode()
 const { user, restore } = useAuth()
 const { diy, toggleDiy, loadLocal, syncMsg } = useNav()
+const { isMobile, mode, initServer, initClient, setMode } = useDevice()
 
 const drawerOpen = useState<boolean>('nav-drawer-open', () => false)
+const friendLinks = useState<{ name: string; url: string; desc?: string }[]>('nav-friends', () => [])
+const { data: friendsData } = await useFetch('/api/friends', { key: 'friends-fetch', default: () => ({ links: [] }) })
+watchEffect(() => {
+  const links = (friendsData.value as any)?.links
+  if (Array.isArray(links)) friendLinks.value = links
+})
+
+initServer()
 
 onMounted(() => {
+  initClient()
   loadLocal()
   restore()
 })
@@ -21,18 +31,20 @@ const isDark = computed(() => colorMode.value === 'dark')
       <div class="max-w-wrap mx-auto px-4 h-14 flex items-center gap-1.5 sm:gap-2">
         <NuxtLink to="/" class="flex items-center gap-2 font-semibold shrink-0" aria-label="2077 导航">
           <span class="grid place-items-center w-8 h-8 rounded-xl bg-ink text-bg text-[11px] font-mono font-bold tracking-tight">2077</span>
-          <span class="hidden sm:inline text-[15px] tracking-tight">2077 导航</span>
+          <span v-if="!isMobile" class="text-[15px] tracking-tight">2077 导航</span>
         </NuxtLink>
 
-        <span v-if="syncMsg" class="hidden lg:inline text-[12px] text-ink2 ml-1.5">{{ syncMsg }}</span>
+        <span v-if="syncMsg && !isMobile" class="text-[12px] text-ink2 ml-1.5">{{ syncMsg }}</span>
 
         <div class="flex-1" />
 
         <!-- PC：头部天气 -->
         <ClientOnly>
-          <WeatherCard compact class="hidden lg:flex" />
+          <template v-if="!isMobile">
+            <WeatherCard compact class="flex" />
+          </template>
           <template #fallback>
-            <div class="hidden lg:block w-[168px] h-[44px] card animate-pulse" />
+            <div v-if="!isMobile" class="w-[168px] h-[44px] card animate-pulse" />
           </template>
         </ClientOnly>
 
@@ -46,22 +58,22 @@ const isDark = computed(() => colorMode.value === 'dark')
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
         </button>
 
-        <button class="btn btn-sm btn-ghost btn-icon-sm hidden sm:inline-flex" title="切换主题" aria-label="切换主题" @click="colorMode.preference = isDark ? 'light' : 'dark'">
+        <button v-if="!isMobile" class="btn btn-sm btn-ghost btn-icon-sm" title="切换主题" aria-label="切换主题" @click="colorMode.preference = isDark ? 'light' : 'dark'">
           <svg v-if="isDark" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
           <svg v-else width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" /></svg>
         </button>
 
-        <NuxtLink v-if="user?.is_admin" to="/admin" class="btn btn-sm btn-ghost btn-icon-sm hidden sm:inline-flex" title="管理后台" aria-label="管理后台">
+        <NuxtLink v-if="user?.is_admin && !isMobile" to="/admin" class="btn btn-sm btn-ghost btn-icon-sm" title="管理后台" aria-label="管理后台">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h7V3H3v9Zm11 9h7v-9h-7v9ZM3 21h7v-6H3v6Zm11-12h7V3h-7v6Z" /></svg>
         </NuxtLink>
 
-        <NuxtLink v-if="!user" to="/login" class="btn btn-sm hidden sm:inline-flex">登录</NuxtLink>
-        <NuxtLink v-else to="/settings" class="btn btn-sm !px-1.5 hidden sm:inline-flex" :title="user.nickname" aria-label="我的设置">
+        <NuxtLink v-if="!user && !isMobile" to="/login" class="btn btn-sm">登录</NuxtLink>
+        <NuxtLink v-else-if="user && !isMobile" to="/settings" class="btn btn-sm !px-1.5" :title="user.nickname" aria-label="我的设置">
           <span class="grid place-items-center w-6 h-6 rounded-full bg-ink text-bg text-[11px] font-semibold">{{ (user.nickname || 'U')[0].toUpperCase() }}</span>
         </NuxtLink>
 
         <!-- 手机：抽屉菜单 -->
-        <button class="btn btn-sm btn-ghost btn-icon-sm sm:hidden" title="菜单" aria-label="菜单" @click="drawerOpen = true">
+        <button v-if="isMobile" class="btn btn-sm btn-ghost btn-icon-sm" title="菜单" aria-label="菜单" @click="drawerOpen = true">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
         </button>
       </div>
@@ -72,12 +84,37 @@ const isDark = computed(() => colorMode.value === 'dark')
     </main>
 
     <footer class="border-t border-line mt-14">
-      <div class="max-w-wrap mx-auto px-4 py-6 text-xs text-ink2 flex items-center gap-3 flex-wrap">
-        <span class="font-medium text-ink">2077 导航</span>
-        <span class="opacity-40">·</span>
-        <NuxtLink to="/submit" class="hover:text-ink">提交收录</NuxtLink>
-        <div class="flex-1" />
-        <SetHomeHint />
+      <div class="max-w-wrap mx-auto px-4 py-6 text-xs text-ink2 flex flex-col gap-4">
+        <div v-if="friendLinks.length" class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <span class="text-ink font-medium">友情链接</span>
+          <a
+            v-for="f in friendLinks"
+            :key="f.url"
+            :href="f.url"
+            target="_blank"
+            rel="noopener nofollow"
+            class="hover:text-ink"
+            :title="f.desc || f.name"
+          >{{ f.name }}</a>
+        </div>
+        <div class="flex items-center gap-3 flex-wrap">
+          <span class="font-medium text-ink">2077 导航</span>
+          <span class="opacity-40">·</span>
+          <NuxtLink to="/submit" class="hover:text-ink">提交收录</NuxtLink>
+          <div class="flex-1" />
+          <ClientOnly>
+            <div v-if="!isMobile" class="flex items-center gap-1 text-[11.5px]">
+              <button
+                v-for="opt in [{ v: 'auto', t: '跟随设备' }, { v: 'pc', t: '电脑版' }, { v: 'mobile', t: '手机版' }]"
+                :key="opt.v"
+                class="px-2 h-6 rounded-md transition-colors"
+                :class="mode === opt.v ? 'bg-ink text-bg' : 'text-ink2 hover:text-ink'"
+                @click="setMode(opt.v as any)"
+              >{{ opt.t }}</button>
+            </div>
+          </ClientOnly>
+          <SetHomeHint />
+        </div>
       </div>
     </footer>
 
