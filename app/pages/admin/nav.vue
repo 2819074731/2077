@@ -134,8 +134,22 @@ async function fetchMetaSilent(l: ALink) {
   } catch {}
 }
 
+function normalizeUrl(input: string): string {
+  let s = String(input || '').trim()
+  if (!s) return ''
+  if (!/^https?:\/\//i.test(s)) s = 'https://' + s
+  try {
+    const u = new URL(s)
+    return /^https?:$/.test(u.protocol) ? u.toString() : ''
+  } catch {
+    return ''
+  }
+}
+
 function onUrlBlur(l: ALink) {
-  if (!/^https?:\/\//i.test(l.url)) return
+  const u = normalizeUrl(l.url)
+  if (!u) return
+  l.url = u
   if (!l.icon) l.icon = iconFor(l.url)
   if (!l.name) fetchMeta(l)
 }
@@ -175,7 +189,7 @@ async function save() {
   try {
     const payloadGroups = groups.value.map(g => ({
       ...g,
-      links: g.links.map(l => ({ ...l, icon: l.icon || iconFor(l.url) }))
+      links: g.links.map(l => ({ ...l, url: normalizeUrl(l.url), icon: l.icon || iconFor(l.url) }))
     }))
     const d: any = await $fetch('/api/admin/nav', {
       method: 'PUT',

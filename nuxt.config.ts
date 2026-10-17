@@ -61,6 +61,7 @@ export default defineNuxtConfig({
       theme_color: '#0e0e0e',
       background_color: '#0e0e0e',
       display: 'standalone',
+      lang: 'zh-CN',
       start_url: '/',
       icons: [
         { src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml' },
