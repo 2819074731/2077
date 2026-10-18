@@ -115,3 +115,15 @@ test('高校分类与导航可用', async () => {
   const group = (await site.json()).groups.find((g) => g.name === '高校')
   assert.ok(group && group.links.length >= 10)
 })
+
+test('热搜接口返回对应引擎词条', async () => {
+  for (const engine of ['baidu', 'google', 'github']) {
+    const res = await get('/api/hot-search?engine=' + engine)
+    assert.equal(res.status, 200, engine)
+    const data = await res.json()
+    assert.equal(data.engine, engine)
+    assert.ok(Array.isArray(data.items))
+    assert.ok(data.items.length > 0, engine)
+    assert.equal(typeof data.live, 'boolean')
+  }
+})
