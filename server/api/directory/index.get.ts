@@ -8,6 +8,8 @@ interface CountCache<T> {
 let categoriesCache: CountCache<any[]> | null = null
 let totalCache: CountCache<number> | null = null
 const provinceCache = new Map<string, CountCache<any[]>>()
+const levelCache = new Map<string, CountCache<any[]>>()
+const typeCache = new Map<string, CountCache<any[]>>()
 let ngramReady: boolean | null = null
 
 async function hasNgram(db: any): Promise<boolean> {
@@ -27,7 +29,8 @@ async function getCategoryCounts(db: any): Promise<any[]> {
   const now = Date.now()
   if (categoriesCache && now - categoriesCache.at < CACHE_TTL) return categoriesCache.value
   const [rows]: any = await db.query(
-    `SELECT category, COUNT(*) AS n FROM directory_entries WHERE status = 'published'
+    `SELECT category, COUNT(*) AS n FROM directory_entries
+     WHERE status = 'published' AND health_hidden = 0
      GROUP BY category ORDER BY n DESC, category ASC`
   )
   categoriesCache = { at: now, value: rows }
@@ -39,7 +42,7 @@ async function getProvinceCounts(db: any, category: string): Promise<any[]> {
   const hit = provinceCache.get(key)
   if (hit && Date.now() - hit.at < CACHE_TTL) return hit.value
   const params: any[] = []
-  let clause = "status = 'published' AND province <> ''"
+  let clause = "status = 'published' AND health_hidden = 0 AND province <> ''"
   if (category) {
     clause += ' AND category = ?'
     params.push(category)
@@ -57,11 +60,43 @@ async function getPublishedTotal(db: any): Promise<number> {
   const now = Date.now()
   if (totalCache && now - totalCache.at < CACHE_TTL) return totalCache.value
   const [[row]]: any = await db.query(
-    "SELECT COUNT(*) AS n FROM directory_entries WHERE status = 'published'"
+    "SELECT COUNT(*) AS n FROM directory_entries WHERE status = 'published' AND health_hidden = 0"
   )
   const value = Number(row?.n || 0)
   totalCache = { at: now, value }
   return value
+}
+
+async function getFacetCounts(db: any, category: string, province: string): Promise<{ levels: any[]; types: any[] }> {
+  if (category !== '高校') return { levels: [], types: [] }
+  const key = `${category}|${province || '*'}`
+  const now = Date.now()
+  const cachedLevels = levelCache.get(key)
+  const cachedTypes = typeCache.get(key)
+  if (cachedLevels && cachedTypes && now - cachedLevels.at < CACHE_TTL && now - cachedTypes.at < CACHE_TTL) {
+    return { levels: cachedLevels.value, types: cachedTypes.value }
+  }
+  const params: any[] = []
+  let clause = "status = 'published' AND health_hidden = 0 AND category = '高校'"
+  if (province) {
+    clause += ' AND province = ?'
+    params.push(province)
+  }
+  const [levels]: any = await db.query(
+    `SELECT school_level AS value, COUNT(*) AS n FROM directory_entries
+     WHERE ${clause} AND school_level <> ''
+     GROUP BY school_level ORDER BY n DESC, school_level ASC`,
+    params
+  )
+  const [types]: any = await db.query(
+    `SELECT school_type AS value, COUNT(*) AS n FROM directory_entries
+     WHERE ${clause} AND school_type <> ''
+     GROUP BY school_type ORDER BY n DESC, school_type ASC`,
+    params
+  )
+  levelCache.set(key, { at: now, value: levels })
+  typeCache.set(key, { at: now, value: types })
+  return { levels, types }
 }
 
 export default defineEventHandler(async (event) => {
@@ -73,11 +108,15 @@ export default defineEventHandler(async (event) => {
   const province = String(q.province || '').trim().slice(0, 40)
   const kw = String(q.q || '').trim().slice(0, 60)
   const featured = String(q.featured || '') === '1'
+  const level = String(q.level || '').trim().slice(0, 20)
+  const type = String(q.type || '').trim().slice(0, 20)
+  const sortRaw = String(q.sort || '')
+  const sort = ['latest', 'name'].includes(sortRaw) ? sortRaw : 'recommended'
 
   const db = useDb()
 
   const buildWhere = (fulltext: boolean) => {
-    const where = ["status = 'published'"]
+    const where = ["status = 'published'", 'health_hidden = 0']
     const params: any[] = []
     if (category) {
       where.push('category = ?')
@@ -88,6 +127,14 @@ export default defineEventHandler(async (event) => {
       params.push(province)
     }
     if (featured) where.push('featured = 1')
+    if (level) {
+      where.push('school_level = ?')
+      params.push(level)
+    }
+    if (type) {
+      where.push('school_type = ?')
+      params.push(type)
+    }
     if (kw) {
       if (fulltext) {
         where.push('MATCH(name, title, description, keywords) AGAINST (? IN BOOLEAN MODE)')
@@ -109,7 +156,8 @@ export default defineEventHandler(async (event) => {
     const [rows]: any = await db.query(
       `SELECT id, name, url, icon, category, province, city, school_level, school_type, supervisor, title, description, keywords, featured, detail_enabled, created_at
        FROM directory_entries WHERE ${clause}
-       ORDER BY featured DESC, sort ASC, id DESC LIMIT ? OFFSET ?`,
+       ORDER BY ${sort === 'latest' ? 'id DESC' : sort === 'name' ? 'CONVERT(name USING gbk) ASC, id DESC' : 'featured DESC, sort ASC, id DESC'}
+       LIMIT ? OFFSET ?`,
       [...params, size, offset]
     )
     return { total: Number(count?.n || 0), rows }
@@ -128,10 +176,11 @@ export default defineEventHandler(async (event) => {
     result = await queryPage(false)
   }
 
-  const [cats, all, provinces] = await Promise.all([
+  const [cats, all, provinces, facets] = await Promise.all([
     getCategoryCounts(db),
     getPublishedTotal(db),
-    getProvinceCounts(db, category)
+    getProvinceCounts(db, category),
+    getFacetCounts(db, category, province)
   ])
 
   if (kw) {
@@ -148,6 +197,11 @@ export default defineEventHandler(async (event) => {
     all,
     categories: cats,
     provinces,
+    levels: facets.levels,
+    types: facets.types,
+    sort,
+    level,
+    type,
     page,
     size
   }

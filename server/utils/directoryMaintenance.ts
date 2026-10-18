@@ -52,10 +52,21 @@ export async function checkLinksBatch(limit = 20): Promise<{
     if (hit?.res.body) await hit.res.body.cancel().catch(() => {})
     if (isHealthyStatus(status)) healthy++
     else brokenItems.push({ id: Number(row.id), name: String(row.name || ''), url: String(row.url || ''), status })
-    await db.execute(
-      'UPDATE directory_entries SET http_status = ?, final_url = ?, checked_at = NOW() WHERE id = ?',
-      [status, finalUrl, row.id]
-    )
+    if (isHealthyStatus(status)) {
+      await db.execute(
+        'UPDATE directory_entries SET http_status = ?, final_url = ?, checked_at = NOW(), health_fail_count = 0, health_hidden = 0 WHERE id = ?',
+        [status, finalUrl, row.id]
+      )
+    } else {
+      await db.execute(
+        `UPDATE directory_entries
+         SET http_status = ?, final_url = ?, checked_at = NOW(),
+           health_hidden = IF(health_fail_count + 1 >= 2, 1, 0),
+           health_fail_count = health_fail_count + 1
+         WHERE id = ?`,
+        [status, finalUrl, row.id]
+      )
+    }
   }
   for (let i = 0; i < rows.length; i += LINK_CONCURRENCY) {
     await Promise.all(rows.slice(i, i + LINK_CONCURRENCY).map(run))
@@ -167,6 +178,7 @@ export async function getMaintenanceStatus(): Promise<any> {
        COUNT(*) AS total,
        SUM(checked_at IS NULL OR checked_at < DATE_SUB(NOW(), INTERVAL ${linkTtlDays} DAY)) AS due_links,
        SUM(http_status IS NOT NULL AND http_status >= 400 AND http_status NOT IN (401, 403, 412, 429)) AS broken,
+       SUM(health_hidden = 1) AS hidden,
        SUM(COALESCE(title, '') = '' OR COALESCE(description, '') = '' OR COALESCE(keywords, '') = '') AS missing,
        SUM((COALESCE(title, '') = '' OR COALESCE(description, '') = '' OR COALESCE(keywords, '') = '')
          AND (tdk_checked_at IS NULL OR tdk_checked_at < DATE_SUB(NOW(), INTERVAL ${tdkTtlDays} DAY))) AS due_tdk
@@ -179,6 +191,7 @@ export async function getMaintenanceStatus(): Promise<any> {
     dueLinks: Number(row?.due_links || 0),
     dueTdk: Number(row?.due_tdk || 0),
     broken: Number(row?.broken || 0),
+    hidden: Number(row?.hidden || 0),
     missing: Number(row?.missing || 0)
   }
 }

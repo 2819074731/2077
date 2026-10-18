@@ -11,6 +11,40 @@ function cleanKeys(input: unknown): string[] {
   return out
 }
 
+function cleanBookmarks(input: unknown): any[] {
+  const out: any[] = []
+  const seen = new Set<string>()
+  if (!Array.isArray(input)) return out
+  for (const raw of input.slice(0, 500)) {
+    if (!raw || typeof raw !== 'object') continue
+    const item = raw as any
+    let url = String(item.url || '').trim().slice(0, 500)
+    if (!/^https?:\/\//i.test(url)) continue
+    try {
+      const parsed = new URL(url)
+      parsed.hash = ''
+      url = parsed.toString()
+    } catch {
+      continue
+    }
+    const key = url.toLowerCase().replace(/\/+$/, '')
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    const name = String(item.name || '').trim().slice(0, 60)
+    if (!name) continue
+    out.push({
+      id: String(item.id || '').trim().slice(0, 40),
+      name,
+      url,
+      icon: /^https?:\/\//i.test(String(item.icon || '')) ? String(item.icon).slice(0, 500) : '',
+      tag: String(item.tag || '').trim().slice(0, 24),
+      note: String(item.note || '').trim().slice(0, 200),
+      createdAt: Number(item.createdAt) > 0 ? Number(item.createdAt) : Date.now()
+    })
+  }
+  return out
+}
+
 function cleanTimes(input: unknown): Record<string, number> {
   const out: Record<string, number> = {}
   if (!input || typeof input !== 'object') return out
@@ -35,7 +69,12 @@ export default defineEventHandler(async (event) => {
   const meta = body?.freqMeta && typeof body.freqMeta === 'object' ? body.freqMeta : {}
   const freqMeta = { pin: cleanKeys(meta?.pin), hide: cleanKeys(meta?.hide) }
   const db = useDb()
-  const cfg = { groups, freq, freqAt, freqMeta, version: Date.now() }
+  const [rows]: any = await db.query('SELECT config_json FROM users WHERE id = ? LIMIT 1', [user.id])
+  let old: any = {}
+  try { old = JSON.parse(rows[0]?.config_json || '{}') } catch {}
+  const hasBookmarks = Object.prototype.hasOwnProperty.call(body || {}, 'bookmarks')
+  const bookmarks = hasBookmarks ? cleanBookmarks(body?.bookmarks) : (Array.isArray(old.bookmarks) ? old.bookmarks : [])
+  const cfg = { groups, freq, freqAt, freqMeta, bookmarks, version: Date.now() }
   await db.execute('UPDATE users SET config_json = ? WHERE id = ?', [JSON.stringify(cfg), user.id])
   return { ok: true, version: cfg.version }
 })

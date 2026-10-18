@@ -10,6 +10,7 @@ export default defineEventHandler(async (event) => {
     freq: cfg.freq || {},
     freqAt: cfg.freqAt || {},
     freqMeta: { pin: cfg.freqMeta?.pin || [], hide: cfg.freqMeta?.hide || [] },
+    bookmarks: Array.isArray(cfg.bookmarks) ? cfg.bookmarks : [],
     version: cfg.version || 0
   }
 })

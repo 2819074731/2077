@@ -3,7 +3,7 @@ import { watch, onMounted, onBeforeUnmount, computed } from 'vue'
 
 const open = useState<boolean>('nav-drawer-open', () => false)
 const wpSettingsOpen = useState<boolean>('wp-settings-open', () => false)
-const { groups, activeCat, selectCat } = useNav()
+const { groups, activeCat, selectCat, bookmarks } = useNav()
 const { categories, loadCategories } = useCategories()
 const { user } = useAuth()
 const { isMobile } = useDevice()
@@ -64,6 +64,11 @@ onBeforeUnmount(() => lockBody(false))
         <WeatherCard variant="panel" />
 
         <div class="grid grid-cols-2 gap-2">
+          <NuxtLink to="/bookmarks" class="flex items-center gap-2 h-10 px-3 rounded-xl bg-card2/60 border border-line text-[13px] text-ink2 hover:bg-card2 hover:text-ink" @click="open = false">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9L12 3Z" /></svg>
+            我的收藏
+            <span v-if="bookmarks.length" class="ml-auto text-[11px] opacity-60">{{ bookmarks.length }}</span>
+          </NuxtLink>
           <button class="flex items-center gap-2 h-10 px-3 rounded-xl bg-card2/60 border border-line text-[13px] text-ink2 hover:bg-card2 hover:text-ink text-left" @click="openSettings">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="3" /><circle cx="9" cy="10" r="1.6" /><path d="m4 17 5-5 4 4 3-3 4 4" /></svg>
             外观设置

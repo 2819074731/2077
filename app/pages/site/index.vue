@@ -13,15 +13,21 @@ const PAGE_SIZE = settings.value.directoryPageSize
 const category = computed(() => String(route.query.category || ''))
 const q = computed(() => String(route.query.q || ''))
 const province = computed(() => String(route.query.province || ''))
+const sort = computed(() => {
+  const value = String(route.query.sort || '')
+  return ['latest', 'name'].includes(value) ? value : 'recommended'
+})
+const level = computed(() => String(route.query.level || ''))
+const type = computed(() => String(route.query.type || ''))
 const page = computed(() => Math.max(1, Number(route.query.page) || 1))
 const keyword = ref(q.value)
 
-const { recordClick } = useNav()
+const { recordClick, isBookmarked, toggleBookmark } = useNav()
 
 const { data, pending } = await useAsyncData(
   'directory-list',
-  () => $fetch('/api/directory', { query: { category: category.value, q: q.value, province: province.value, page: page.value, size: PAGE_SIZE } }),
-  { watch: [category, q, province, page] }
+  () => $fetch('/api/directory', { query: { category: category.value, q: q.value, province: province.value, level: level.value, type: type.value, sort: sort.value, page: page.value, size: PAGE_SIZE } }),
+  { watch: [category, q, province, level, type, sort, page] }
 )
 
 const { data: popularData, pending: popularPending } = await useAsyncData(
@@ -35,6 +41,8 @@ watch(q, (v) => { keyword.value = v })
 const items = computed<any[]>(() => (data.value as any)?.items || [])
 const categories = computed<any[]>(() => (data.value as any)?.categories || [])
 const provinces = computed<any[]>(() => (data.value as any)?.provinces || [])
+const levels = computed<any[]>(() => (data.value as any)?.levels || [])
+const types = computed<any[]>(() => (data.value as any)?.types || [])
 const total = computed(() => Number((data.value as any)?.total || 0))
 const all = computed(() => Number((data.value as any)?.all || 0))
 const popular = computed<any[]>(() => (popularData.value as any)?.items || [])
@@ -61,12 +69,16 @@ function provinceLabel(p: string) {
 function provinceHref(p: string) {
   const qs = new URLSearchParams({ category: '高校' })
   if (p) qs.set('province', p)
+  if (sort.value !== 'recommended') qs.set('sort', sort.value)
   return '/site?' + qs.toString()
 }
 function pageHref(n: number) {
   const qs = new URLSearchParams()
   if (category.value) qs.set('category', category.value)
   if (province.value) qs.set('province', province.value)
+  if (level.value) qs.set('level', level.value)
+  if (type.value) qs.set('type', type.value)
+  if (sort.value !== 'recommended') qs.set('sort', sort.value)
   if (q.value) qs.set('q', q.value)
   if (n > 1) qs.set('page', String(n))
   const s = qs.toString()
@@ -76,6 +88,9 @@ const canonicalUrl = computed(() => {
   const qs = new URLSearchParams()
   if (category.value) qs.set('category', category.value)
   if (province.value) qs.set('province', province.value)
+  if (level.value) qs.set('level', level.value)
+  if (type.value) qs.set('type', type.value)
+  if (sort.value !== 'recommended') qs.set('sort', sort.value)
   if (page.value > 1) qs.set('page', String(page.value))
   const s = qs.toString()
   return siteUrl + '/site' + (s ? '?' + s : '')
@@ -92,9 +107,10 @@ const intro = computed(() => {
 })
 const seoDesc = computed(() => {
   const c = category.value
-  if (province.value) return `${provinceLabel(province.value)}高校名单与官网入口，当前收录 ${total.value} 所院校，可按办学层次与类型筛选。`
+  const extra = [level.value, type.value].filter(Boolean).join('、')
+  if (province.value) return `${provinceLabel(province.value)}高校名单与官网入口，当前收录 ${total.value} 所院校${extra ? `，已筛选${extra}` : '，可按办学层次与类型筛选'}。`
   return c
-    ? `${categoryIntro(c, settings.value.siteName)} 当前收录 ${total.value} 个站点。`
+    ? `${categoryIntro(c, settings.value.siteName)} 当前收录 ${total.value} 个站点${extra ? `（${extra}）` : ''}。`
     : `${settings.value.siteName}网站目录，按分类浏览已收录网站，提供站点简介、官网入口与分类筛选，共 ${all.value} 个站点。`
 })
 
@@ -105,7 +121,7 @@ useSeoMeta({
   ogDescription: seoDesc,
   ogType: 'website',
   ogUrl: canonicalUrl,
-  robots: () => (q.value || page.value > 1 ? 'noindex,follow' : 'index,follow')
+  robots: () => (q.value || page.value > 1 || level.value || type.value || sort.value !== 'recommended' ? 'noindex,follow' : 'index,follow')
 })
 
 useHead(() => ({
@@ -172,7 +188,7 @@ function search() {
 
 function resetAll() {
   keyword.value = ''
-  go({ category: '', province: '', q: '', page: 1 })
+  go({ category: '', province: '', level: '', type: '', sort: '', q: '', page: 1 })
 }
 </script>
 
@@ -202,15 +218,58 @@ function resetAll() {
         <button
           class="shrink-0 h-8 px-3 rounded-full border text-[12.5px] font-medium transition-colors"
           :class="!category ? 'bg-ink text-bg border-transparent' : 'bg-card border-line text-ink2 hover:text-ink'"
-          @click="go({ category: '', province: '', page: 1 })"
+          @click="go({ category: '', province: '', level: '', type: '', page: 1 })"
         >全部 <span class="opacity-60">{{ all }}</span></button>
         <button
           v-for="c in categories"
           :key="c.category"
           class="shrink-0 h-8 px-3 rounded-full border text-[12.5px] font-medium transition-colors"
           :class="category === c.category ? 'bg-ink text-bg border-transparent' : 'bg-card border-line text-ink2 hover:text-ink'"
-          @click="go({ category: c.category, province: '', page: 1 })"
+          @click="go({ category: c.category, province: '', level: '', type: '', page: 1 })"
         >{{ c.category }} <span class="opacity-60">{{ c.n }}</span></button>
+      </div>
+
+      <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 pb-0.5">
+        <span class="shrink-0 text-[11.5px] text-ink3">排序</span>
+        <button
+          v-for="opt in [{ v: 'recommended', l: '推荐' }, { v: 'latest', l: '最新' }, { v: 'name', l: '名称' }]"
+          :key="opt.v"
+          class="shrink-0 h-7 px-2.5 rounded-full border text-[12px] font-medium transition-colors"
+          :class="sort === opt.v ? 'bg-ink text-bg border-transparent' : 'bg-card border-line text-ink2 hover:text-ink'"
+          @click="go({ sort: opt.v === 'recommended' ? '' : opt.v, page: 1 })"
+        >{{ opt.l }}</button>
+      </div>
+
+      <div v-if="category === '高校' && levels.length" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 pb-0.5">
+        <span class="shrink-0 text-[11.5px] text-ink3">层次</span>
+        <button
+          class="shrink-0 h-7 px-2.5 rounded-full border text-[12px] font-medium transition-colors"
+          :class="!level ? 'bg-ink text-bg border-transparent' : 'bg-card border-line text-ink2 hover:text-ink'"
+          @click="go({ level: '', page: 1 })"
+        >全部</button>
+        <button
+          v-for="item in levels"
+          :key="item.value"
+          class="shrink-0 h-7 px-2.5 rounded-full border text-[12px] font-medium transition-colors"
+          :class="level === item.value ? 'bg-ink text-bg border-transparent' : 'bg-card border-line text-ink2 hover:text-ink'"
+          @click="go({ level: level === item.value ? '' : item.value, page: 1 })"
+        >{{ item.value }} <span class="opacity-60">{{ item.n }}</span></button>
+      </div>
+
+      <div v-if="category === '高校' && types.length" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 pb-0.5">
+        <span class="shrink-0 text-[11.5px] text-ink3">类型</span>
+        <button
+          class="shrink-0 h-7 px-2.5 rounded-full border text-[12px] font-medium transition-colors"
+          :class="!type ? 'bg-ink text-bg border-transparent' : 'bg-card border-line text-ink2 hover:text-ink'"
+          @click="go({ type: '', page: 1 })"
+        >全部</button>
+        <button
+          v-for="item in types"
+          :key="item.value"
+          class="shrink-0 h-7 px-2.5 rounded-full border text-[12px] font-medium transition-colors"
+          :class="type === item.value ? 'bg-ink text-bg border-transparent' : 'bg-card border-line text-ink2 hover:text-ink'"
+          @click="go({ type: type === item.value ? '' : item.value, page: 1 })"
+        >{{ item.value }} <span class="opacity-60">{{ item.n }}</span></button>
       </div>
 
       <div v-if="category === '高校' && provinces.length" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 pb-0.5">
@@ -259,7 +318,7 @@ function resetAll() {
     <div class="flex items-center gap-2 mb-2.5 min-h-[24px]">
       <span class="text-[12px] text-ink3">{{ category || (q ? `搜索「${q}」` : '全部站点') }} · {{ total }} 个</span>
       <div class="flex-1" />
-      <button v-if="category || q" class="text-[12px] text-ink2 hover:text-ink" @click="resetAll">清除筛选</button>
+      <button v-if="category || q || level || type || sort !== 'recommended'" class="text-[12px] text-ink2 hover:text-ink" @click="resetAll">清除筛选</button>
     </div>
 
     <div v-if="pending" class="flex flex-col gap-2">
@@ -282,6 +341,15 @@ function resetAll() {
               <h2 class="font-semibold text-[15px] sm:text-[16px] leading-6">{{ it.name }}</h2>
               <span v-if="it.featured" class="chip !text-[10px]">精选</span>
               <span class="chip !text-[10px]">{{ it.category }}</span>
+              <button
+                class="grid place-items-center w-6 h-6 rounded-md transition-colors"
+                :class="isBookmarked(it.url) ? 'text-accent bg-accentsoft' : 'text-ink3 hover:text-ink hover:bg-card2'"
+                :title="isBookmarked(it.url) ? '取消收藏' : '收藏'"
+                :aria-label="isBookmarked(it.url) ? '取消收藏' : '收藏'"
+                @click.prevent.stop="toggleBookmark({ url: it.url, name: it.name, icon: it.icon })"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" :fill="isBookmarked(it.url) ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9L12 3Z" /></svg>
+              </button>
             </div>
             <p class="text-[12.5px] sm:text-[13px] text-ink2 leading-relaxed line-clamp-2 mt-1">
               {{ it.description || `收录于${settings.value.siteName}「${it.category}」分类。` }}

@@ -15,6 +15,7 @@ export default defineEventHandler(async (event) => {
   const kw = String(q.q || '').trim().slice(0, 60)
   const missing = String(q.missing || '') === '1'
   const broken = String(q.broken || '') === '1'
+  const hidden = String(q.hidden || '') === '1'
 
   const db = useDb()
   const where: string[] = []
@@ -26,6 +27,7 @@ export default defineEventHandler(async (event) => {
   if (kw) { where.push('(name LIKE ? OR url LIKE ? OR description LIKE ?)'); params.push(`%${kw}%`, `%${kw}%`, `%${kw}%`) }
   if (missing) where.push("(COALESCE(title, '') = '' OR COALESCE(description, '') = '' OR COALESCE(keywords, '') = '')")
   if (broken) where.push('(http_status IS NOT NULL AND http_status >= 400 AND http_status NOT IN (401, 403, 412, 429))')
+  if (hidden) where.push('health_hidden = 1')
   const clause = where.length ? 'WHERE ' + where.join(' AND ') : ''
 
   const [[count]]: any = await db.query(`SELECT COUNT(*) AS n FROM directory_entries ${clause}`, params)
@@ -38,13 +40,16 @@ export default defineEventHandler(async (event) => {
     `SELECT COUNT(*) AS n FROM directory_entries WHERE status = 'published'
      AND http_status IS NOT NULL AND http_status >= 400 AND http_status NOT IN (401, 403, 412, 429)`
   )
+  const [[autoHidden]]: any = await db.query(
+    "SELECT COUNT(*) AS n FROM directory_entries WHERE status = 'published' AND health_hidden = 1"
+  )
   const [cats]: any = await db.query(
     `SELECT category, COUNT(*) AS n, SUM(status = 'published') AS published
      FROM directory_entries GROUP BY category ORDER BY n DESC, category ASC`
   )
   const [rows]: any = await db.query(
     `SELECT id, name, url, icon, category, title, description, keywords, content, featured, sort, status, detail_enabled,
-       http_status, final_url, checked_at, created_at, updated_at
+       http_status, final_url, checked_at, health_fail_count, health_hidden, created_at, updated_at
      FROM directory_entries ${clause} ORDER BY id DESC LIMIT ${size} OFFSET ${offset}`,
     params
   )
@@ -66,6 +71,7 @@ export default defineEventHandler(async (event) => {
     published: Number(pub?.n || 0),
     tdkMissing: Number(tdkMissing?.n || 0),
     linkBroken: Number(linkBroken?.n || 0),
+    autoHidden: Number(autoHidden?.n || 0),
     categories,
     maintenance,
     page,

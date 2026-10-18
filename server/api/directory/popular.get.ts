@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
      FROM link_clicks c
      JOIN directory_entries d ON d.canonical_key = LOWER(TRIM(TRAILING '/' FROM REGEXP_REPLACE(REGEXP_REPLACE(c.url, '^https?://', ''), '^www[.]', '')))
      WHERE c.created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
-       AND d.status = 'published'
+       AND d.status = 'published' AND d.health_hidden = 0
        ${categorySql}
      GROUP BY d.id
      ORDER BY hits DESC, last_at DESC

@@ -3,7 +3,7 @@ import { useWallpaper } from '~/composables/useWallpaper'
 
 const colorMode = useColorMode()
 const { user, restore } = useAuth()
-const { diy, toggleDiy, loadLocal, syncMsg, selectCat } = useNav()
+const { diy, toggleDiy, loadLocal, syncMsg, selectCat, bookmarks } = useNav()
 const { loadCategories } = useCategories()
 const { isMobile, initServer, initClient } = useDevice()
 const wp = useWallpaper()
@@ -95,6 +95,11 @@ function goHome() {
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h7V3H3v9Zm11 9h7v-9h-7v9ZM3 21h7v-6H3v6Zm11-12h7V3h-7v6Z" /></svg>
         </NuxtLink>
 
+        <NuxtLink to="/bookmarks" class="btn btn-sm btn-ghost btn-icon-sm relative" :title="`我的收藏（${bookmarks.length}）`" aria-label="我的收藏">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9L12 3Z" /></svg>
+          <span v-if="bookmarks.length" class="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-0.5 rounded-full bg-accent text-white text-[9px] leading-[14px] text-center font-medium">{{ bookmarks.length > 99 ? '99+' : bookmarks.length }}</span>
+        </NuxtLink>
+
         <NuxtLink v-if="!user" to="/login" class="btn btn-sm btn-ghost btn-icon-sm" title="登录" aria-label="登录">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" /></svg>
         </NuxtLink>
@@ -131,6 +136,8 @@ function goHome() {
           <span class="font-medium text-ink">{{ settings.siteName }}</span>
           <span class="opacity-40">·</span>
           <NuxtLink to="/site" class="hover:text-ink">分类目录</NuxtLink>
+          <span class="opacity-40">·</span>
+          <NuxtLink to="/bookmarks" class="hover:text-ink">我的收藏</NuxtLink>
           <span class="opacity-40">·</span>
           <NuxtLink to="/sitemap" class="hover:text-ink">站点地图</NuxtLink>
           <span class="opacity-40">·</span>

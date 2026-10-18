@@ -1,16 +1,16 @@
 export default defineEventHandler(async () => {
   const db = useDb()
   const [rows]: any = await db.query(
-    `SELECT id, updated_at FROM directory_entries WHERE status = 'published' AND detail_enabled = 1 ORDER BY id ASC`
+    `SELECT id, updated_at FROM directory_entries WHERE status = 'published' AND health_hidden = 0 AND detail_enabled = 1 ORDER BY id ASC`
   )
   const [cats]: any = await db.query(
     `SELECT category, COUNT(*) AS n, MAX(updated_at) AS updated_at
-     FROM directory_entries WHERE status = 'published'
+     FROM directory_entries WHERE status = 'published' AND health_hidden = 0
      GROUP BY category ORDER BY n DESC, category ASC`
   )
   const [provinces]: any = await db.query(
     `SELECT province, COUNT(*) AS n, MAX(updated_at) AS updated_at
-     FROM directory_entries WHERE status = 'published' AND category = '高校' AND province <> ''
+     FROM directory_entries WHERE status = 'published' AND health_hidden = 0 AND category = '高校' AND province <> ''
      GROUP BY province ORDER BY n DESC, province ASC`
   )
   const [users]: any = await db.query(

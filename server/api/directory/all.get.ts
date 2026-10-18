@@ -21,12 +21,13 @@ export default defineEventHandler(async (event) => {
   const db = useDb()
   const [rows]: any = await db.query(
     `SELECT id, name, url, category, detail_enabled, updated_at
-     FROM directory_entries WHERE status = 'published'
+     FROM directory_entries WHERE status = 'published' AND health_hidden = 0
      ORDER BY category ASC, featured DESC, sort ASC, id DESC LIMIT ?`,
     [limit]
   )
   const [categories]: any = await db.query(
-    `SELECT category, COUNT(*) AS n FROM directory_entries WHERE status = 'published'
+    `SELECT category, COUNT(*) AS n FROM directory_entries
+     WHERE status = 'published' AND health_hidden = 0
      GROUP BY category ORDER BY n DESC, category ASC`
   )
 

@@ -20,6 +20,8 @@ interface Entry {
   http_status?: number | null
   final_url?: string
   checked_at?: string | null
+  health_fail_count?: number
+  health_hidden?: number
 }
 
 const items = ref<Entry[]>([])
@@ -27,6 +29,7 @@ const total = ref(0)
 const published = ref(0)
 const tdkMissing = ref(0)
 const linkBroken = ref(0)
+const autoHidden = ref(0)
 const categories = ref<any[]>([])
 const siteCategories = ref<string[]>([])
 const page = ref(1)
@@ -35,6 +38,7 @@ const category = ref('')
 const status = ref('')
 const missingOnly = ref(false)
 const brokenOnly = ref(false)
+const autoHiddenOnly = ref(false)
 const from = ref('')
 const to = ref('')
 const selected = ref<Set<number>>(new Set())
@@ -100,6 +104,7 @@ async function load() {
     if (status.value) qs.set('status', status.value)
     if (missingOnly.value) qs.set('missing', '1')
     if (brokenOnly.value) qs.set('broken', '1')
+    if (autoHiddenOnly.value) qs.set('hidden', '1')
     if (from.value) qs.set('from', from.value)
     if (to.value) qs.set('to', to.value)
     const d: any = await $fetch(`/api/admin/directory?${qs}`)
@@ -108,6 +113,7 @@ async function load() {
     published.value = d.published || 0
     tdkMissing.value = Number(d.tdkMissing || 0)
     linkBroken.value = Number(d.linkBroken || 0)
+    autoHidden.value = Number(d.autoHidden || 0)
     categories.value = d.categories || []
     maintenance.value = d.maintenance || null
     selected.value = new Set()
@@ -130,12 +136,24 @@ function showToast(text: string, kind: 'ok' | 'err' = 'ok') {
   toastTimer = setTimeout(() => { toast.value = '' }, 4800)
 }
 
+async function restoreHidden(entry: Entry) {
+  if (!entry.id) return
+  try {
+    await $fetch('/api/admin/directory/health', { method: 'POST', body: { ids: [entry.id], hidden: false } })
+    showToast(`已恢复显示：${entry.name}`)
+    await load()
+  } catch (e: any) {
+    showToast(e?.data?.statusMessage || e?.data?.message || '恢复失败', 'err')
+  }
+}
+
 function resetFilters() {
   kw.value = ''
   category.value = ''
   status.value = ''
   missingOnly.value = false
   brokenOnly.value = false
+  autoHiddenOnly.value = false
   from.value = ''
   to.value = ''
   search()
@@ -441,8 +459,11 @@ onBeforeUnmount(() => {
           <button class="btn btn-sm" :class="missingOnly ? 'btn-primary' : 'btn-ghost'" @click="missingOnly = !missingOnly; brokenOnly = false; search()">
             缺 TDK <span class="opacity-70">{{ tdkMissing }}</span>
           </button>
-          <button class="btn btn-sm" :class="brokenOnly ? 'btn-primary' : 'btn-ghost'" @click="brokenOnly = !brokenOnly; missingOnly = false; search()">
+          <button class="btn btn-sm" :class="brokenOnly ? 'btn-primary' : 'btn-ghost'" @click="brokenOnly = !brokenOnly; missingOnly = false; autoHiddenOnly = false; search()">
             链接异常 <span class="opacity-70">{{ linkBroken }}</span>
+          </button>
+          <button class="btn btn-sm" :class="autoHiddenOnly ? 'btn-primary' : 'btn-ghost'" @click="autoHiddenOnly = !autoHiddenOnly; missingOnly = false; brokenOnly = false; search()">
+            自动隐藏 <span class="opacity-70">{{ autoHidden }}</span>
           </button>
           <span class="text-[12.5px] text-ink2 sm:ml-auto">共 {{ total }} 个 · 已发布 {{ published }}</span>
         </div>
@@ -458,7 +479,7 @@ onBeforeUnmount(() => {
               <button class="btn btn-sm" type="submit">应用</button>
             </div>
           </details>
-          <button v-if="kw || category || status || missingOnly || brokenOnly || from || to" type="button" class="btn btn-sm btn-ghost shrink-0" @click="resetFilters">重置</button>
+          <button v-if="kw || category || status || missingOnly || brokenOnly || autoHiddenOnly || from || to" type="button" class="btn btn-sm btn-ghost shrink-0" @click="resetFilters">重置</button>
           <div class="flex flex-wrap items-center gap-2 sm:ml-auto">
             <button type="button" class="btn btn-sm" @click="openTdk">
               TDK 补全
@@ -472,12 +493,13 @@ onBeforeUnmount(() => {
 
       <p v-if="missingOnly" class="text-[12px] text-warning">当前只显示缺 TDK 的 {{ total }} 个站点，点「TDK 补全」统一处理。</p>
       <p v-else-if="brokenOnly" class="text-[12px] text-warning">当前只显示链接异常的站点，行内显示返回的 HTTP 状态码。</p>
+      <p v-else-if="autoHiddenOnly" class="text-[12px] text-warning">这些站点连续两次探测失败已自动隐藏，恢复访问后会自动回归，也可手动恢复。</p>
       <p v-if="msg" class="text-[13px] text-ink2">{{ msg }}</p>
     </div>
 
     <div v-if="loading" class="card p-8 text-center text-ink2 text-[13px]">加载中…</div>
     <div v-else-if="!items.length" class="card p-8 text-center text-ink2 text-[13px]">
-      {{ missingOnly ? '当前没有缺 TDK 的站点。' : brokenOnly ? '当前没有链接异常的站点。' : '暂无目录站点，点击「新增站点」或到「链接发现」批量导入。' }}
+      {{ missingOnly ? '当前没有缺 TDK 的站点。' : brokenOnly ? '当前没有链接异常的站点。' : autoHiddenOnly ? '当前没有被自动隐藏的站点。' : '暂无目录站点，点击「新增站点」或到「链接发现」批量导入。' }}
     </div>
     <template v-else>
       <div class="flex flex-wrap items-center gap-2 px-1 mb-2">
@@ -507,6 +529,7 @@ onBeforeUnmount(() => {
               <span v-if="e.featured" class="chip !text-[10px]">推荐</span>
               <span v-if="e.status !== 'published'" class="chip !text-[10px]">已隐藏</span>
               <span v-if="!e.detail_enabled" class="chip !text-[10px]">无详情页</span>
+              <span v-if="e.health_hidden" class="chip !text-[10px] text-warning" :title="`连续失败 ${e.health_fail_count || 0} 次`">自动隐藏</span>
               <span v-for="b in tdkIssues(e)" :key="b" class="chip !text-[10px] text-warning">{{ b }}</span>
               <span v-if="e.http_status && e.http_status >= 400" class="chip !text-[10px] text-danger" :title="`HTTP ${e.http_status} · ${fmtTime(e.checked_at)}`">HTTP {{ e.http_status }}</span>
             </div>
@@ -523,6 +546,7 @@ onBeforeUnmount(() => {
               <button class="flex items-center w-full h-8 px-2.5 rounded-lg text-[12.5px] text-ink2 hover:bg-card2" @click="closeRowMenu($event); openEdit(e)">编辑</button>
               <button class="flex items-center w-full h-8 px-2.5 rounded-lg text-[12.5px] text-ink2 hover:bg-card2" @click="closeRowMenu($event); act(e, 'status')">{{ e.status === 'published' ? '隐藏' : '发布' }}</button>
               <button class="flex items-center w-full h-8 px-2.5 rounded-lg text-[12.5px] text-ink2 hover:bg-card2" @click="closeRowMenu($event); act(e, 'featured')">{{ e.featured ? '取消推荐' : '设为推荐' }}</button>
+              <button v-if="e.health_hidden" class="flex items-center w-full h-8 px-2.5 rounded-lg text-[12.5px] text-ink2 hover:bg-card2" @click="closeRowMenu($event); restoreHidden(e)">恢复显示</button>
               <button class="flex items-center w-full h-8 px-2.5 rounded-lg text-[12.5px] text-danger hover:bg-card2" @click="closeRowMenu($event); act(e, 'delete')">删除</button>
             </div>
           </details>

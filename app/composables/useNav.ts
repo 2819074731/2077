@@ -6,10 +6,20 @@ const LS_FREQ_AT = 'my2077.freq.at'
 const LS_FREQ_META = 'my2077.freq.meta'
 const LS_ENGINE = 'my2077.engine'
 const LS_CUSTOM_ENGINE = 'my2077.engine.custom'
+const LS_BOOKMARKS = 'my2077.bookmarks'
 
 export type FreqMap = Record<string, number>
 export type FreqAtMap = Record<string, number>
 export type FreqMeta = { pin: string[]; hide: string[] }
+export interface Bookmark {
+  id: string
+  name: string
+  url: string
+  icon?: string
+  tag?: string
+  note?: string
+  createdAt: number
+}
 
 function readJson<T>(key: string, fallback: T): T {
   if (!import.meta.client) return fallback
@@ -92,6 +102,70 @@ function mergeFreqMeta(a: FreqMeta, b: FreqMeta): FreqMeta {
   return { pin, hide }
 }
 
+function normalizeBookmarkUrl(raw: string): string {
+  let value = String(raw || '').trim()
+  if (!value) return ''
+  if (!/^https?:\/\//i.test(value)) value = 'https://' + value
+  try {
+    const u = new URL(value)
+    if (!/^https?:$/.test(u.protocol)) return ''
+    u.hash = ''
+    return u.toString()
+  } catch {
+    return ''
+  }
+}
+
+function cleanBookmarks(input: unknown): Bookmark[] {
+  const out: Bookmark[] = []
+  const seen = new Set<string>()
+  const list = Array.isArray(input) ? input : []
+  for (const raw of list.slice(0, 500)) {
+    if (!raw || typeof raw !== 'object') continue
+    const item = raw as any
+    const url = normalizeBookmarkUrl(item.url)
+    const key = urlKey(url)
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    const name = String(item.name || '').trim().slice(0, 60) || hostnameOf(url)
+    if (!name) continue
+    out.push({
+      id: String(item.id || '').trim().slice(0, 40) || 'b' + Math.random().toString(36).slice(2, 10),
+      name,
+      url,
+      icon: /^https?:\/\//i.test(String(item.icon || '')) ? String(item.icon).slice(0, 500) : '',
+      tag: String(item.tag || '').trim().slice(0, 24),
+      note: String(item.note || '').trim().slice(0, 200),
+      createdAt: Number(item.createdAt) > 0 ? Number(item.createdAt) : Date.now()
+    })
+  }
+  return out
+}
+
+function hostnameOf(url: string): string {
+  try { return new URL(url).hostname.replace(/^www\./i, '') } catch { return '' }
+}
+
+function mergeBookmarks(local: Bookmark[], cloud: Bookmark[]): Bookmark[] {
+  const out = [...local]
+  const seen = new Set(local.map((item) => urlKey(item.url)).filter(Boolean))
+  for (const item of cloud) {
+    const key = urlKey(item.url)
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    out.push(item)
+  }
+  return out.sort((a, b) => b.createdAt - a.createdAt)
+}
+
+function readBookmarks(): Bookmark[] {
+  return cleanBookmarks(readJson<Bookmark[]>(LS_BOOKMARKS, []))
+}
+
+function writeBookmarks(list: Bookmark[]) {
+  writeJson(LS_BOOKMARKS, list)
+}
+
 export function useNav() {
   const groups = useState<NavGroup[]>('nav-groups', () => JSON.parse(JSON.stringify(DEFAULT_GROUPS)))
   const diy = useState<boolean>('nav-diy', () => false)
@@ -99,6 +173,7 @@ export function useNav() {
   const freq = useState<FreqMap>('nav-freq', () => ({}))
   const freqAt = useState<FreqAtMap>('nav-freq-at', () => ({}))
   const freqMeta = useState<FreqMeta>('nav-freq-meta', () => ({ pin: [], hide: [] }))
+  const bookmarks = useState<Bookmark[]>('nav-bookmarks', () => [])
   const recommended = useState<{ name: string; url: string; icon?: string }[]>('nav-recommended', () => [])
   const siteConfig = useState<any>('nav-site-config', () => null)
   /** 首页当前分类：null = 全部；否则只展示该分组。 */
@@ -110,6 +185,7 @@ export function useNav() {
   const scheduleSync = () => {
     if (!import.meta.client) return
     localStorage.setItem(LS_GROUPS, JSON.stringify(groups.value))
+    writeBookmarks(bookmarks.value)
     const { user } = useAuth()
     if (!user.value) return
     clearTimeout(syncTimer)
@@ -146,6 +222,7 @@ export function useNav() {
     freq.value = readFreq()
     freqAt.value = readFreqAt()
     freqMeta.value = readFreqMeta()
+    bookmarks.value = readBookmarks()
     const savedEngine = localStorage.getItem(LS_ENGINE)
     if (savedEngine) engineId.value = savedEngine
     try {
@@ -371,7 +448,7 @@ export function useNav() {
     if (!user.value) return
     syncMsg.value = '同步中...'
     try {
-      await $fetch('/api/config', { method: 'PUT', body: { groups: groups.value, freq: freq.value, freqAt: freqAt.value, freqMeta: freqMeta.value } })
+      await $fetch('/api/config', { method: 'PUT', body: { groups: groups.value, freq: freq.value, freqAt: freqAt.value, freqMeta: freqMeta.value, bookmarks: bookmarks.value } })
       syncMsg.value = '已同步到云端'
     } catch (e: any) {
       syncMsg.value = '同步失败：' + (e?.data?.message || e.message)
@@ -395,7 +472,108 @@ export function useNav() {
         freqMeta.value = mergeFreqMeta(freqMeta.value, d.freqMeta)
         writeFreqMeta(freqMeta.value)
       }
+      if (Array.isArray(d?.bookmarks)) {
+        const before = bookmarks.value.length
+        const merged = mergeBookmarks(bookmarks.value, cleanBookmarks(d.bookmarks))
+        bookmarks.value = merged
+        writeBookmarks(merged)
+        // 本地新增的收藏在登录后补传到云端。
+        if (merged.length > Number(d.bookmarks.length || 0) || before > Number(d.bookmarks.length || 0)) {
+          setTimeout(() => { void pushToCloud() }, 500)
+        }
+      }
     } catch {}
+  }
+
+  function bookmarkOf(url: string): Bookmark | undefined {
+    const key = urlKey(url)
+    if (!key) return undefined
+    return bookmarks.value.find((item) => urlKey(item.url) === key)
+  }
+
+  function isBookmarked(url: string): boolean {
+    return !!bookmarkOf(url)
+  }
+
+  function persistBookmarks(next: Bookmark[]) {
+    bookmarks.value = cleanBookmarks(next)
+    writeBookmarks(bookmarks.value)
+    scheduleSync()
+  }
+
+  /** 已收藏则取消，未收藏则加入；返回操作后的收藏状态。 */
+  function toggleBookmark(input: { url: string; name?: string; icon?: string; tag?: string }): boolean {
+    const url = normalizeBookmarkUrl(input.url)
+    if (!url) return false
+    const key = urlKey(url)
+    const hit = bookmarks.value.find((item) => urlKey(item.url) === key)
+    if (hit) {
+      persistBookmarks(bookmarks.value.filter((item) => item.id !== hit.id))
+      return false
+    }
+    const name = String(input.name || '').trim().slice(0, 60) || hostnameOf(url) || url
+    persistBookmarks([{
+      id: 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      name,
+      url,
+      icon: /^https?:\/\//i.test(String(input.icon || '')) ? String(input.icon) : '',
+      tag: String(input.tag || '').trim().slice(0, 24),
+      note: '',
+      createdAt: Date.now()
+    }, ...bookmarks.value])
+    return true
+  }
+
+  function addBookmark(input: { url: string; name?: string; icon?: string; tag?: string; note?: string }): { ok: boolean; reason?: string } {
+    const url = normalizeBookmarkUrl(input.url)
+    if (!url) return { ok: false, reason: '请输入有效网址' }
+    if (bookmarkOf(url)) return { ok: false, reason: '该网址已在收藏夹中' }
+    const name = String(input.name || '').trim().slice(0, 60) || hostnameOf(url)
+    persistBookmarks([{
+      id: 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      name,
+      url,
+      icon: /^https?:\/\//i.test(String(input.icon || '')) ? String(input.icon) : '',
+      tag: String(input.tag || '').trim().slice(0, 24),
+      note: String(input.note || '').trim().slice(0, 200),
+      createdAt: Date.now()
+    }, ...bookmarks.value])
+    return { ok: true }
+  }
+
+  function updateBookmark(id: string, patch: Partial<Omit<Bookmark, 'id' | 'createdAt'>>): { ok: boolean; reason?: string } {
+    const idx = bookmarks.value.findIndex((item) => item.id === id)
+    if (idx < 0) return { ok: false, reason: '收藏不存在' }
+    const current = bookmarks.value[idx]!
+    const next: Bookmark = { ...current }
+    if (patch.url !== undefined) {
+      const url = normalizeBookmarkUrl(patch.url)
+      if (!url) return { ok: false, reason: '请输入有效网址' }
+      const dup = bookmarks.value.find((item) => item.id !== id && urlKey(item.url) === urlKey(url))
+      if (dup) return { ok: false, reason: '该网址已在收藏夹中' }
+      next.url = url
+    }
+    if (patch.name !== undefined) next.name = String(patch.name).trim().slice(0, 60) || hostnameOf(next.url)
+    if (patch.icon !== undefined) next.icon = /^https?:\/\//i.test(String(patch.icon)) ? String(patch.icon) : ''
+    if (patch.tag !== undefined) next.tag = String(patch.tag).trim().slice(0, 24)
+    if (patch.note !== undefined) next.note = String(patch.note).trim().slice(0, 200)
+    const list = [...bookmarks.value]
+    list[idx] = next
+    persistBookmarks(list)
+    return { ok: true }
+  }
+
+  function removeBookmark(id: string) {
+    persistBookmarks(bookmarks.value.filter((item) => item.id !== id))
+  }
+
+  function bookmarkTags(): string[] {
+    const seen = new Set<string>()
+    for (const item of bookmarks.value) {
+      const tag = String(item.tag || '').trim()
+      if (tag) seen.add(tag)
+    }
+    return [...seen]
   }
 
   function resetFreq() {
@@ -416,6 +594,7 @@ export function useNav() {
     diy,
     syncMsg,
     freq,
+    bookmarks,
     recommended,
     activeCat,
     engineId,
@@ -442,6 +621,13 @@ export function useNav() {
     setEngine,
     clearCustomEngine,
     resetFreq,
+    bookmarkOf,
+    isBookmarked,
+    toggleBookmark,
+    addBookmark,
+    updateBookmark,
+    removeBookmark,
+    bookmarkTags,
     toggleDiy() {
       diy.value = !diy.value
       if (import.meta.client) localStorage.setItem('my2077.diy', diy.value ? '1' : '0')

@@ -24,7 +24,6 @@ export const DEFAULT_ENGINE = 'bing'
 export const RECOMMENDED_LINKS: NavLink[] = [
   { id: 'r1', name: 'GitHub', url: 'https://github.com' },
   { id: 'r2', name: 'ChatGPT', url: 'https://chat.openai.com' },
-  { id: 'r3', name: 'Google', url: 'https://www.google.com' },
   { id: 'r4', name: 'Bilibili', url: 'https://www.bilibili.com' },
   { id: 'r5', name: '知乎', url: 'https://www.zhihu.com' },
   { id: 'r6', name: 'YouTube', url: 'https://www.youtube.com' },
@@ -36,6 +35,7 @@ export const DEFAULT_GROUPS: NavGroup[] = [
   { id: 'g-dev', name: '开发工具', recommended: true, links: [
     { id: 'l1', name: 'GitHub', url: 'https://github.com' },
     { id: 'l2', name: 'Stack Overflow', url: 'https://stackoverflow.com' },
+    { id: 'l-google', name: 'Google', url: 'https://www.google.com' },
     { id: 'l3', name: 'MDN', url: 'https://developer.mozilla.org' },
     { id: 'l4', name: 'npm', url: 'https://www.npmjs.com' },
     { id: 'l5', name: 'DevDocs', url: 'https://devdocs.io' },

@@ -4,7 +4,7 @@ import { useNav } from '~/composables/useNav'
 
 const route = useRoute()
 const siteUrl = useRuntimeConfig().public.siteUrl
-const { recordClick } = useNav()
+const { recordClick, isBookmarked, toggleBookmark } = useNav()
 const { settings, loadSiteSettings } = useSiteSettings()
 await loadSiteSettings()
 const id = computed(() => String(route.params.id || '').replace(/\.html?$/i, ''))
@@ -184,8 +184,17 @@ useHead(() => ({
           </div>
         </header>
 
+        <p v-if="item.health_hidden" class="mt-4 rounded-xl border border-warning/40 bg-warning/10 px-3.5 py-2.5 text-[12.5px] text-warning">
+          该站点近期连续探测失败，已暂时从目录列表中隐藏；恢复访问后会自动回归。
+        </p>
+
         <div class="flex flex-wrap gap-2 mt-5">
           <a :href="item.url" target="_blank" rel="nofollow noopener" class="btn btn-primary" @click="recordClick(item.url, item.name)">访问官网</a>
+          <button
+            class="btn btn-ghost"
+            :class="isBookmarked(item.url) && '!text-accent'"
+            @click="toggleBookmark({ url: item.url, name: item.name, icon: item.icon })"
+          >{{ isBookmarked(item.url) ? '已收藏' : '收藏' }}</button>
           <NuxtLink :to="`/site?category=${encodeURIComponent(item.category)}`" class="btn btn-ghost">同类站点</NuxtLink>
           <NuxtLink to="/sitemap" class="btn btn-ghost">站点地图</NuxtLink>
           <NuxtLink to="/submit" class="btn btn-ghost">提交纠错</NuxtLink>
@@ -264,7 +273,7 @@ useHead(() => ({
                 <SiteIcon :src="r.icon || iconOf(r.url)" :name="r.name" :url="r.url" class="w-7 h-7 rounded-lg shrink-0 text-[11px]" />
                 <span class="min-w-0">
                   <span class="block text-[13px] font-medium truncate group-hover:underline">{{ r.name }}</span>
-                  <span class="block text-[11px] text-ink3 truncate">{{ r.category }}</span>
+                  <span class="block text-[11px] text-ink3 truncate">{{ r.category }}<template v-if="r.province"> · {{ provinceLabel(r.province) }}</template><template v-if="r.school_level"> · {{ r.school_level }}</template></span>
                 </span>
               </NuxtLink>
               <a
@@ -277,7 +286,7 @@ useHead(() => ({
                 <SiteIcon :src="r.icon || iconOf(r.url)" :name="r.name" :url="r.url" class="w-7 h-7 rounded-lg shrink-0 text-[11px]" />
                 <span class="min-w-0">
                   <span class="block text-[13px] font-medium truncate group-hover:underline">{{ r.name }}</span>
-                  <span class="block text-[11px] text-ink3 truncate">{{ r.category }}</span>
+                  <span class="block text-[11px] text-ink3 truncate">{{ r.category }}<template v-if="r.province"> · {{ provinceLabel(r.province) }}</template><template v-if="r.school_level"> · {{ r.school_level }}</template></span>
                 </span>
               </a>
             </template>
@@ -308,7 +317,7 @@ useHead(() => ({
                 <SiteIcon :src="r.icon || iconOf(r.url)" :name="r.name" :url="r.url" class="w-7 h-7 rounded-lg shrink-0 text-[11px]" />
                 <span class="min-w-0">
                   <span class="block text-[13px] font-medium truncate group-hover:underline">{{ r.name }}</span>
-                  <span class="block text-[11px] text-ink3 truncate">{{ r.category }}</span>
+                  <span class="block text-[11px] text-ink3 truncate">{{ r.category }}<template v-if="r.province"> · {{ provinceLabel(r.province) }}</template><template v-if="r.school_level"> · {{ r.school_level }}</template></span>
                 </span>
               </NuxtLink>
               <a
@@ -321,7 +330,7 @@ useHead(() => ({
                 <SiteIcon :src="r.icon || iconOf(r.url)" :name="r.name" :url="r.url" class="w-7 h-7 rounded-lg shrink-0 text-[11px]" />
                 <span class="min-w-0">
                   <span class="block text-[13px] font-medium truncate group-hover:underline">{{ r.name }}</span>
-                  <span class="block text-[11px] text-ink3 truncate">{{ r.category }}</span>
+                  <span class="block text-[11px] text-ink3 truncate">{{ r.category }}<template v-if="r.province"> · {{ provinceLabel(r.province) }}</template><template v-if="r.school_level"> · {{ r.school_level }}</template></span>
                 </span>
               </a>
             </template>
