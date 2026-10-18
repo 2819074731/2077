@@ -141,7 +141,7 @@ async function save() {
 
     <div v-if="loading" class="card p-8 text-center text-ink2 text-[13px]">加载中…</div>
 
-    <form v-else class="card overflow-hidden" @submit.prevent="save">
+    <form v-else class="card overflow-hidden" novalidate @submit.prevent="save">
       <div class="border-b border-line bg-card2/40 p-2.5 sm:p-3">
         <div role="tablist" aria-label="引擎设置分类" class="flex gap-1 rounded-xl border border-line bg-card2 p-1 overflow-x-auto no-scrollbar">
           <button
