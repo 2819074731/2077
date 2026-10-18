@@ -28,6 +28,7 @@ const checkTotal = ref(0)
 
 const category = ref('')
 const kw = ref('')
+const brokenOnly = ref(false)
 const page = ref(1)
 const PAGE_SIZE = 20
 const snapshot = ref('')
@@ -115,10 +116,17 @@ const invalidCount = computed(() =>
 )
 const dirty = computed(() => JSON.stringify(links.value) !== snapshot.value)
 
+function isBroken(l: ALink): boolean {
+  const h = healthOf(l)
+  return !!h && (!h.status || h.status >= 400)
+}
+const brokenCount = computed(() => links.value.filter(isBroken).length)
+
 const filtered = computed(() => {
   const keyword = kw.value.trim().toLowerCase()
   return links.value.filter((l) => {
     if (category.value && l.category !== category.value) return false
+    if (brokenOnly.value && !isBroken(l)) return false
     if (!keyword) return true
     return l.name.toLowerCase().includes(keyword) || l.url.toLowerCase().includes(keyword)
   })
@@ -126,7 +134,7 @@ const filtered = computed(() => {
 const pages = computed(() => Math.max(1, Math.ceil(filtered.value.length / PAGE_SIZE)))
 const paged = computed(() => filtered.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE))
 
-watch([category, kw], () => { page.value = 1 })
+watch([category, kw, brokenOnly], () => { page.value = 1 })
 watch(pages, (n) => { if (page.value > n) page.value = n })
 
 function isDup(l: ALink) {
@@ -496,6 +504,12 @@ onBeforeUnmount(() => {
           <option value="">全部分类</option>
           <option v-for="c in categoryOptions" :key="c" :value="c">{{ c }}（{{ navCounts.get(c) || 0 }}）</option>
         </select>
+        <button
+          class="btn btn-sm shrink-0"
+          :class="brokenOnly ? 'btn-primary' : 'btn-ghost'"
+          :disabled="!brokenCount && !brokenOnly"
+          @click="brokenOnly = !brokenOnly"
+        >链接异常 {{ brokenCount }}</button>
         <span v-if="dirty" class="chip !text-[10px] text-warning">有未保存修改</span>
         <span class="text-[12.5px] text-ink2 ml-auto">{{ categoryOptions.length }} 个分类 · {{ links.length }} 条导航 · {{ recommendedLinks.length }} 条推荐</span>
         <button class="btn btn-sm btn-primary" @click="openNew">添加站点</button>
@@ -503,7 +517,7 @@ onBeforeUnmount(() => {
       <form class="flex gap-2" @submit.prevent="page = 1">
         <input v-model="kw" class="field grow sm:max-w-[320px]" placeholder="搜索名称或网址" />
         <button class="btn shrink-0" type="submit">搜索</button>
-        <button v-if="kw || category" type="button" class="btn btn-ghost shrink-0" @click="kw = ''; category = ''">重置</button>
+        <button v-if="kw || category || brokenOnly" type="button" class="btn btn-ghost shrink-0" @click="kw = ''; category = ''; brokenOnly = false">重置</button>
       </form>
       <div class="flex flex-wrap items-center gap-2">
         <button class="btn btn-sm" @click="bookmarkInput?.click()">导入书签</button>
@@ -519,11 +533,12 @@ onBeforeUnmount(() => {
         <input ref="bookmarkInput" type="file" accept="text/html,.html,.htm" class="hidden" @change="importBookmarks" />
       </div>
       <p v-if="msg" class="text-[12.5px]" :class="msgKind === 'err' ? 'text-danger' : 'text-success'">{{ msg }}</p>
+      <p v-if="brokenOnly" class="text-[12px] text-warning">当前只显示巡检失败的站点（HTTP ≥ 400 或无法访问），共 {{ filtered.length }} 条。</p>
     </div>
 
     <div v-if="loading" class="card p-8 text-center text-ink2 text-[13px]">加载中…</div>
     <div v-else-if="!filtered.length" class="card p-8 text-center text-ink2 text-[13px]">
-      当前分类暂无导航站点，点击「添加站点」开始。
+      {{ brokenOnly ? '当前没有巡检异常的导航站点。' : '当前分类暂无导航站点，点击「添加站点」开始。' }}
     </div>
     <div v-else class="card overflow-hidden divide-y divide-line">
       <div v-for="l in paged" :key="l" class="p-3.5 sm:p-4">

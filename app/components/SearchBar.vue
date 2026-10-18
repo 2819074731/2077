@@ -139,13 +139,13 @@ async function loadHot(id: string, force = false) {
     return
   }
   const cached = hotCache.get(id)
-  if (!force && cached && Date.now() - cached.at < HOT_TTL) {
+  if (cached) {
     hotItems.value = cached.items
     hotLive.value = cached.live
-    return
+    if (!force && Date.now() - cached.at < HOT_TTL) return
   }
   const seq = ++hotSeq
-  hotLoading.value = true
+  hotLoading.value = !hotItems.value.length
   try {
     const res = await $fetch<{ items?: string[]; live?: boolean }>('/api/hot-search', { query: { engine: id } })
     if (seq !== hotSeq) return
@@ -181,14 +181,13 @@ function prefetchHot(id: string) {
     .catch(() => {})
 }
 
-function prefetchEngines() {
-  const ids = allEngines().map(e => e.id).filter(id => id !== 'custom' && !hotCache.has(id))
-  if (!ids.length) return
-  const run = () => ids.forEach(prefetchHot)
+function warmHot() {
+  if (hotOpen.value) return
+  const run = () => loadHot(engine.value.id)
   if ('requestIdleCallback' in window) {
-    ;(window as any).requestIdleCallback(run, { timeout: 1500 })
+    ;(window as any).requestIdleCallback(run, { timeout: 2500 })
   } else {
-    setTimeout(run, 400)
+    setTimeout(run, 1200)
   }
 }
 
@@ -197,7 +196,6 @@ function toggleEngines() {
   if (enginesOpen.value) {
     cancelClose()
     hotOpen.value = false
-    prefetchEngines()
   }
 }
 
@@ -244,7 +242,7 @@ watch(hotOpen, (open) => {
 
 onMounted(() => {
   loadRecent()
-  loadHot(engine.value.id)
+  warmHot()
   document.addEventListener('pointerdown', onDocPointerDown)
   window.addEventListener('resize', updatePanelHeight)
   window.visualViewport?.addEventListener('resize', updatePanelHeight)
@@ -316,6 +314,8 @@ function go(kind: 'hot' | 'input' = 'input') {
             type="button"
             class="flex w-full items-center h-8 px-2.5 rounded-lg text-[13px] text-left transition-colors"
             :class="e.id === engine.id ? 'bg-card2 text-ink font-medium' : 'text-ink2 hover:bg-card2 hover:text-ink'"
+            @pointerenter="prefetchHot(e.id)"
+            @focus="prefetchHot(e.id)"
             @click.stop="pick(e)"
           >
             {{ e.name }}

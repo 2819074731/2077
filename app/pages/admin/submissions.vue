@@ -25,6 +25,11 @@ const categories = ref<string[]>([DEFAULT_CATEGORY])
 
 const allSelected = computed(() => items.value.length > 0 && items.value.every((item) => selected.value.has(Number(item.id))))
 const selectedRejected = computed(() => items.value.filter((item) => selected.value.has(Number(item.id)) && item.status === 'rejected').length)
+const pendingItems = computed(() => items.value.filter((item) => item.status === 'pending'))
+const reviewIndex = computed(() => {
+  const id = Number(editingItem.value?.id || 0)
+  return id ? pendingItems.value.findIndex((item) => Number(item.id) === id) : -1
+})
 
 const editingItem = ref<any>(null)
 const mode = ref<'review' | 'edit'>('review')
@@ -83,8 +88,32 @@ function openReview(item: any) {
   msgKind.value = 'ok'
 }
 
+function openNextPending() {
+  const current = Number(editingItem.value?.id || 0)
+  const next = pendingItems.value.find((item) => Number(item.id) !== current)
+  if (next) {
+    openReview(next)
+    return
+  }
+  editingItem.value = null
+  showToast('没有更多待审核')
+}
+
 function onKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape' && editingItem.value && !acting.value) editingItem.value = null
+  if (!editingItem.value || acting.value) return
+  if (e.key === 'Escape') {
+    editingItem.value = null
+    return
+  }
+  if (mode.value === 'review' && (e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    e.preventDefault()
+    void confirmApprove()
+    return
+  }
+  if (e.altKey && e.key === 'ArrowRight') {
+    e.preventDefault()
+    openNextPending()
+  }
 }
 
 function openEdit(item: any) {
@@ -184,7 +213,7 @@ async function saveEdit() {
       body: { id: item.id, action: 'update', data: form.value }
     })
     editingItem.value = null
-    flash('提交信息已更新')
+    showToast('提交信息已更新')
     await load()
   } catch (e: any) {
     msg.value = e?.data?.statusMessage || e?.data?.message || '保存失败'
@@ -224,8 +253,10 @@ async function confirmApprove() {
     const places: string[] = []
     if (toNav.value) places.push(d.nav === 'exists' ? '首页导航（已存在）' : '首页导航')
     if (toDirectory.value) places.push(d.directory === 'exists' ? '分类目录（已存在）' : '分类目录')
-    flash(`已收录到${places.join(' + ')}`)
+    showToast(`已收录到${places.join(' + ')}`)
     await load()
+    const next = items.value.find((it) => it.status === 'pending' && Number(it.id) !== Number(item.id))
+    if (next) openReview(next)
   } catch (e: any) {
     msg.value = e?.data?.statusMessage || e?.data?.message || '操作失败'
     msgKind.value = 'err'
@@ -387,6 +418,7 @@ function iconOf(url: string) {
         <div class="w-full sm:max-w-[560px] bg-card border border-line rounded-t-2xl sm:rounded-2xl p-4 sm:p-5 max-h-[92vh] overflow-y-auto">
           <div class="flex items-center gap-2 mb-3">
             <h3 class="font-semibold text-[15px]">{{ mode === 'review' ? '审核并修改' : '编辑提交信息' }}「{{ editingItem.name }}」</h3>
+            <span v-if="mode === 'review' && reviewIndex >= 0" class="text-[11px] text-ink3">本页第 {{ reviewIndex + 1 }} / {{ pendingItems.length }} 条</span>
             <div class="flex-1" />
             <button class="btn btn-sm btn-ghost" :disabled="acting" @click="editingItem = null">关闭</button>
           </div>
@@ -451,9 +483,11 @@ function iconOf(url: string) {
 
           <div class="flex gap-2 mt-4">
             <button class="btn flex-1" :disabled="acting" @click="editingItem = null">取消</button>
+            <button v-if="mode === 'review'" class="btn flex-1" :disabled="acting" @click="openNextPending">下一条</button>
             <button v-if="mode === 'review'" class="btn btn-primary flex-1" :disabled="acting || (!toNav && !toDirectory)" @click="confirmApprove">{{ acting ? '处理中…' : '确认收录' }}</button>
             <button v-else class="btn btn-primary flex-1" :disabled="acting" @click="saveEdit">{{ acting ? '保存中…' : '保存修改' }}</button>
           </div>
+          <p v-if="mode === 'review'" class="hidden sm:block text-[11px] text-ink3 mt-2 text-center">快捷键：Ctrl/⌘ + Enter 通过，Alt + → 下一条，Esc 关闭</p>
         </div>
       </div>
     </Teleport>
