@@ -338,7 +338,10 @@ useHead(() => ({
           </div>
           <div class="flex items-center gap-2 flex-wrap">
             <a v-if="gh.enableZip" :href="zipHref" class="btn btn-sm btn-primary">源码 ZIP</a>
-            <a :href="githubHref" target="_blank" rel="noopener noreferrer nofollow" class="btn btn-sm btn-ghost">在 GitHub 打开</a>
+            <a :href="githubHref" target="_blank" rel="noopener noreferrer nofollow" class="btn btn-sm btn-ghost">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><path d="M15 3h6v6" /><path d="M10 14 21 3" /></svg>
+              GitHub 源地址
+            </a>
           </div>
         </div>
 
