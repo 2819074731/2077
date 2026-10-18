@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, computed, ref } from 'vue'
 import { INLINE_GROUP_COUNT } from '~/data/nav'
+import { dailyNetEaseComment } from '#shared/netEaseComments'
 
 const { groups, diy, syncMsg, loadLocal, applySite, addGroup, resetAll, activeCat, visibleGroups } = useNav()
 const { categories, loadCategories } = useCategories()
@@ -13,9 +14,17 @@ onMounted(async () => {
   loadLocal()
   await refresh()
   loadLocal()
+  if (settings.value.homeLineMode !== 'comment') return
+  try {
+    const d: any = await $fetch('/api/home/comment')
+    if (d?.text) liveComment.value = String(d.text).slice(0, 80)
+  } catch {}
 })
 
 const siteUrl = useRuntimeConfig().public.siteUrl
+const dailyComment = dailyNetEaseComment()
+const liveComment = ref('')
+const homeComment = computed(() => liveComment.value || dailyComment)
 
 const { data: siteData } = await useFetch('/api/site', { key: 'site-config' })
 applySite(siteData.value, { groups: true })
@@ -97,7 +106,11 @@ function openDrawer() { drawerOpen.value = true }
       <div class="w-full max-w-[680px]">
         <SearchBar />
       </div>
-      <div class="flex items-center gap-3 text-[12px] text-ink2 flex-wrap justify-center">
+      <p v-if="settings.homeLineMode === 'comment'" class="max-w-[640px] text-[12.5px] leading-6 text-ink2">
+        <span class="text-ink3">「</span>{{ homeComment }}<span class="text-ink3">」</span>
+        <span class="text-[11px] text-ink3 whitespace-nowrap">—— 网易云热评</span>
+      </p>
+      <div v-else class="flex items-center gap-3 text-[12px] text-ink2 flex-wrap justify-center">
         <span>{{ menuCount }} 个分类</span>
         <span class="opacity-40">·</span>
         <span>{{ totalLinks }} 个站点</span>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { reactive, ref, onMounted } from 'vue'
 import { DEFAULT_SITE_SETTINGS, normalizeSiteSettings, type SiteSettings } from '#shared/siteSettings'
+import { dailyNetEaseComment } from '#shared/netEaseComments'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
@@ -9,6 +10,7 @@ const loading = ref(true)
 const saving = ref(false)
 const msg = ref('')
 const msgKind = ref<'ok' | 'err'>('ok')
+const commentPreview = dailyNetEaseComment()
 
 useSeoMeta({ title: '网站设置 · 2077 管理后台', robots: 'noindex' })
 
@@ -98,6 +100,27 @@ async function save() {
             <input v-model="form.siteKeywords" class="field" maxlength="300" placeholder="网址导航,网站目录,浏览器起始页" />
             <span class="text-[11.5px] text-ink3">多个关键词用英文逗号分隔。</span>
           </label>
+        </div>
+      </section>
+
+      <div class="h-px bg-line" />
+
+      <section class="p-4 sm:p-5">
+        <h2 class="font-semibold text-[15px]">首页展示</h2>
+        <p class="text-[12.5px] text-ink2 mt-1">控制首页标题下方信息栏的内容，保存后前台约 15 秒内生效。</p>
+        <div class="grid sm:grid-cols-2 gap-3.5 mt-4">
+          <label class="flex flex-col gap-1.5">
+            <span class="text-[13px] font-medium">信息栏内容</span>
+            <select v-model="form.homeLineMode" class="field cursor-pointer">
+              <option value="stats">分类与站点统计</option>
+              <option value="comment">网易云热评</option>
+            </select>
+            <span class="text-[11.5px] text-ink3">热评通过网易云接口获取，失败时自动回退到本地文案。</span>
+          </label>
+          <div v-if="form.homeLineMode === 'comment'" class="rounded-xl border border-line bg-card2 px-3.5 py-3 flex flex-col justify-center gap-1">
+            <span class="text-[11px] text-ink3">效果预览</span>
+            <p class="text-[12.5px] leading-6 text-ink2">「{{ commentPreview }}」<span class="text-[11px] text-ink3 whitespace-nowrap">—— 网易云热评</span></p>
+          </div>
         </div>
       </section>
 

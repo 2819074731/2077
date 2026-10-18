@@ -1,4 +1,5 @@
 export type SubmitTarget = 'nav' | 'directory'
+export type HomeLineMode = 'stats' | 'comment'
 export type GithubSort = 'best' | 'stars' | 'forks' | 'updated'
 
 export const DEFAULT_GITHUB_SEARCH_RELAYS = [
@@ -46,6 +47,7 @@ export interface SiteSettings {
   siteTagline: string
   siteDescription: string
   siteKeywords: string
+  homeLineMode: HomeLineMode
   submitDefaultTarget: SubmitTarget
   submitAllowNav: boolean
   submitAllowDirectory: boolean
@@ -66,6 +68,7 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   siteTagline: '可自定义的浏览器起始页',
   siteDescription: '2077 导航：可自定义的浏览器起始页，聚合常用站点，支持离线使用与云端同步。',
   siteKeywords: '网址导航,网站目录,浏览器起始页,2077导航',
+  homeLineMode: 'stats',
   submitDefaultTarget: 'directory',
   submitAllowNav: true,
   submitAllowDirectory: true,
@@ -171,6 +174,7 @@ export function normalizeSiteSettings(raw: any): SiteSettings {
     siteTagline: text(src.siteTagline, DEFAULT_SITE_SETTINGS.siteTagline, 80),
     siteDescription: text(src.siteDescription, DEFAULT_SITE_SETTINGS.siteDescription, 300),
     siteKeywords: text(src.siteKeywords, DEFAULT_SITE_SETTINGS.siteKeywords, 300),
+    homeLineMode: src.homeLineMode === 'comment' ? 'comment' : 'stats',
     submitDefaultTarget: defaultTarget,
     submitAllowNav: allowNav,
     submitAllowDirectory: allowDirectory,
