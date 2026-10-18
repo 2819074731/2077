@@ -1,5 +1,5 @@
 import { DEFAULT_SITE_SETTINGS, normalizeSiteSettings } from '#shared/siteSettings'
-import { saveSiteSettings } from '../../../utils/siteSettings'
+import { readStoredSiteSettings, saveSiteSettings } from '../../../utils/siteSettings'
 
 export default defineEventHandler(async (event) => {
   await requireAdmin(event)
@@ -34,9 +34,11 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  const stored = await readStoredSiteSettings()
   const saved = await saveSiteSettings({
     ...DEFAULT_SITE_SETTINGS,
     ...settings,
+    github: stored.github,
     siteName: String(raw.siteName).trim(),
     siteShortName: String(raw.siteShortName).trim(),
     contactEmail: email

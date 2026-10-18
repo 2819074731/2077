@@ -14,6 +14,11 @@ export async function getSiteSettings(): Promise<SiteSettings> {
   return data
 }
 
+export async function readStoredSiteSettings(): Promise<SiteSettings> {
+  const stored = await getSetting<Partial<SiteSettings> | null>(SETTINGS_KEY, null)
+  return normalizeSiteSettings(stored)
+}
+
 export async function saveSiteSettings(input: any): Promise<SiteSettings> {
   const data = normalizeSiteSettings(input)
   await setSetting(SETTINGS_KEY, data)
