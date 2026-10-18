@@ -121,6 +121,13 @@ function refererAllowed(event: H3Event, settings: GithubSettings): boolean {
   return hostAllowed(host, entries.filter(Boolean))
 }
 
+export function assertGithubReferer(event: H3Event, settings: GithubSettings): void {
+  if (!settings.antiHotlink) return
+  if (!refererAllowed(event, settings)) {
+    throw createError({ statusCode: 403, statusMessage: '该资源仅限本站页面访问' })
+  }
+}
+
 export function assertGithubAssetAccess(
   event: H3Event,
   kind: 'raw' | 'image',
