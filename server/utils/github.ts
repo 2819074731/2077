@@ -3,6 +3,7 @@ import { getGithubSettings } from './githubSettings'
 import { signGithubRawUrl } from './githubAsset'
 
 const API = 'https://api.github.com'
+const DEFAULT_SEARCH_RELAYS = ['https://gh-proxy.com', 'https://gh.llkk.cc']
 const SEARCH_TTL = 5 * 60 * 1000
 const RELEASE_TTL = 10 * 60 * 1000
 const MAX_CACHE = 300
@@ -27,6 +28,7 @@ export interface GithubRepo {
   defaultBranch: string
   homepage: string
   watchers: number
+  avatar?: string
 }
 
 export interface GithubAsset {
@@ -58,8 +60,19 @@ const releaseCache = new Map<string, Entry<GithubRelease | null>>()
 const searchInflight = new Map<string, Promise<GithubSearchResult>>()
 const releaseInflight = new Map<string, Promise<GithubRelease | null>>()
 
-function token(): string {
-  return process.env.GITHUB_TOKEN || process.env.GH_TOKEN || ''
+function tokenPool(): string[] {
+  const raw = [process.env.GITHUB_TOKENS, process.env.GITHUB_TOKEN, process.env.GH_TOKEN]
+    .filter(Boolean)
+    .join(',')
+  return [...new Set(raw.split(/[\s,]+/).map(value => value.trim()).filter(Boolean))]
+}
+
+let tokenCursor = 0
+
+function nextToken(): string {
+  const pool = tokenPool()
+  if (!pool.length) return ''
+  return pool[tokenCursor++ % pool.length] || ''
 }
 
 function apiHeaders(accept = 'application/vnd.github+json'): Record<string, string> {
@@ -68,9 +81,31 @@ function apiHeaders(accept = 'application/vnd.github+json'): Record<string, stri
     'User-Agent': '2077Bot/1.0 (+https://my2077.com)',
     'X-GitHub-Api-Version': '2022-11-28'
   }
-  const t = token()
+  const t = nextToken()
   if (t) headers.Authorization = `Bearer ${t}`
   return headers
+}
+
+function relayHeaders(): Record<string, string> {
+  return {
+    Accept: 'application/vnd.github+json',
+    'User-Agent': '2077Bot/1.0 (+https://my2077.com)'
+  }
+}
+
+function searchRelays(): string[] {
+  const raw = process.env.GITHUB_SEARCH_RELAYS
+  const values = raw ? raw.split(',') : DEFAULT_SEARCH_RELAYS
+  const result: string[] = []
+  for (const value of values) {
+    try {
+      const url = new URL(String(value).trim())
+      if (url.protocol !== 'https:' || url.username || url.password) continue
+      result.push(url.href.replace(/\/$/, ''))
+    } catch {}
+    if (result.length >= 6) break
+  }
+  return result
 }
 
 function cacheGet<T>(map: Map<string, Entry<T>>, key: string, ttl: number): T | undefined {
@@ -112,11 +147,15 @@ function rateLimitError(res: Response): never {
   throw createError({ statusCode: 502, statusMessage: 'GitHub 暂时无法访问，请稍后重试' })
 }
 
-async function ghJson(url: string, accept = 'application/vnd.github+json'): Promise<any> {
+async function jsonFrom(
+  url: string,
+  options: { headers: Record<string, string>; timeout?: number; maxRedirects?: number }
+): Promise<any> {
+  const timeout = options.timeout || 12000
   const hit = await safeFetch(url, {
-    timeout: 12000,
-    maxRedirects: 2,
-    headers: apiHeaders(accept)
+    timeout,
+    maxRedirects: options.maxRedirects ?? 2,
+    headers: options.headers
   })
   if (!hit) {
     throw createError({ statusCode: 502, statusMessage: '连接 GitHub 失败，请稍后重试' })
@@ -124,7 +163,7 @@ async function ghJson(url: string, accept = 'application/vnd.github+json'): Prom
   const { res } = hit
   let body: Buffer
   try {
-    body = await readBodyCapped(res, 2 * 1024 * 1024, 12000)
+    body = await readBodyCapped(res, 2 * 1024 * 1024, timeout)
   } catch {
     throw createError({ statusCode: 502, statusMessage: 'GitHub 返回内容异常' })
   }
@@ -134,6 +173,10 @@ async function ghJson(url: string, accept = 'application/vnd.github+json'): Prom
   } catch {
     throw createError({ statusCode: 502, statusMessage: 'GitHub 返回内容解析失败' })
   }
+}
+
+async function ghJson(url: string, accept = 'application/vnd.github+json'): Promise<any> {
+  return jsonFrom(url, { headers: apiHeaders(accept) })
 }
 
 function text(value: unknown, max: number): string {
@@ -185,6 +228,68 @@ export function normalizeGithubQuery(value: unknown): string {
     .slice(0, 80)
 }
 
+function decorateSearchResult(result: GithubSearchResult, ttlSec: number): GithubSearchResult {
+  return {
+    ...result,
+    items: result.items.map(item => ({
+      ...item,
+      avatar: item.id
+        ? signGithubImageUrl(`https://avatars.githubusercontent.com/u/${item.id}?v=4`, ttlSec)
+        : ''
+    }))
+  }
+}
+
+async function fetchSearchJson(
+  params: URLSearchParams,
+  settings: Awaited<ReturnType<typeof getGithubSettings>>
+): Promise<any> {
+  const queryString = params.toString()
+  const attempts: Array<{
+    label: string
+    url: string
+    headers: Record<string, string>
+    timeout: number
+    maxRedirects: number
+  }> = [{
+    label: 'github',
+    url: `${API}/search/repositories?${queryString}`,
+    headers: apiHeaders(),
+    timeout: 12000,
+    maxRedirects: 2
+  }]
+
+  if (settings.searchFallback) {
+    for (const base of searchRelays()) {
+      attempts.push({
+        label: base,
+        url: `${base}/${API}/search/repositories?${queryString}`,
+        headers: relayHeaders(),
+        timeout: 9000,
+        maxRedirects: 3
+      })
+    }
+  }
+
+  let firstError: any = null
+  for (const attempt of attempts) {
+    try {
+      return await jsonFrom(attempt.url, {
+        headers: attempt.headers,
+        timeout: attempt.timeout,
+        maxRedirects: attempt.maxRedirects
+      })
+    } catch (error: any) {
+      if (!firstError) firstError = error
+      if (error?.statusCode === 400) throw error
+      if (attempt.label !== 'github') {
+        console.warn('[github-search] relay failed:', attempt.label, error?.statusMessage || error?.message || error)
+      }
+    }
+  }
+  throw firstError || createError({ statusCode: 502, statusMessage: 'GitHub 暂时无法访问，请稍后重试' })
+}
+
 export async function searchGithub(
   query: string,
   page = 1,
@@ -200,7 +305,7 @@ export async function searchGithub(
   const key = `${sort}:${currentPage}:${perPage}:${q.toLowerCase()}`
 
   const cached = cacheGet(searchCache, key, ttl)
-  if (cached !== undefined) return cached
+  if (cached !== undefined) return decorateSearchResult(cached, settings.assetTtlSec)
   const running = searchInflight.get(key)
   if (running) return running
 
@@ -214,7 +319,7 @@ export async function searchGithub(
     params.set('order', 'desc')
   }
 
-  const task = ghJson(`${API}/search/repositories?${params.toString()}`)
+  const task = fetchSearchJson(params, settings)
     .then((data) => {
       const result: GithubSearchResult = {
         items: Array.isArray(data?.items) ? data.items.map(normalizeRepo).filter((r: GithubRepo) => r.fullName) : [],
@@ -223,7 +328,7 @@ export async function searchGithub(
         rateRemaining: null
       }
       cachePut(searchCache, key, result)
-      return result
+      return decorateSearchResult(result, settings.assetTtlSec)
     })
     .finally(() => { searchInflight.delete(key) })
 

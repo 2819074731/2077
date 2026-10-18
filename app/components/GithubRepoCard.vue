@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { computed, ref } from 'vue'
+
 interface GithubRepoCardData {
   id: number
   fullName: string
@@ -13,10 +15,12 @@ interface GithubRepoCardData {
   updatedAt: string
   archived: boolean
   fork: boolean
+  avatar?: string
 }
 
 const props = defineProps<{ repo: GithubRepoCardData }>()
 
+const avatarFailed = ref(false)
 const detailPath = computed(() => `/github/${encodeURIComponent(props.repo.owner)}/${encodeURIComponent(props.repo.name)}`)
 
 const LANGUAGE_COLORS: Record<string, string> = {
@@ -54,63 +58,93 @@ function avatarStyle(value: string): Record<string, string> {
   let hash = 0
   for (const char of value || '?') hash = (hash * 31 + char.charCodeAt(0)) % 360
   return {
-    background: `linear-gradient(135deg, hsl(${hash} 62% 52%), hsl(${(hash + 42) % 360} 58% 42%))`
+    background: `linear-gradient(135deg, hsl(${hash} 52% 46%), hsl(${(hash + 42) % 360} 48% 38%))`
   }
 }
 
-function formatNumber(value: number): string {
-  return Number(value || 0).toLocaleString('zh-CN')
+function compactNumber(value: number): string {
+  const n = Number(value || 0)
+  if (n < 1000) return String(n)
+  const k = n / 1000
+  return `${k >= 100 ? Math.round(k) : k.toFixed(1).replace(/\.0$/, '')}k`
 }
 
-function formatDate(value: string): string {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  return new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(date)
+const relative = new Intl.RelativeTimeFormat('zh-CN', { numeric: 'auto' })
+const TIME_UNITS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
+  ['year', 365 * 24 * 60 * 60 * 1000],
+  ['month', 30 * 24 * 60 * 60 * 1000],
+  ['week', 7 * 24 * 60 * 60 * 1000],
+  ['day', 24 * 60 * 60 * 1000],
+  ['hour', 60 * 60 * 1000],
+  ['minute', 60 * 1000]
+]
+
+function timeAgo(value: string): string {
+  const time = new Date(value).getTime()
+  if (!time) return ''
+  const diff = time - Date.now()
+  if (Math.abs(diff) < 60 * 1000) return '刚刚'
+  for (const [unit, ms] of TIME_UNITS) {
+    if (Math.abs(diff) >= ms) return relative.format(Math.round(diff / ms), unit)
+  }
+  return ''
 }
 </script>
 
 <template>
-  <article class="card min-w-0 p-4 sm:p-5">
-    <div class="flex gap-3 sm:gap-4">
-      <div class="grid place-items-center w-10 h-10 rounded-xl text-white text-[13px] font-bold shrink-0" :style="avatarStyle(repo.owner)">
-        {{ initial(repo.owner) }}
+  <NuxtLink
+    :to="detailPath"
+    class="group flex gap-3 px-4 py-4 transition-colors hover:bg-card2 sm:gap-3.5 sm:px-5"
+    :aria-label="`${repo.owner} / ${repo.name}`"
+  >
+    <div class="shrink-0 pt-0.5">
+      <img
+        v-if="repo.avatar && !avatarFailed"
+        :src="repo.avatar"
+        :alt="repo.owner"
+        class="h-9 w-9 rounded-lg border border-line bg-card2 object-cover sm:h-10 sm:w-10"
+        loading="lazy"
+        decoding="async"
+        @error="avatarFailed = true"
+      />
+      <span
+        v-else
+        class="grid h-9 w-9 place-items-center rounded-lg text-[12px] font-bold text-white sm:h-10 sm:w-10"
+        :style="avatarStyle(repo.owner)"
+      >{{ initial(repo.owner) }}</span>
+    </div>
+
+    <div class="min-w-0 flex-1">
+      <div class="flex items-start justify-between gap-2">
+        <div class="flex min-w-0 items-baseline gap-1">
+          <span class="max-w-[38%] shrink-0 truncate text-[11.5px] text-ink3 sm:max-w-[42%]">{{ repo.owner }} /</span>
+          <span class="truncate text-[15px] font-semibold tracking-tight transition-colors group-hover:text-accent sm:text-[15.5px]">{{ repo.name }}</span>
+        </div>
+        <span class="inline-flex shrink-0 items-center gap-1 text-[11.5px] text-ink2" :title="`${repo.stars.toLocaleString('zh-CN')} Stars`">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9Z" /></svg>
+          {{ compactNumber(repo.stars) }}
+        </span>
       </div>
-      <div class="min-w-0 flex-1">
-        <div class="flex items-center gap-2 flex-wrap">
-          <span class="text-[12.5px] text-ink2">{{ repo.owner }} /</span>
-          <NuxtLink :to="detailPath" class="text-[15px] font-semibold break-all hover:text-accent transition-colors">{{ repo.name }}</NuxtLink>
-          <span v-if="repo.archived" class="chip">已归档</span>
-          <span v-if="repo.fork" class="chip">Fork</span>
-        </div>
 
-        <p v-if="repo.description" class="mt-1.5 text-[13px] leading-relaxed text-ink2 line-clamp-2">{{ repo.description }}</p>
+      <p v-if="repo.description" class="mt-1 line-clamp-2 text-[12.5px] leading-[1.65] text-ink2 sm:text-[13px]" :title="repo.description">
+        {{ repo.description }}
+      </p>
+      <p v-else class="mt-1 text-[12.5px] italic text-ink3">暂无项目简介</p>
 
-        <div class="mt-3 flex items-center gap-3 text-[12px] text-ink2 flex-wrap">
-          <span class="inline-flex items-center gap-1">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9Z" /></svg>
-            {{ formatNumber(repo.stars) }}
-          </span>
-          <span>Fork {{ formatNumber(repo.forks) }}</span>
-          <span v-if="repo.language" class="inline-flex items-center gap-1.5">
-            <i class="w-2 h-2 rounded-full" :style="{ background: languageColor(repo.language) }" />
-            {{ repo.language }}
-          </span>
-          <span v-if="repo.license">{{ repo.license }}</span>
-          <span v-if="repo.updatedAt">更新于 {{ formatDate(repo.updatedAt) }}</span>
-        </div>
-
-        <div v-if="repo.topics.length" class="mt-2 flex flex-wrap gap-1.5">
-          <span v-for="topic in repo.topics" :key="topic" class="chip">{{ topic }}</span>
-        </div>
-
-        <div class="mt-3.5 flex items-center gap-2 flex-wrap">
-          <NuxtLink :to="detailPath" class="btn btn-sm btn-primary">
-            查看项目
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6" /></svg>
-          </NuxtLink>
-          <span class="text-[11.5px] text-ink3">阅读 README 与项目内容</span>
-        </div>
+      <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-ink3">
+        <span v-if="repo.language" class="inline-flex items-center gap-1.5">
+          <i class="h-2 w-2 rounded-full" :style="{ background: languageColor(repo.language) }" />
+          {{ repo.language }}
+        </span>
+        <span class="inline-flex items-center gap-1">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="6" cy="6" r="2.2" /><circle cx="18" cy="6" r="2.2" /><circle cx="12" cy="18" r="2.2" /><path d="M8 7.2h8M7 8l4 8M17 8l-4 8" /></svg>
+          {{ compactNumber(repo.forks) }}
+        </span>
+        <span v-if="repo.license">{{ repo.license }}</span>
+        <span v-if="repo.updatedAt">更新于 {{ timeAgo(repo.updatedAt) }}</span>
+        <span v-if="repo.archived" class="rounded-full border border-line px-1.5 text-[10.5px]">已归档</span>
+        <span v-if="repo.fork" class="rounded-full border border-line px-1.5 text-[10.5px]">Fork</span>
       </div>
     </div>
-  </article>
+  </NuxtLink>
 </template>

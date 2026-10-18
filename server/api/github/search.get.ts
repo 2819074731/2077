@@ -5,7 +5,7 @@ import { requireGithubSettings } from '../../utils/githubSettings'
 const SORTS = new Set(['best', 'stars', 'forks', 'updated'])
 
 export default defineEventHandler(async (event) => {
-  await rateLimit(event, 'github-search', 20, 60_000)
+  await rateLimit(event, 'github-search', 40, 60_000)
   const settings = await requireGithubSettings()
 
   const q = getQuery(event)

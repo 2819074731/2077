@@ -159,6 +159,19 @@ async function save() {
           </label>
         </div>
 
+        <h3 class="mt-6 text-[13.5px] font-semibold">数据源</h3>
+        <div class="mt-3 rounded-xl border border-line bg-card2 p-3.5">
+          <label class="flex items-start gap-2.5 text-[13.5px]">
+            <input v-model="form.searchFallback" type="checkbox" class="mt-0.5 w-4 h-4 accent-current" />
+            <span>
+              官方接口受限时自动切换第三方中转
+              <span class="mt-1 block text-[11.5px] font-normal leading-relaxed text-ink2">
+                按顺序尝试 GitHub 官方接口和第三方中转，第三方不会收到 GitHub Token。服务端可用 GITHUB_TOKENS 配置多个 Token 轮询，用 GITHUB_SEARCH_RELAYS 覆盖默认中转线路。
+              </span>
+            </span>
+          </label>
+        </div>
+
         <h3 class="mt-6 text-[13.5px] font-semibold">项目页内容</h3>
         <div class="grid sm:grid-cols-2 gap-3.5 mt-3">
           <label class="flex flex-col gap-1.5">

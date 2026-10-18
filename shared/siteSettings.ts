@@ -27,6 +27,7 @@ export interface GithubSettings {
   imageMaxMB: number
   imageRatePerMin: number
   searchCacheSec: number
+  searchFallback: boolean
   repoCacheSec: number
   readmeCacheSec: number
 }
@@ -94,6 +95,7 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
     imageMaxMB: 10,
     imageRatePerMin: 120,
     searchCacheSec: 300,
+    searchFallback: true,
     repoCacheSec: 300,
     readmeCacheSec: 600
   }
@@ -179,6 +181,7 @@ export function normalizeSiteSettings(raw: any): SiteSettings {
       imageMaxMB: integer(ghSrc.imageMaxMB, DEFAULT_SITE_SETTINGS.github.imageMaxMB, 1, 50),
       imageRatePerMin: integer(ghSrc.imageRatePerMin, DEFAULT_SITE_SETTINGS.github.imageRatePerMin, 10, 300),
       searchCacheSec: integer(ghSrc.searchCacheSec, DEFAULT_SITE_SETTINGS.github.searchCacheSec, 60, 3600),
+      searchFallback: bool(ghSrc.searchFallback, DEFAULT_SITE_SETTINGS.github.searchFallback),
       repoCacheSec: integer(ghSrc.repoCacheSec, DEFAULT_SITE_SETTINGS.github.repoCacheSec, 60, 3600),
       readmeCacheSec: integer(ghSrc.readmeCacheSec, DEFAULT_SITE_SETTINGS.github.readmeCacheSec, 60, 3600)
     }
