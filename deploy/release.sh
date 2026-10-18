@@ -7,6 +7,7 @@ APP_DIR="${APP_DIR:-/www/wwwroot/my2077.com}"
 RELEASE_ROOT="${RELEASE_ROOT:-/www/wwwroot/releases}"
 NODE_BIN="${NODE_BIN:-/www/server/nodejs/v24.21.0/bin}"
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:3100/}"
+PREFLIGHT_PORT="${PREFLIGHT_PORT:-$((3200 + RANDOM % 500))}"
 SKIP_INSTALL="${SKIP_INSTALL:-0}"
 
 export PATH="$NODE_BIN:$PATH"
@@ -63,6 +64,41 @@ if [ ! -f "$STAGE/.output/server/index.mjs" ]; then
 fi
 
 mv "$STAGE/.output" "$RELEASE_OUT"
+
+echo "[release] 预检新版本"
+PREFLIGHT_LOG="/tmp/my2077-preflight-$TS.log"
+PREFLIGHT_PID=""
+cleanup_preflight() {
+  if [ -n "$PREFLIGHT_PID" ] && kill -0 "$PREFLIGHT_PID" 2>/dev/null; then
+    kill "$PREFLIGHT_PID" 2>/dev/null || true
+    wait "$PREFLIGHT_PID" 2>/dev/null || true
+  fi
+}
+ENV_ARGS=()
+if [ -f "$APP_DIR/.env" ]; then ENV_ARGS=(--env-file="$APP_DIR/.env"); fi
+(
+  cd "$RELEASE_OUT"
+  PORT="$PREFLIGHT_PORT" NITRO_PORT="$PREFLIGHT_PORT" HOST=127.0.0.1 NITRO_HOST=127.0.0.1 \
+    node "${ENV_ARGS[@]}" server/index.mjs >"$PREFLIGHT_LOG" 2>&1 &
+  echo $! >"/tmp/my2077-preflight-$TS.pid"
+)
+PREFLIGHT_PID="$(cat "/tmp/my2077-preflight-$TS.pid")"
+trap cleanup_preflight EXIT
+PREFLIGHT_OK=0
+for _ in $(seq 1 20); do
+  if curl -fsS -o /dev/null --max-time 2 "http://127.0.0.1:$PREFLIGHT_PORT/"; then
+    PREFLIGHT_OK=1
+    break
+  fi
+  sleep 1
+done
+cleanup_preflight
+trap - EXIT
+if [ "$PREFLIGHT_OK" != "1" ]; then
+  echo "[release] 新版本预检失败，线上版本保持不变"
+  tail -20 "$PREFLIGHT_LOG" || true
+  exit 1
+fi
 
 cd "$APP_DIR"
 # 旧进程已各自持有物理路径，移动入口链接不影响它们继续服务。

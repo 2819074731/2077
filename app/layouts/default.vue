@@ -137,19 +137,9 @@ function goHome() {
           <span class="opacity-40">·</span>
           <NuxtLink to="/site" class="hover:text-ink">分类目录</NuxtLink>
           <span class="opacity-40">·</span>
-          <NuxtLink to="/bookmarks" class="hover:text-ink">我的收藏</NuxtLink>
-          <span class="opacity-40">·</span>
           <NuxtLink to="/sitemap" class="hover:text-ink">站点地图</NuxtLink>
           <span class="opacity-40">·</span>
           <NuxtLink to="/submit" class="hover:text-ink">提交收录</NuxtLink>
-          <template v-if="settings.icpNumber">
-            <span class="opacity-40">·</span>
-            <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener nofollow" class="hover:text-ink">{{ settings.icpNumber }}</a>
-          </template>
-          <template v-if="settings.contactEmail">
-            <span class="opacity-40">·</span>
-            <a :href="`mailto:${settings.contactEmail}`" class="hover:text-ink">联系</a>
-          </template>
         </div>
       </div>
     </footer>

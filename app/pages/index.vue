@@ -1,15 +1,17 @@
 <script setup lang="ts">
-import { onMounted, computed, ref } from 'vue'
+import { onMounted, onBeforeUnmount, computed, ref, watch } from 'vue'
 import { INLINE_GROUP_COUNT } from '~/data/nav'
-import { dailyNetEaseComment } from '#shared/netEaseComments'
 
 const { groups, diy, syncMsg, loadLocal, applySite, addGroup, resetAll, activeCat, visibleGroups } = useNav()
 const { categories, loadCategories } = useCategories()
 const { user, refresh } = useAuth()
 const { isMobile } = useDevice()
 const { settings, loadSiteSettings } = useSiteSettings()
-const { loadHomeLine, resolveHomeLine } = useHomeLine()
+const { loadHomeLine, resolveHomeLine, rotate, currentText: homeComment, fetchComment, startAuto, stopAuto } = useHomeLine()
 await loadSiteSettings()
+
+const siteUrl = useRuntimeConfig().public.siteUrl
+const lineMode = computed(() => resolveHomeLine(settings.value.homeLineMode))
 
 onMounted(async () => {
   loadLocal()
@@ -17,67 +19,16 @@ onMounted(async () => {
   await refresh()
   loadLocal()
   if (lineMode.value !== 'comment') return
-  try {
-    const d: any = await $fetch('/api/home/comment')
-    if (d?.text) {
-      liveComment.value = String(d.text).slice(0, 80)
-      liveSong.value = String(d.song || '').slice(0, 40)
-    }
-  } catch {}
+  if (rotate.value === 'auto') fetchComment()
+  startAuto()
 })
 
-const siteUrl = useRuntimeConfig().public.siteUrl
-const dailyComment = dailyNetEaseComment()
-const lineMode = computed(() => resolveHomeLine(settings.value.homeLineMode))
-const liveComment = ref('')
-const liveSong = ref('')
-const homeComment = computed(() => liveComment.value || dailyComment)
-const commentBusy = ref(false)
-const commentHint = ref('')
-let hintTimer: any = null
+onBeforeUnmount(stopAuto)
 
-function flashHint(text: string) {
-  commentHint.value = text
-  clearTimeout(hintTimer)
-  hintTimer = setTimeout(() => (commentHint.value = ''), 1800)
-}
-
-async function nextComment() {
-  if (commentBusy.value) return
-  commentBusy.value = true
-  try {
-    const d: any = await $fetch('/api/home/comment', { query: { exclude: homeComment.value } })
-    if (d?.text) {
-      liveComment.value = String(d.text).slice(0, 80)
-      liveSong.value = String(d.song || '').slice(0, 40)
-    }
-  } catch {
-    flashHint('换一句失败，请稍后再试')
-  } finally {
-    commentBusy.value = false
-  }
-}
-
-async function copyComment() {
-  const text = `「${homeComment.value}」—— 网易云热评`
-  try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(text)
-    } else {
-      const el = document.createElement('textarea')
-      el.value = text
-      el.style.position = 'fixed'
-      el.style.opacity = '0'
-      document.body.appendChild(el)
-      el.select()
-      document.execCommand('copy')
-      el.remove()
-    }
-    flashHint('已复制')
-  } catch {
-    flashHint('复制失败')
-  }
-}
+watch(lineMode, (value) => {
+  if (value === 'comment') startAuto()
+  else stopAuto()
+})
 
 const { data: siteData } = await useFetch('/api/site', { key: 'site-config' })
 applySite(siteData.value, { groups: true })
@@ -160,22 +111,10 @@ function openDrawer() { drawerOpen.value = true }
         <SearchBar />
       </div>
       <div v-if="lineMode === 'comment'" class="w-full max-w-[640px] flex flex-col items-center gap-1.5">
-        <p class="text-[12.5px] leading-6 text-ink2 min-h-[48px] flex items-center justify-center">
-          <span><span class="text-ink3">「</span>{{ homeComment }}<span class="text-ink3">」</span></span>
-        </p>
-        <div class="flex items-center gap-1.5 text-[11px] text-ink3 flex-wrap justify-center">
-          <span class="whitespace-nowrap">—— 网易云热评<template v-if="liveSong"> · {{ liveSong }}</template></span>
-          <span class="opacity-40">·</span>
-          <button
-            class="h-6 px-2 rounded-md border border-line text-[11px] text-ink2 hover:text-ink hover:border-line2 transition-colors disabled:opacity-50"
-            :disabled="commentBusy"
-            @click="nextComment"
-          >{{ commentBusy ? '换一句中…' : '换一句' }}</button>
-          <button
-            class="h-6 px-2 rounded-md border border-line text-[11px] text-ink2 hover:text-ink hover:border-line2 transition-colors"
-            @click="copyComment"
-          >复制</button>
-          <span v-if="commentHint" class="text-accent">{{ commentHint }}</span>
+        <div class="w-full overflow-x-auto no-scrollbar">
+          <p class="w-max min-w-full min-h-[48px] flex items-center justify-center text-[12.5px] leading-6 text-ink2 whitespace-nowrap" :title="homeComment">
+            <span><span class="text-ink3">「</span>{{ homeComment }}<span class="text-ink3">」</span></span>
+          </p>
         </div>
       </div>
       <div v-else class="flex items-center gap-3 text-[12px] text-ink2 flex-wrap justify-center">

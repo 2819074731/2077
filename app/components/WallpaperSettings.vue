@@ -1,18 +1,40 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useWallpaper, ROTATE_INTERVALS, EFFECT_PRESETS, TONE_MODES } from '~/composables/useWallpaper'
-import { useHomeLine } from '~/composables/useHomeLine'
+import { useHomeLine, HOME_LINE_INTERVALS } from '~/composables/useHomeLine'
 
 const open = useState<boolean>('wp-settings-open', () => false)
 const wp = useWallpaper()
-const { homeLinePref, loadHomeLine, setHomeLinePref } = useHomeLine()
+const {
+  homeLinePref, rotate, intervalMin, currentText, busy, hint,
+  loadHomeLine, setHomeLinePref, setIntervalMin, setRotate,
+  nextComment, nextAndFix, copyComment, startAuto, stopAuto
+} = useHomeLine()
+const { settings, loadSiteSettings } = useSiteSettings()
 const { isMobile } = useDevice()
+
+const commentActive = computed(() => {
+  const mode = homeLinePref.value === 'default' ? settings.value.homeLineMode : homeLinePref.value
+  return mode === 'comment'
+})
+
+function chooseLine(value: 'default' | 'stats' | 'comment') {
+  setHomeLinePref(value)
+  const mode = value === 'default' ? settings.value.homeLineMode : value
+  if (mode === 'comment') {
+    if (rotate.value === 'auto') nextComment()
+    startAuto()
+  } else {
+    stopAuto()
+  }
+}
 
 const tab = ref<'wallpaper' | 'appearance'>('wallpaper')
 
 onMounted(() => {
   wp.loadLocal()
   loadHomeLine()
+  loadSiteSettings()
   if (wp.mode.value === 'bing' && !wp.items.value.length) wp.fetchList(8)
 })
 
@@ -166,13 +188,67 @@ const list = computed(() => wp.items.value)
                   :key="opt.v"
                   class="rounded-xl border-2 p-3 flex flex-col items-center gap-1 transition-colors text-center"
                   :class="homeLinePref === opt.v ? 'border-ink bg-card' : 'border-line bg-card hover:border-line2'"
-                  @click="setHomeLinePref(opt.v as any)"
+                  @click="chooseLine(opt.v as any)"
                 >
                   <span class="text-[13px] font-medium">{{ opt.l }}</span>
                   <span class="text-[10.5px] text-ink2 leading-tight">{{ opt.d }}</span>
                 </button>
               </div>
               <p class="text-[11.5px] text-ink3 mt-2">仅保存在本机，默认选项跟随后台「首页展示」设置。</p>
+
+              <div v-if="commentActive" class="mt-3 rounded-xl border border-line bg-card2 p-3.5">
+                <div class="flex items-center gap-1.5 mb-2">
+                  <span class="text-[12.5px] font-medium">当前热评</span>
+                  <div class="flex-1" />
+                  <button class="btn btn-sm btn-ghost h-7" :disabled="busy" @click="nextComment">{{ busy ? '换一句中…' : '换一句' }}</button>
+                  <button class="btn btn-sm btn-ghost h-7" @click="copyComment">复制</button>
+                </div>
+                <div class="overflow-x-auto no-scrollbar">
+                  <p class="w-max min-w-full text-[12.5px] leading-6 text-ink2 whitespace-nowrap" :title="currentText">「{{ currentText }}」</p>
+                </div>
+                <p v-if="hint" class="text-[11px] text-accent mt-1">{{ hint }}</p>
+
+                <div class="flex items-center gap-2 mt-3.5">
+                  <span class="text-[12px] text-ink2 shrink-0">切换方式</span>
+                  <button
+                    v-for="opt in [{ v: 'auto', l: '自动切换' }, { v: 'fixed', l: '固定一句' }]"
+                    :key="opt.v"
+                    class="h-8 px-3 rounded-lg border text-[12px] transition-colors"
+                    :class="rotate === opt.v ? 'bg-ink text-bg border-transparent font-medium' : 'bg-card border-line text-ink2 hover:text-ink'"
+                    @click="setRotate(opt.v as any)"
+                  >{{ opt.l }}</button>
+                </div>
+
+                <div v-if="rotate === 'auto'" class="mt-2.5">
+                  <div class="flex flex-wrap items-center gap-1.5">
+                    <button
+                      v-for="iv in HOME_LINE_INTERVALS"
+                      :key="iv"
+                      class="h-7 px-2.5 rounded-lg border text-[11.5px] transition-colors"
+                      :class="intervalMin === iv ? 'bg-ink text-bg border-transparent font-medium' : 'bg-card border-line text-ink2 hover:text-ink'"
+                      @click="setIntervalMin(iv)"
+                    >{{ iv === 60 ? '1 小时' : iv + ' 分钟' }}</button>
+                    <label class="inline-flex items-center gap-1 text-[11px] text-ink3">
+                      自定义
+                      <input
+                        type="number"
+                        min="1"
+                        max="1440"
+                        class="field h-7 w-[62px] px-1 text-center text-[11.5px]"
+                        :value="intervalMin"
+                        @change="setIntervalMin(Number(($event.target as HTMLInputElement).value))"
+                      />
+                      分钟
+                    </label>
+                  </div>
+                  <p class="text-[11px] text-ink3 mt-1.5">每 {{ intervalMin }} 分钟自动换一条。</p>
+                </div>
+
+                <div v-else class="mt-2.5 flex items-center gap-2 flex-wrap">
+                  <span class="text-[11.5px] text-ink2">已固定当前这句，首页不再自动切换。</span>
+                  <button class="btn btn-sm h-7" @click="nextAndFix">换一条并固定</button>
+                </div>
+              </div>
             </div>
 
             <template v-if="wp.mode.value === 'bing'">
