@@ -23,6 +23,9 @@ export interface GithubRepo {
   pushedAt: string
   archived: boolean
   fork: boolean
+  defaultBranch: string
+  homepage: string
+  watchers: number
 }
 
 export interface GithubAsset {
@@ -161,7 +164,10 @@ function normalizeRepo(item: any): GithubRepo {
     updatedAt: text(item?.updated_at, 40),
     pushedAt: text(item?.pushed_at, 40),
     archived: !!item?.archived,
-    fork: !!item?.fork
+    fork: !!item?.fork,
+    defaultBranch: text(item?.default_branch, 120),
+    homepage: text(item?.homepage, 300),
+    watchers: Number(item?.watchers_count || item?.subscribers_count) || 0
   }
 }
 
@@ -359,3 +365,239 @@ export async function openGithubDownload(
   }
 }
 
+
+const REPO_TTL = 5 * 60 * 1000
+const CONTENTS_TTL = 2 * 60 * 1000
+const MAX_TEXT = 2 * 1024 * 1024
+const MAX_RAW = 20 * 1024 * 1024
+
+export interface GithubTreeEntry {
+  name: string
+  path: string
+  type: 'file' | 'dir' | 'symlink' | 'submodule'
+  size: number
+  sha: string
+}
+
+export interface GithubFileContent {
+  name: string
+  path: string
+  size: number
+  sha: string
+  kind: 'text' | 'image' | 'binary' | 'too-large'
+  text: string
+  truncated: boolean
+  rawUrl: string
+}
+
+export interface GithubContents {
+  type: 'dir' | 'file'
+  path: string
+  entries: GithubTreeEntry[]
+  file: GithubFileContent | null
+}
+
+const repoCache = new Map<string, Entry<GithubRepo>>()
+const contentsCache = new Map<string, Entry<GithubContents>>()
+const repoInflight = new Map<string, Promise<GithubRepo>>()
+const contentsInflight = new Map<string, Promise<GithubContents>>()
+
+export function normalizeGithubPath(value: unknown): string {
+  const raw = String(value ?? '').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '')
+  if (!raw) return ''
+  if (raw.length > 400) throw createError({ statusCode: 400, statusMessage: '文件路径过长' })
+  const parts = raw.split('/').filter(Boolean)
+  if (parts.some(part => part === '.' || part === '..' || part.includes('\u0000'))) {
+    throw createError({ statusCode: 400, statusMessage: '文件路径不正确' })
+  }
+  return parts.join('/')
+}
+
+function encodeGithubPath(path: string): string {
+  return path.split('/').filter(Boolean).map(part => encodeURIComponent(part)).join('/')
+}
+
+function rawApiUrl(repo: string, path: string): string {
+  return `/api/github/raw?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(path)}`
+}
+
+function fileKind(path: string, size: number): 'image' | 'too-large' | 'text' {
+  if (/\.(png|jpe?g|gif|webp|avif|bmp|ico)$/i.test(path)) return size > MAX_RAW ? 'too-large' : 'image'
+  if (size > MAX_TEXT) return 'too-large'
+  return 'text'
+}
+
+function looksBinary(buffer: Buffer): boolean {
+  const sample = buffer.subarray(0, Math.min(buffer.length, 8000))
+  if (sample.includes(0)) return true
+  let control = 0
+  for (const byte of sample) {
+    if (byte < 7 || (byte > 13 && byte < 32)) control++
+  }
+  return sample.length > 0 && control / sample.length > 0.1
+}
+
+function decodeFileText(buffer: Buffer): string {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(buffer)
+  } catch {
+    return ''
+  }
+}
+
+async function readTextFromUrl(url: string, maxBytes: number): Promise<{ text: string; truncated: boolean }> {
+  const hit = await safeFetch(url, {
+    timeout: 12000,
+    maxRedirects: 3,
+    headers: { 'User-Agent': '2077Bot/1.0 (+https://my2077.com)' }
+  })
+  if (!hit) throw createError({ statusCode: 502, statusMessage: '读取文件失败，请稍后重试' })
+  if (!hit.res.ok) {
+    try { await hit.res.body?.cancel() } catch {}
+    throw createError({ statusCode: 502, statusMessage: '读取文件失败，请稍后重试' })
+  }
+  const buffer = await readBodyCapped(hit.res, maxBytes, 12000, true)
+  return { text: buffer.toString('utf8'), truncated: buffer.length >= maxBytes }
+}
+
+export async function getGithubRepo(repo: string): Promise<GithubRepo> {
+  const name = String(repo || '').trim()
+  if (!isGithubRepo(name)) throw createError({ statusCode: 400, statusMessage: '仓库名格式不正确' })
+  const key = name.toLowerCase()
+
+  const cached = cacheGet(repoCache, key, REPO_TTL)
+  if (cached !== undefined) return cached
+  const running = repoInflight.get(key)
+  if (running) return running
+
+  const task = ghJson(`${API}/repos/${name}`)
+    .then((data) => {
+      const result = normalizeRepo(data)
+      cachePut(repoCache, key, result)
+      return result
+    })
+    .finally(() => { repoInflight.delete(key) })
+
+  repoInflight.set(key, task)
+  return task
+}
+
+export async function getGithubContents(repo: string, pathValue: string): Promise<GithubContents> {
+  const name = String(repo || '').trim()
+  if (!isGithubRepo(name)) throw createError({ statusCode: 400, statusMessage: '仓库名格式不正确' })
+  const path = normalizeGithubPath(pathValue)
+  const key = `${name.toLowerCase()}:${path}`
+
+  const cached = cacheGet(contentsCache, key, CONTENTS_TTL)
+  if (cached !== undefined) return cached
+  const running = contentsInflight.get(key)
+  if (running) return running
+
+  const task = ghJson(`${API}/repos/${name}/contents${path ? '/' + encodeGithubPath(path) : ''}`)
+    .then(async (data): Promise<GithubContents> => {
+      if (Array.isArray(data)) {
+        const entries: GithubTreeEntry[] = data
+          .filter((item: any) => item?.name && ['file', 'dir', 'symlink', 'submodule'].includes(item?.type))
+          .slice(0, 500)
+          .map((item: any) => ({
+            name: text(item.name, 200),
+            path: text(item.path, 400),
+            type: item.type,
+            size: Number(item.size) || 0,
+            sha: text(item.sha, 80)
+          }))
+          .sort((a, b) => {
+            if (a.type === 'dir' && b.type !== 'dir') return -1
+            if (a.type !== 'dir' && b.type === 'dir') return 1
+            return a.name.localeCompare(b.name, 'en')
+          })
+        const result: GithubContents = { type: 'dir', path, entries, file: null }
+        cachePut(contentsCache, key, result)
+        return result
+      }
+
+      if (!data || typeof data !== 'object' || !data.name) {
+        throw createError({ statusCode: 404, statusMessage: '未找到该文件或目录' })
+      }
+
+      const size = Number(data.size) || 0
+      const itemPath = normalizeGithubPath(data.path || path)
+      let kind = fileKind(itemPath, size)
+      let contentText = ''
+      let truncated = false
+
+      if (kind === 'text' && data.type !== 'symlink' && data.type !== 'submodule') {
+        if (data.content && data.encoding === 'base64') {
+          const buffer = Buffer.from(String(data.content), 'base64')
+          if (looksBinary(buffer)) {
+            kind = 'binary'
+          } else {
+            contentText = decodeFileText(buffer)
+            if (!contentText && buffer.length) kind = 'binary'
+          }
+        } else if (data.download_url && size <= MAX_TEXT) {
+          const remote = await readTextFromUrl(String(data.download_url), MAX_TEXT)
+          contentText = remote.text
+          truncated = remote.truncated || size > MAX_TEXT
+        } else if (size > 0) {
+          kind = 'too-large'
+        }
+      }
+
+      const file: GithubFileContent = {
+        name: text(data.name, 200),
+        path: itemPath,
+        size,
+        sha: text(data.sha, 80),
+        kind,
+        text: contentText,
+        truncated,
+        rawUrl: rawApiUrl(name, itemPath)
+      }
+      const result: GithubContents = { type: 'file', path: itemPath, entries: [], file }
+      cachePut(contentsCache, key, result)
+      return result
+    })
+    .finally(() => { contentsInflight.delete(key) })
+
+  contentsInflight.set(key, task)
+  return task
+}
+
+export async function openGithubRaw(repo: string, pathValue: string): Promise<GithubDownload> {
+  const name = String(repo || '').trim()
+  if (!isGithubRepo(name)) throw createError({ statusCode: 400, statusMessage: '仓库名格式不正确' })
+  const path = normalizeGithubPath(pathValue)
+  if (!path) throw createError({ statusCode: 400, statusMessage: '文件路径不能为空' })
+
+  const detail = await getGithubRepo(name)
+  const ref = detail.defaultBranch || 'HEAD'
+  const url = `https://raw.githubusercontent.com/${name}/${encodeGithubPath(ref)}/${encodeGithubPath(path)}`
+  const hit = await safeFetch(url, {
+    timeout: 30000,
+    maxRedirects: 3,
+    headers: { 'User-Agent': '2077Bot/1.0 (+https://my2077.com)' }
+  })
+  if (!hit) throw createError({ statusCode: 502, statusMessage: '读取文件失败，请稍后重试' })
+
+  const { res } = hit
+  if (!res.ok) {
+    try { await res.body?.cancel() } catch {}
+    if (res.status === 404) throw createError({ statusCode: 404, statusMessage: '未找到该文件' })
+    throw createError({ statusCode: 502, statusMessage: '读取文件失败，请稍后重试' })
+  }
+
+  const length = Number(res.headers.get('content-length') || 0)
+  if (length > MAX_RAW) {
+    try { await res.body?.cancel() } catch {}
+    throw createError({ statusCode: 413, statusMessage: '文件过大，请直接到 GitHub 查看' })
+  }
+
+  const upstreamType = text(res.headers.get('content-type'), 80).split(';')[0].trim()
+  return {
+    response: res,
+    filename: sanitizeFilename(path.split('/').pop() || 'file'),
+    contentType: upstreamType || 'application/octet-stream',
+    contentLength: Number.isFinite(length) && length > 0 ? length : 0
+  }
+}

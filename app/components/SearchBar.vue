@@ -365,7 +365,7 @@ function go(kind: 'hot' | 'input' = 'input') {
       v-if="hotOpen && engine.id !== 'custom'"
       id="search-suggestions"
       ref="panelRef"
-      class="absolute left-0 right-0 top-[calc(100%+8px)] z-40 card p-2.5 shadow-pop animate-fade-up max-h-[70vh] overflow-y-auto"
+      class="absolute left-0 right-0 top-[calc(100%+8px)] z-40 card p-2.5 shadow-pop animate-fade-up max-h-[70vh] overflow-y-auto overscroll-contain"
       :style="isMobile && panelMax ? { maxHeight: panelMax + 'px' } : undefined"
       aria-label="搜索建议"
     >
@@ -386,7 +386,7 @@ function go(kind: 'hot' | 'input' = 'input') {
           <button
             type="button"
             class="text-[11px] text-ink3 hover:text-ink"
-            @pointerdown.prevent="clearRecent"
+            @click="clearRecent"
           >清除</button>
         </div>
         <div class="grid gap-0.5" :class="isMobile ? 'grid-cols-1' : 'grid-cols-2'">
@@ -398,7 +398,7 @@ function go(kind: 'hot' | 'input' = 'input') {
             class="group flex items-center gap-2 h-8 px-2 rounded-lg text-left text-[13px] transition-colors"
             :class="activeIndex === idx ? 'bg-card2 text-ink' : 'text-ink2 hover:bg-card2 hover:text-ink'"
             :aria-label="`再次搜索 ${item}`"
-            @pointerdown.prevent="pickHot(item, 'input')"
+            @click="pickHot(item, 'input')"
           >
             <svg class="shrink-0 text-ink3" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
             <span class="truncate">{{ item }}</span>
@@ -419,7 +419,7 @@ function go(kind: 'hot' | 'input' = 'input') {
           class="group flex items-center gap-2 h-8 px-2 rounded-lg text-left text-[13px] transition-colors"
           :class="activeIndex === recentCount + idx ? 'bg-card2 text-ink' : 'text-ink2 hover:bg-card2 hover:text-ink'"
           :aria-label="`搜索 ${item}`"
-          @pointerdown.prevent="pickHot(item)"
+          @click="pickHot(item)"
         >
           <span
             class="grid place-items-center w-4 h-4 shrink-0 rounded text-[10px] font-semibold"
