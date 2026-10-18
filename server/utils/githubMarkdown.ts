@@ -68,13 +68,17 @@ function internalPath(repo: string, branch: string, href: string): string {
   } catch {
     return ''
   }
+  if (parts.length === 1) return `/github/user/${encodeURIComponent(parts[0]!)}`
   if (parts[0]?.toLowerCase() !== owner.toLowerCase() || parts[1]?.toLowerCase() !== name.toLowerCase()) return ''
   const kind = parts[2]
   if (kind === 'blob' || kind === 'tree') {
     const path = parts.slice(4).join('/')
     return `/github/${encodeURIComponent(owner)}/${encodeURIComponent(name)}${path ? `?path=${encodeURIComponent(path)}` : ''}`
   }
-  if (kind === 'issues') return `/github/${encodeURIComponent(owner)}/${encodeURIComponent(name)}?tab=issues`
+  if (kind === 'issues') {
+    const number = parts[3] && /^\d{1,9}$/.test(parts[3]) ? parts[3] : ''
+    return `/github/${encodeURIComponent(owner)}/${encodeURIComponent(name)}${number ? `/issues/${number}` : '?tab=issues'}`
+  }
   if (kind === 'pulls' || kind === 'pull') return `/github/${encodeURIComponent(owner)}/${encodeURIComponent(name)}?tab=pulls`
   if (kind === 'releases') return `/github/${encodeURIComponent(owner)}/${encodeURIComponent(name)}?tab=releases`
   if (kind === 'commits' || kind === 'commit') return `/github/${encodeURIComponent(owner)}/${encodeURIComponent(name)}?tab=commits`

@@ -327,7 +327,7 @@ useHead(() => ({
         <div class="flex items-start justify-between gap-3 flex-wrap">
           <div class="min-w-0">
             <div class="flex items-center gap-2 flex-wrap text-[12.5px] text-ink2">
-              <NuxtLink to="/github" class="hover:text-ink">{{ repo.owner }}</NuxtLink>
+              <NuxtLink :to="`/github/user/${encodeURIComponent(repo.owner)}`" class="hover:text-ink">{{ repo.owner }}</NuxtLink>
               <span>/</span>
               <span class="text-ink">{{ repo.name }}</span>
               <span v-if="repo.archived" class="chip">已归档</span>
@@ -513,23 +513,23 @@ useHead(() => ({
 
         <div v-if="activeTab === 'issues'" class="grid gap-1.5">
           <div v-if="!explore.issues.length" class="py-10 text-center text-[12.5px] text-ink2">暂无 Issues。</div>
-          <article v-for="item in explore.issues" :key="item.number" class="rounded-xl border border-line bg-card2 p-3.5">
+          <article v-for="item in explore.issues" :key="item.number" class="min-w-0 overflow-hidden rounded-xl border border-line bg-card2 p-3.5">
             <div class="flex items-start gap-2.5">
               <span class="mt-0.5 shrink-0" :class="item.state === 'closed' ? 'text-ink3' : 'text-accent'">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9" /><path d="M12 8v4M12 16h.01" /></svg>
               </span>
               <div class="min-w-0 flex-1">
-                <a :href="`${githubHref}/issues/${item.number}`" target="_blank" rel="noopener noreferrer nofollow" class="text-[13.5px] font-medium break-words hover:text-accent">{{ item.title }}</a>
+                <NuxtLink :to="`/github/${owner}/${repoName}/issues/${item.number}`" class="block text-[13.5px] font-medium break-words [overflow-wrap:anywhere] hover:text-accent">{{ item.title }}</NuxtLink>
                 <div class="mt-1.5 flex items-center gap-2 text-[11.5px] text-ink3 flex-wrap">
                   <span>#{{ item.number }}</span>
                   <span>{{ issueStateText(item) }}</span>
-                  <span v-if="item.author">{{ item.author }}</span>
+                  <NuxtLink v-if="item.author" :to="`/github/user/${encodeURIComponent(item.author)}`" class="hover:text-ink break-all">{{ item.author }}</NuxtLink>
                   <span>{{ formatDate(item.updatedAt || item.createdAt) }}</span>
                   <span v-if="item.comments">{{ item.comments }} 条评论</span>
                 </div>
-                <p v-if="item.body" class="mt-2 text-[12px] leading-relaxed text-ink2 line-clamp-3 whitespace-pre-line">{{ item.body }}</p>
-                <div v-if="item.labels.length" class="mt-2 flex flex-wrap gap-1.5">
-                  <span v-for="label in item.labels" :key="label.name" class="chip !py-0 border" :style="labelStyle(label.color)">{{ label.name }}</span>
+                <p v-if="item.body" class="mt-2 text-[12px] leading-relaxed text-ink2 line-clamp-3 whitespace-pre-line break-words [overflow-wrap:anywhere]">{{ item.body }}</p>
+                <div v-if="item.labels.length" class="mt-2 flex flex-wrap gap-1.5 overflow-hidden">
+                  <span v-for="label in item.labels" :key="label.name" class="chip !py-0 max-w-full truncate border" :style="labelStyle(label.color)">{{ label.name }}</span>
                 </div>
               </div>
             </div>
@@ -538,21 +538,21 @@ useHead(() => ({
 
         <div v-else-if="activeTab === 'pulls'" class="grid gap-1.5">
           <div v-if="!explore.pulls.length" class="py-10 text-center text-[12.5px] text-ink2">暂无 Pull requests。</div>
-          <article v-for="item in explore.pulls" :key="item.number" class="rounded-xl border border-line bg-card2 p-3.5">
+          <article v-for="item in explore.pulls" :key="item.number" class="min-w-0 overflow-hidden rounded-xl border border-line bg-card2 p-3.5">
             <div class="flex items-start gap-2.5">
               <span class="mt-0.5 shrink-0 text-accent">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="2.5" /><circle cx="18" cy="18" r="2.5" /><path d="M6 8.5V15a3 3 0 0 0 3 3h6.5M13 6h5v6" /></svg>
               </span>
               <div class="min-w-0 flex-1">
-                <a :href="`${githubHref}/pull/${item.number}`" target="_blank" rel="noopener noreferrer nofollow" class="text-[13.5px] font-medium break-words hover:text-accent">{{ item.title }}</a>
+                <a :href="`${githubHref}/pull/${item.number}`" target="_blank" rel="noopener noreferrer nofollow" class="block text-[13.5px] font-medium break-words [overflow-wrap:anywhere] hover:text-accent">{{ item.title }}</a>
                 <div class="mt-1.5 flex items-center gap-2 text-[11.5px] text-ink3 flex-wrap">
                   <span>#{{ item.number }}</span>
                   <span>{{ issueStateText(item) }}</span>
-                  <span v-if="item.author">{{ item.author }}</span>
+                  <NuxtLink v-if="item.author" :to="`/github/user/${encodeURIComponent(item.author)}`" class="hover:text-ink break-all">{{ item.author }}</NuxtLink>
                   <span>{{ formatDate(item.updatedAt || item.createdAt) }}</span>
                   <span v-if="item.comments">{{ item.comments }} 条评论</span>
                 </div>
-                <p v-if="item.body" class="mt-2 text-[12px] leading-relaxed text-ink2 line-clamp-3 whitespace-pre-line">{{ item.body }}</p>
+                <p v-if="item.body" class="mt-2 text-[12px] leading-relaxed text-ink2 line-clamp-3 whitespace-pre-line break-words [overflow-wrap:anywhere]">{{ item.body }}</p>
               </div>
             </div>
           </article>
@@ -568,7 +568,10 @@ useHead(() => ({
                   <span class="chip">{{ item.tag }}</span>
                   <span v-if="item.prerelease" class="chip">预发布</span>
                 </div>
-                <p class="mt-1 text-[11.5px] text-ink3">{{ formatDate(item.publishedAt) }}<span v-if="item.author"> · {{ item.author }}</span></p>
+                <p class="mt-1 text-[11.5px] text-ink3">
+                  {{ formatDate(item.publishedAt) }}
+                  <template v-if="item.author"> · <NuxtLink :to="`/github/user/${encodeURIComponent(item.author)}`" class="hover:text-ink">{{ item.author }}</NuxtLink></template>
+                </p>
               </div>
               <a :href="`${githubHref}/releases/tag/${encodeURIComponent(item.tag)}`" target="_blank" rel="noopener noreferrer nofollow" class="text-[11.5px] text-ink3 hover:text-ink">在 GitHub 查看</a>
             </div>
@@ -589,23 +592,24 @@ useHead(() => ({
 
         <div v-else-if="activeTab === 'commits'" class="grid gap-1.5">
           <div v-if="!explore.commits.length" class="py-10 text-center text-[12.5px] text-ink2">暂无提交记录。</div>
-          <a
+          <div
             v-for="item in explore.commits"
             :key="item.sha"
-            :href="item.url"
-            target="_blank"
-            rel="noopener noreferrer nofollow"
-            class="flex items-center gap-3 min-w-0 rounded-xl border border-line bg-card2 p-3 hover:border-line2 transition-colors"
+            class="flex items-center gap-3 min-w-0 rounded-xl border border-line bg-card2 p-3"
           >
             <span class="grid place-items-center w-8 h-8 rounded-lg bg-card text-ink3 shrink-0">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3" /><path d="M3 12h6M15 12h6" /></svg>
             </span>
             <span class="min-w-0 flex-1">
-              <span class="block text-[13px] font-medium truncate">{{ item.message }}</span>
-              <span class="mt-0.5 block text-[11.5px] text-ink3">{{ item.authorLogin || item.authorName }} · {{ formatDate(item.date) }}</span>
+              <a :href="item.url" target="_blank" rel="noopener noreferrer nofollow" class="block text-[13px] font-medium truncate hover:text-accent">{{ item.message }}</a>
+              <span class="mt-0.5 block text-[11.5px] text-ink3">
+                <NuxtLink v-if="item.authorLogin" :to="`/github/user/${encodeURIComponent(item.authorLogin)}`" class="hover:text-ink">{{ item.authorLogin }}</NuxtLink>
+                <template v-else>{{ item.authorName }}</template>
+                · {{ formatDate(item.date) }}
+              </span>
             </span>
-            <span class="font-mono text-[11px] text-ink3 shrink-0">{{ item.shortSha }}</span>
-          </a>
+            <a :href="item.url" target="_blank" rel="noopener noreferrer nofollow" class="font-mono text-[11px] text-ink3 shrink-0 hover:text-ink">{{ item.shortSha }}</a>
+          </div>
         </div>
 
         <div v-else-if="activeTab === 'branches'" class="grid gap-1.5">
@@ -629,12 +633,10 @@ useHead(() => ({
 
         <div v-else-if="activeTab === 'contributors'" class="grid gap-1.5 sm:grid-cols-2">
           <div v-if="!explore.contributors.length" class="py-10 text-center text-[12.5px] text-ink2 sm:col-span-2">暂无贡献者数据。</div>
-          <a
+          <NuxtLink
             v-for="item in explore.contributors"
             :key="item.login"
-            :href="item.url"
-            target="_blank"
-            rel="noopener noreferrer nofollow"
+            :to="`/github/user/${encodeURIComponent(item.login)}`"
             class="flex items-center gap-3 min-w-0 rounded-xl border border-line bg-card2 p-3 hover:border-line2 transition-colors"
           >
             <img v-if="item.avatar" :src="item.avatar" :alt="item.login" width="32" height="32" loading="lazy" decoding="async" class="w-8 h-8 rounded-full bg-card object-cover shrink-0">
@@ -643,7 +645,7 @@ useHead(() => ({
               <span class="block text-[13px] font-medium truncate">{{ item.login }}</span>
               <span class="block text-[11.5px] text-ink3">{{ formatNumber(item.contributions) }} 次提交</span>
             </span>
-          </a>
+          </NuxtLink>
         </div>
       </template>
     </section>

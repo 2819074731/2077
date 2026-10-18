@@ -803,8 +803,61 @@ export interface GithubExploreResult {
   partial: boolean
 }
 
+export interface GithubIssueDetail {
+  number: number
+  title: string
+  state: string
+  stateReason: string
+  author: string
+  avatar: string
+  createdAt: string
+  updatedAt: string
+  closedAt: string
+  comments: number
+  labels: Array<{ name: string; color: string }>
+  body: string
+  pullRequest: boolean
+}
+
+export interface GithubIssueComment {
+  author: string
+  avatar: string
+  createdAt: string
+  association: string
+  body: string
+}
+
+export interface GithubIssueThread {
+  issue: GithubIssueDetail
+  comments: GithubIssueComment[]
+  partial: boolean
+}
+
+export interface GithubUserProfile {
+  login: string
+  name: string
+  avatar: string
+  bio: string
+  company: string
+  location: string
+  blog: string
+  twitter: string
+  followers: number
+  following: number
+  publicRepos: number
+  createdAt: string
+}
+
+export interface GithubUserResult {
+  user: GithubUserProfile
+  repos: GithubRepo[]
+  partial: boolean
+}
+
 const readmeCache = new Map<string, Entry<GithubReadme | null>>()
 const exploreCache = new Map<string, Entry<GithubExploreResult>>()
+const issueCache = new Map<string, Entry<GithubIssueThread>>()
+const userCache = new Map<string, Entry<GithubUserResult>>()
 
 function avatarUrl(value: unknown): string {
   const url = String(value || '').trim()
@@ -830,6 +883,64 @@ function normalizeIssue(item: any): GithubIssueItem | null {
     pullRequest: !!item?.pull_request,
     body: text(item?.body, 400)
   }
+}
+
+function rawBody(value: unknown, max: number): string {
+  return String(value ?? '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\u0000/g, '')
+    .slice(0, max)
+}
+
+function normalizeIssueDetail(item: any): GithubIssueDetail {
+  return {
+    number: Number(item?.number) || 0,
+    title: text(item?.title, 300),
+    state: text(item?.state, 20) || 'open',
+    stateReason: text(item?.state_reason, 40),
+    author: text(item?.user?.login, 80),
+    avatar: avatarUrl(item?.user?.avatar_url),
+    createdAt: text(item?.created_at, 40),
+    updatedAt: text(item?.updated_at, 40),
+    closedAt: text(item?.closed_at, 40),
+    comments: Number(item?.comments) || 0,
+    labels: Array.isArray(item?.labels)
+      ? item.labels.slice(0, 20).map((label: any) => ({ name: text(label?.name, 60), color: text(label?.color, 8).replace(/^#/, '') })).filter((label: any) => label.name)
+      : [],
+    body: rawBody(item?.body, 50_000),
+    pullRequest: !!item?.pull_request
+  }
+}
+
+function normalizeIssueComment(item: any): GithubIssueComment {
+  return {
+    author: text(item?.user?.login, 80),
+    avatar: avatarUrl(item?.user?.avatar_url),
+    createdAt: text(item?.created_at, 40),
+    association: text(item?.author_association, 40),
+    body: rawBody(item?.body, 12_000)
+  }
+}
+
+function normalizeUser(item: any): GithubUserProfile {
+  return {
+    login: text(item?.login, 80),
+    name: text(item?.name, 100),
+    avatar: avatarUrl(item?.avatar_url),
+    bio: text(item?.bio, 300),
+    company: text(item?.company, 120),
+    location: text(item?.location, 120),
+    blog: text(item?.blog, 300),
+    twitter: text(item?.twitter_username, 80),
+    followers: Number(item?.followers) || 0,
+    following: Number(item?.following) || 0,
+    publicRepos: Number(item?.public_repos) || 0,
+    createdAt: text(item?.created_at, 40)
+  }
+}
+
+export function isGithubUser(value: string): boolean {
+  return /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/.test(String(value || '').trim())
 }
 
 export async function getGithubReadme(repo: string): Promise<GithubReadme | null> {
@@ -1007,5 +1118,68 @@ export async function getGithubExplore(repo: string, type: GithubExploreType): P
 
   result.partial = partial
   cachePut(exploreCache, key, result)
+  return result
+}
+
+export async function getGithubIssue(repo: string, number: number): Promise<GithubIssueThread> {
+  const name = String(repo || '').trim()
+  if (!isGithubRepo(name)) throw createError({ statusCode: 400, statusMessage: '仓库名格式不正确' })
+  const issueNumber = Number(number)
+  if (!Number.isInteger(issueNumber) || issueNumber < 1 || issueNumber > 10_000_000) {
+    throw createError({ statusCode: 400, statusMessage: 'Issue 编号不正确' })
+  }
+
+  const settings = await getGithubSettings()
+  const ttl = Math.max(60, Number(settings.repoCacheSec) || 300) * 1000
+  const key = `${name.toLowerCase()}#${issueNumber}`
+  const cached = cacheGet(issueCache, key, ttl)
+  if (cached !== undefined) return cached
+
+  const data = await ghJson(`${API}/repos/${name}/issues/${issueNumber}`)
+  if (!data || !data.number) throw createError({ statusCode: 502, statusMessage: 'Issue 内容读取失败' })
+
+  let partial = false
+  let comments: GithubIssueComment[] = []
+  try {
+    const raw = await ghJson(`${API}/repos/${name}/issues/${issueNumber}/comments?per_page=30`)
+    if (Array.isArray(raw)) comments = raw.map(normalizeIssueComment).filter(item => item.author || item.body)
+  } catch {
+    partial = true
+  }
+
+  const result: GithubIssueThread = {
+    issue: normalizeIssueDetail(data),
+    comments,
+    partial
+  }
+  cachePut(issueCache, key, result)
+  return result
+}
+
+export async function getGithubUser(login: string): Promise<GithubUserResult> {
+  const name = String(login || '').trim()
+  if (!isGithubUser(name)) throw createError({ statusCode: 400, statusMessage: '用户名格式不正确' })
+  const settings = await getGithubSettings()
+  const ttl = Math.max(60, Number(settings.repoCacheSec) || 300) * 1000
+  const key = name.toLowerCase()
+  const cached = cacheGet(userCache, key, ttl)
+  if (cached !== undefined) return cached
+
+  const data = await ghJson(`${API}/users/${encodeURIComponent(name)}`)
+  if (!data || !data.login) throw createError({ statusCode: 404, statusMessage: '未找到该 GitHub 用户' })
+
+  let partial = false
+  let repos: GithubRepo[] = []
+  try {
+    const raw = await ghJson(`${API}/users/${encodeURIComponent(name)}/repos?sort=updated&per_page=12`)
+    if (Array.isArray(raw)) {
+      repos = raw.filter((item: any) => item && !item.archived).slice(0, 12).map(normalizeRepo)
+    }
+  } catch {
+    partial = true
+  }
+
+  const result: GithubUserResult = { user: normalizeUser(data), repos, partial }
+  cachePut(userCache, key, result)
   return result
 }
