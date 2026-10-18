@@ -25,8 +25,8 @@ function builtinConfig(): SiteConfig {
 }
 
 /** 读取站点配置；后台未配置或配置为空时回退内置默认，避免前台只剩残缺分组。 */
-export async function getSiteConfig(): Promise<SiteConfig> {
-  if (cache && Date.now() - cache.at < TTL) return cache.data
+export async function getSiteConfig(options?: { fresh?: boolean }): Promise<SiteConfig> {
+  if (!options?.fresh && cache && Date.now() - cache.at < TTL) return cache.data
   const { getSetting } = await import('./settings')
   const stored = await getSetting<SiteConfig | null>('site_config', null)
   let data: SiteConfig

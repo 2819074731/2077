@@ -1,4 +1,5 @@
 import { sanitizeDirectoryEntry, iconForUrl } from '../../../utils/directory'
+import { syncNavCategoryFromDirectory } from '../../../utils/directorySync'
 import { notifySearchUrls } from '../../../utils/searchPush'
 
 function isDup(e: any): boolean {
@@ -112,8 +113,9 @@ export default defineEventHandler(async (event) => {
   const id = Number(body?.id || body?.entry?.id || 0)
   try {
     if (id) {
-      const [oldRows]: any = await db.query('SELECT category FROM directory_entries WHERE id = ? LIMIT 1', [id])
+      const [oldRows]: any = await db.query('SELECT category, url FROM directory_entries WHERE id = ? LIMIT 1', [id])
       const oldCategory = String(oldRows[0]?.category || '')
+      const oldUrl = String(oldRows[0]?.url || '')
       await db.execute(
         `UPDATE directory_entries SET name = ?, url = ?, icon = ?, category = ?, title = ?,
            description = ?, keywords = ?, content = ?, featured = ?, sort = ?, status = ?, detail_enabled = ?
@@ -125,7 +127,13 @@ export default defineEventHandler(async (event) => {
         if (oldCategory && oldCategory !== e.category) urls.push(`/site?category=${encodeURIComponent(oldCategory)}`)
         notifySearchUrls(urls)
       }
-      return { ok: true, id }
+      let navSync: { moved: number; createdGroup: boolean } | null = null
+      if (oldCategory && oldCategory !== e.category) {
+        try {
+          navSync = await syncNavCategoryFromDirectory([oldUrl, e.url], e.category)
+        } catch {}
+      }
+      return { ok: true, id, navSync }
     }
     const [r]: any = await db.execute(
       `INSERT INTO directory_entries (name, url, icon, category, title, description, keywords, content, featured, sort, status, detail_enabled)

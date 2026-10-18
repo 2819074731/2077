@@ -1,6 +1,6 @@
 import { getSiteConfig, invalidateSiteConfig } from '../../../utils/siteConfig'
 import { setSetting } from '../../../utils/settings'
-import { syncNavDirectory } from '../../../utils/directorySync'
+import { navCategoryChanges, syncNavDirectory } from '../../../utils/directorySync'
 
 interface NavLink { name: string; url: string; icon?: string }
 
@@ -33,7 +33,7 @@ export default defineEventHandler(async (event) => {
     }))
     .filter((g: NavGroup) => g.name)
 
-  const current = await getSiteConfig()
+  const current = await getSiteConfig({ fresh: true })
   const recommended = Array.isArray(body?.recommended)
     ? body.recommended
         .map((l: any) => ({ name: String(l?.name || '').trim().slice(0, 60), url: String(l?.url || '').trim().slice(0, 500), icon: iconOf(String(l?.url || ''), l?.icon) }))
@@ -42,10 +42,10 @@ export default defineEventHandler(async (event) => {
 
   await setSetting('site_config', { groups, recommended })
   invalidateSiteConfig()
-  let sync: { created: number; skipped: number } | null = null
+  let sync: { created: number; updated: number; skipped: number } | null = null
   let syncError = ''
   try {
-    sync = await syncNavDirectory(groups, recommended)
+    sync = await syncNavDirectory(groups, recommended, await navCategoryChanges(current.groups, groups))
   } catch (err: any) {
     syncError = err?.message || '目录同步失败'
   }

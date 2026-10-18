@@ -185,6 +185,25 @@ function insertAtCategoryEnd(link: NavLink) {
   if (last >= 0) links.value.splice(last + 1, 0, link)
   else links.value.push(link)
 }
+function syncSameUrlCategory(source: NavLink, category: string) {
+  const key = normalizeKey(source.url)
+  if (!key) return 0
+  const others = links.value.filter((l) => l !== source && normalizeKey(l.url) === key)
+  let changed = 0
+  for (const other of others) {
+    const i = links.value.indexOf(other)
+    if (i < 0) continue
+    links.value.splice(i, 1)
+    if (other.category === category) {
+      changed++
+      continue
+    }
+    other.category = category
+    insertAtCategoryEnd(other)
+    changed++
+  }
+  return changed
+}
 function moveLink(link: NavLink, dir: number) {
   const peers = links.value.filter((l) => l.category === link.category)
   const peerIndex = peers.indexOf(link)
@@ -227,6 +246,7 @@ function saveLinkEditor() {
   if (!/^https?:\/\//i.test(url)) { flash('请填写有效网址', 'err'); return }
   const icon = ed.draft.icon || iconFor(url)
   const next: NavLink = { name, url, icon, category: ed.draft.category || '其他', recommended: !!ed.draft.recommended }
+  let note = '已修改，点击「保存全部」后生效'
   if (ed.mode === 'new') {
     insertAtCategoryEnd(next)
     page.value = 1
@@ -237,10 +257,12 @@ function saveLinkEditor() {
       const i = links.value.indexOf(ed.original)
       if (i >= 0) links.value.splice(i, 1)
       insertAtCategoryEnd(ed.original)
+      const synced = syncSameUrlCategory(ed.original, next.category)
+      if (synced) note = `已修改，并同步 ${synced} 个同网址链接，点击「保存全部」后生效`
     }
   }
   linkEditor.value = null
-  flash('已修改，点击「保存全部」后生效')
+  flash(note)
 }
 function editorMove(dir: number) {
   const ed = linkEditor.value
@@ -333,9 +355,15 @@ async function save() {
       body: { groups, recommended: payloadRec }
     })
     applyData(d.groups || [], d.recommended || [])
-    const synced = Number(d.sync?.created || 0)
+    const created = Number(d.sync?.created || 0)
+    const updated = Number(d.sync?.updated || 0)
     if (d.syncError) flash(`已保存，目录同步失败：${d.syncError}`, 'err')
-    else flash(synced ? `已保存，并新增 ${synced} 个目录站点` : '已保存并同步到前台')
+    else if (created || updated) {
+      const parts = []
+      if (created) parts.push(`新增 ${created} 个目录站点`)
+      if (updated) parts.push(`同步 ${updated} 个分类`)
+      flash(`已保存，并${parts.join('、')}`)
+    } else flash('已保存并同步到前台')
     return true
   } catch (e: any) {
     flash(e?.data?.statusMessage || e?.data?.message || '保存失败', 'err')

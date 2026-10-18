@@ -1,6 +1,6 @@
 import { getSiteConfig, invalidateSiteConfig } from '../../../utils/siteConfig'
 import { setSetting } from '../../../utils/settings'
-import { syncNavDirectory } from '../../../utils/directorySync'
+import { navCategoryChanges, syncNavDirectory } from '../../../utils/directorySync'
 
 interface NavLink { name: string; url: string; icon?: string }
 
@@ -47,16 +47,16 @@ export default defineEventHandler(async (event) => {
   const data = body?.data && typeof body.data === 'object' ? body.data : body
   const groups = sanitizeGroups(data?.groups)
   if (!groups.length) throw createError({ statusCode: 400, statusMessage: '导入数据无效：缺少分组' })
-  const current = await getSiteConfig()
+  const current = await getSiteConfig({ fresh: true })
   const recommended = Array.isArray(data?.recommended)
     ? sanitizeRecommended(data.recommended)
     : current.recommended
   await setSetting('site_config', { groups, recommended })
   invalidateSiteConfig()
-  let sync: { created: number; skipped: number } | null = null
+  let sync: { created: number; updated: number; skipped: number } | null = null
   let syncError = ''
   try {
-    sync = await syncNavDirectory(groups, recommended)
+    sync = await syncNavDirectory(groups, recommended, await navCategoryChanges(current.groups, groups))
   } catch (err: any) {
     syncError = err?.message || '目录同步失败'
   }

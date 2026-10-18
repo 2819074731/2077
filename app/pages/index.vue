@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, computed, ref, watch } from 'vue'
+import { onMounted, onBeforeUnmount, computed, ref, watch, nextTick } from 'vue'
 import { INLINE_GROUP_COUNT } from '~/data/nav'
 
 const { groups, diy, syncMsg, loadLocal, applySite, addGroup, resetAll, activeCat, visibleGroups } = useNav()
@@ -12,6 +12,51 @@ await loadSiteSettings()
 
 const siteUrl = useRuntimeConfig().public.siteUrl
 const lineMode = computed(() => resolveHomeLine(settings.value.homeLineMode))
+
+const commentViewport = ref<HTMLElement | null>(null)
+const commentTrack = ref<HTMLElement | null>(null)
+const commentScroll = ref({ distance: 0, duration: 0 })
+let commentObserver: ResizeObserver | null = null
+
+async function measureComment() {
+  if (!import.meta.client || lineMode.value !== 'comment') {
+    commentScroll.value = { distance: 0, duration: 0 }
+    return
+  }
+  await nextTick()
+  const viewport = commentViewport.value
+  const track = commentTrack.value
+  if (!viewport || !track) {
+    commentScroll.value = { distance: 0, duration: 0 }
+    return
+  }
+  const distance = Math.max(0, Math.round(track.scrollWidth - viewport.clientWidth))
+  commentScroll.value = {
+    distance,
+    duration: distance ? Math.min(45, Math.max(12, distance / 22)) : 0
+  }
+}
+
+const commentTrackStyle = computed(() => commentScroll.value.distance
+  ? {
+      '--comment-distance': `-${commentScroll.value.distance}px`,
+      '--comment-duration': `${commentScroll.value.duration}s`
+    }
+  : {})
+
+watch([homeComment, lineMode], () => { if (import.meta.client) measureComment() })
+
+onMounted(async () => {
+  await nextTick()
+  measureComment()
+  if (document.fonts?.ready) document.fonts.ready.then(() => measureComment()).catch(() => {})
+  if (typeof ResizeObserver !== 'undefined') {
+    commentObserver = new ResizeObserver(() => measureComment())
+    if (commentViewport.value) commentObserver.observe(commentViewport.value)
+  }
+})
+
+onBeforeUnmount(() => commentObserver?.disconnect())
 
 onMounted(async () => {
   loadLocal()
@@ -111,8 +156,14 @@ function openDrawer() { drawerOpen.value = true }
         <SearchBar />
       </div>
       <div v-if="lineMode === 'comment'" class="w-full max-w-[640px] flex flex-col items-center gap-1.5">
-        <div class="w-full overflow-x-auto no-scrollbar">
-          <p class="w-max min-w-full min-h-[48px] flex items-center justify-center text-[12.5px] leading-6 text-ink2 whitespace-nowrap" :title="homeComment">
+        <div ref="commentViewport" class="w-full overflow-x-auto no-scrollbar">
+          <p
+            ref="commentTrack"
+            class="w-max min-w-full min-h-[48px] flex items-center justify-center text-[12.5px] leading-6 text-ink2 whitespace-nowrap"
+            :class="{ 'comment-marquee': commentScroll.distance > 0 }"
+            :style="commentTrackStyle"
+            :title="homeComment"
+          >
             <span><span class="text-ink3">「</span>{{ homeComment }}<span class="text-ink3">」</span></span>
           </p>
         </div>
@@ -167,3 +218,20 @@ function openDrawer() { drawerOpen.value = true }
     <LazyQuickImport v-if="importOpen" v-model="importOpen" />
   </div>
 </template>
+
+<style scoped>
+.comment-marquee {
+  animation: comment-marquee var(--comment-duration, 18s) ease-in-out infinite alternate;
+  will-change: transform;
+}
+.comment-marquee:hover {
+  animation-play-state: paused;
+}
+@keyframes comment-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(var(--comment-distance, 0px)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .comment-marquee { animation: none; }
+}
+</style>
