@@ -578,7 +578,7 @@ useHead(() => ({
                 v-for="asset in item.assets"
                 :key="asset.id"
                 :href="assetHref(asset)"
-                class="flex items-center justify-between gap-3 min-h-10 px-3 py-1.5 rounded-lg border border-line bg-card hover:border-line2 transition-colors"
+                class="flex items-center justify-between gap-3 min-w-0 min-h-10 px-3 py-1.5 rounded-lg border border-line bg-card hover:border-line2 transition-colors"
               >
                 <span class="min-w-0 truncate text-[12.5px]">{{ asset.name }}</span>
                 <span class="text-[11px] text-ink3 shrink-0">{{ formatBytes(asset.size) }}</span>
@@ -595,7 +595,7 @@ useHead(() => ({
             :href="item.url"
             target="_blank"
             rel="noopener noreferrer nofollow"
-            class="flex items-center gap-3 rounded-xl border border-line bg-card2 p-3 hover:border-line2 transition-colors"
+            class="flex items-center gap-3 min-w-0 rounded-xl border border-line bg-card2 p-3 hover:border-line2 transition-colors"
           >
             <span class="grid place-items-center w-8 h-8 rounded-lg bg-card text-ink3 shrink-0">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3" /><path d="M3 12h6M15 12h6" /></svg>
@@ -610,20 +610,20 @@ useHead(() => ({
 
         <div v-else-if="activeTab === 'branches'" class="grid gap-1.5">
           <div v-if="!explore.branches.length" class="py-10 text-center text-[12.5px] text-ink2">暂无分支。</div>
-          <div v-for="item in explore.branches" :key="item.name" class="flex items-center gap-3 rounded-xl border border-line bg-card2 px-3.5 py-2.5">
+          <div v-for="item in explore.branches" :key="item.name" class="flex items-center gap-3 min-w-0 rounded-xl border border-line bg-card2 px-3.5 py-2.5">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-ink3 shrink-0"><circle cx="6" cy="6" r="2.5" /><circle cx="6" cy="18" r="2.5" /><circle cx="18" cy="8" r="2.5" /><path d="M6 8.5v7M8.5 6H14a4 4 0 0 1 4 4" /></svg>
             <span class="min-w-0 flex-1 truncate text-[13px]">{{ item.name }}</span>
-            <span v-if="item.protected" class="chip">受保护</span>
-            <span class="font-mono text-[11px] text-ink3">{{ item.sha.slice(0, 7) }}</span>
+            <span v-if="item.protected" class="chip shrink-0">受保护</span>
+            <span class="font-mono text-[11px] text-ink3 shrink-0">{{ item.sha.slice(0, 7) }}</span>
           </div>
         </div>
 
         <div v-else-if="activeTab === 'tags'" class="grid gap-1.5">
           <div v-if="!explore.tags.length" class="py-10 text-center text-[12.5px] text-ink2">暂无标签。</div>
-          <div v-for="item in explore.tags" :key="item.name" class="flex items-center gap-3 rounded-xl border border-line bg-card2 px-3.5 py-2.5">
+          <div v-for="item in explore.tags" :key="item.name" class="flex items-center gap-3 min-w-0 rounded-xl border border-line bg-card2 px-3.5 py-2.5">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-ink3 shrink-0"><path d="M3 12V5a2 2 0 0 1 2-2h7l9 9-9 9z" /><circle cx="8" cy="8" r="1.2" /></svg>
             <span class="min-w-0 flex-1 truncate text-[13px]">{{ item.name }}</span>
-            <span class="font-mono text-[11px] text-ink3">{{ item.sha.slice(0, 7) }}</span>
+            <span class="font-mono text-[11px] text-ink3 shrink-0">{{ item.sha.slice(0, 7) }}</span>
           </div>
         </div>
 
@@ -635,7 +635,7 @@ useHead(() => ({
             :href="item.url"
             target="_blank"
             rel="noopener noreferrer nofollow"
-            class="flex items-center gap-3 rounded-xl border border-line bg-card2 p-3 hover:border-line2 transition-colors"
+            class="flex items-center gap-3 min-w-0 rounded-xl border border-line bg-card2 p-3 hover:border-line2 transition-colors"
           >
             <img v-if="item.avatar" :src="item.avatar" :alt="item.login" width="32" height="32" loading="lazy" decoding="async" class="w-8 h-8 rounded-full bg-card object-cover shrink-0">
             <span v-else class="grid place-items-center w-8 h-8 rounded-full bg-card text-[12px] font-semibold shrink-0">{{ item.login.slice(0, 1).toUpperCase() }}</span>

@@ -1,7 +1,12 @@
 export type SubmitTarget = 'nav' | 'directory'
 export type GithubSort = 'best' | 'stars' | 'forks' | 'updated'
 
-export const DEFAULT_GITHUB_SEARCH_RELAYS = ['https://gh-proxy.com', 'https://gh.llkk.cc']
+export const DEFAULT_GITHUB_SEARCH_RELAYS = [
+  'https://gh-proxy.com',
+  'https://gh-proxy.org',
+  'https://gh.llkk.cc',
+  'https://ghproxy.icu'
+]
 
 export interface GithubSettings {
   enabled: boolean

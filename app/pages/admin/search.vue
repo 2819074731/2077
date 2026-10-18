@@ -141,11 +141,11 @@ function ago(checkedAt: number | null) {
       <div v-if="loading" class="p-8 text-center text-ink2 text-[13px]">加载中…</div>
       <div v-else-if="!summary.total" class="p-8 text-center text-ink2 text-[13px]">暂无搜索数据，前台产生搜索后自动统计</div>
       <div v-else class="p-4">
-        <div class="flex items-end gap-[2px] h-24">
+        <div class="flex items-end h-24" :class="daily.length > 30 ? 'gap-px' : 'gap-[2px]'">
           <div
             v-for="d in daily"
             :key="d.d"
-            class="flex-1 min-w-[2px] rounded-t bg-ink/70 hover:bg-ink transition-colors"
+            class="flex-1 min-w-0 rounded-t bg-ink/70 hover:bg-ink transition-colors"
             :style="{ height: Math.max(2, Math.round(Number(d.n) / maxDaily * 100)) + '%' }"
             :title="`${d.d}：${d.n} 次`"
           />
