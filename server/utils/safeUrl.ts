@@ -71,7 +71,10 @@ async function pinnedFetch(
         headers,
         signal: ctrl.signal,
         // 钉扎到已校验的 IP，TLS 仍使用原域名做 SNI/Host 校验。
-        lookup: (_hostname: string, _options: unknown, cb: any) => cb(null, target.address, target.family),
+        lookup: (_hostname: string, options: any, cb: any) => {
+          if (options?.all) cb(null, addrs.map(a => ({ address: a.address, family: a.family })))
+          else cb(null, target.address, target.family)
+        },
         ...(u.protocol === 'https:' ? { servername: u.hostname.replace(/^\[|\]$/g, '') } : {})
       }, (res) => {
         const responseHeaders = new Headers()

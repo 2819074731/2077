@@ -281,7 +281,12 @@ function go(kind: 'hot' | 'input' = 'input') {
   if (/^https?:\/\//.test(text)) { window.location.href = text; return }
   remember(text)
   track(text, kind)
-  window.location.href = engine.value.url.replace('%s', encodeURIComponent(text))
+  const target = engine.value.url.replace('%s', encodeURIComponent(text))
+  if (target.startsWith('/')) {
+    navigateTo(target)
+    return
+  }
+  window.location.href = target
 }
 </script>
 
