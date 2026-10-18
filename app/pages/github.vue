@@ -74,6 +74,7 @@ const { data, pending, error, refresh } = await useAsyncData<SearchResult | null
   { server: false, watch: [query, sort, page] }
 )
 
+const loading = computed(() => pending.value || (!data.value && !error.value))
 const items = computed(() => data.value?.items || [])
 const total = computed(() => data.value?.total || 0)
 const pageCount = computed(() => Math.min(20, Math.max(1, Math.ceil(total.value / 20))))
@@ -315,17 +316,17 @@ async function toggleDownload(repo: Repo) {
     <section v-else class="mt-4">
       <div class="flex items-center justify-between gap-3 mb-3 min-h-8">
         <p class="text-[12.5px] text-ink2">
-          <template v-if="pending">正在搜索「{{ query }}」…</template>
+          <template v-if="loading">正在搜索「{{ query }}」…</template>
           <template v-else-if="error">搜索未完成</template>
           <template v-else>
             约 {{ formatNumber(total) }} 个仓库
             <span v-if="data?.incomplete" class="text-ink3">（GitHub 返回结果不完整）</span>
           </template>
         </p>
-        <button class="btn btn-ghost btn-sm" :disabled="pending" @click="refresh()">刷新</button>
+        <button class="btn btn-ghost btn-sm" :disabled="loading" @click="refresh()">刷新</button>
       </div>
 
-      <div v-if="pending" class="grid gap-3">
+      <div v-if="loading" class="grid gap-3">
         <div v-for="n in 4" :key="n" class="card p-5 animate-pulse">
           <div class="flex gap-4">
             <div class="w-10 h-10 rounded-xl bg-card2 shrink-0" />
