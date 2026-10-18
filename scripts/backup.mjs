@@ -50,6 +50,9 @@ function quoteName(name) {
 function sqlValue(connection, value) {
   if (value === null || value === undefined) return 'NULL'
   if (Buffer.isBuffer(value)) return `X'${value.toString('hex')}'`
+  if (typeof value === 'object' && !(value instanceof Date)) {
+    return connection.escape(JSON.stringify(value))
+  }
   if (value instanceof Date) {
     const pad = (n) => String(n).padStart(2, '0')
     return `'${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())} ${pad(value.getHours())}:${pad(value.getMinutes())}:${pad(value.getSeconds())}'`
@@ -86,7 +89,8 @@ async function main() {
   const connection = await mysql.createConnection({
     ...config,
     charset: 'utf8mb4',
-    dateStrings: true
+    dateStrings: true,
+    jsonStrings: true
   })
   const output = createWriteStream(tmp)
   const gzip = createGzip()

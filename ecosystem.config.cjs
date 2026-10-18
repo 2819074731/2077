@@ -32,6 +32,8 @@ module.exports = {
       exec_mode: 'cluster',
       kill_timeout: 5000,
       listen_timeout: 10000,
+      max_memory_restart: '700M',
+      exp_backoff_restart_delay: 200,
       env: {
         NODE_ENV: 'production',
         NODE_OPTIONS: '--no-network-family-autoselection',

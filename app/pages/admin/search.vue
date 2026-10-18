@@ -62,10 +62,12 @@ onMounted(() => {
   loadSources()
 })
 
-const summary = computed(() => stats.value?.summary || { total: 0, today: 0 })
+const summary = computed(() => stats.value?.summary || { total: 0, today: 0, tracked: 0, zero: 0 })
+const zeroRate = computed(() => summary.value.tracked ? Math.round(summary.value.zero / summary.value.tracked * 100) : 0)
 const engines = computed<any[]>(() => stats.value?.engines || [])
 const terms = computed<any[]>(() => stats.value?.terms || [])
 const daily = computed<any[]>(() => stats.value?.daily || [])
+const zeroTerms = computed<any[]>(() => stats.value?.zeroTerms || [])
 const kinds = computed<any[]>(() => stats.value?.kinds || [])
 const maxEngine = computed(() => Math.max(1, ...engines.value.map(e => Number(e.n) || 0)))
 const maxTerm = computed(() => Math.max(1, ...terms.value.map(t => Number(t.n) || 0)))
@@ -212,6 +214,34 @@ function ago(checkedAt: number | null) {
         </div>
       </section>
     </div>
+
+    <section class="card overflow-hidden mb-3">
+      <div class="px-4 py-3 border-b border-line flex items-center gap-2 flex-wrap">
+        <h2 class="font-semibold text-[14px]">无结果搜索词</h2>
+        <span class="text-[11.5px] text-ink3">
+          已记录 {{ summary.tracked }} 次站内搜索，其中 {{ summary.zero }} 次无结果（{{ zeroRate }}%）
+        </span>
+      </div>
+      <div v-if="loading" class="p-6 text-center text-ink2 text-[13px]">加载中…</div>
+      <div v-else-if="!zeroTerms.length" class="p-6 text-center text-ink2 text-[13px]">
+        暂无无结果搜索，或统计尚未产生
+      </div>
+      <div v-else class="divide-y divide-line max-h-[300px] overflow-y-auto">
+        <div v-for="t in zeroTerms" :key="t.term" class="px-4 py-2.5 flex items-center gap-2">
+          <span class="min-w-0 flex-1 text-[12.5px] truncate">{{ t.term }}</span>
+          <span class="text-[12px] text-ink2 tabular-nums shrink-0">{{ t.n }} 次</span>
+          <a
+            :href="`/github?q=${encodeURIComponent(t.term)}`"
+            target="_blank"
+            rel="noopener"
+            class="text-[11.5px] text-ink3 hover:text-ink shrink-0"
+          >去搜索</a>
+        </div>
+      </div>
+      <p class="px-4 py-2.5 text-[11px] text-ink3 border-t border-line">
+        仅统计站内 GitHub 搜索的首次结果；命中 0 条时记录，可用于补充内容或同义词。
+      </p>
+    </section>
 
     <section class="card overflow-hidden">
       <div class="px-4 py-3 border-b border-line flex items-center gap-2 flex-wrap">

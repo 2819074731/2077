@@ -81,6 +81,17 @@ const errorMessage = computed(() => {
   return e?.data?.statusMessage || e?.statusMessage || '搜索失败，请稍后重试'
 })
 
+const reported = new Set<string>()
+watch([data, error, query, page], () => {
+  if (!query.value || page.value !== 1 || error.value || !data.value) return
+  if (reported.has(query.value)) return
+  reported.add(query.value)
+  $fetch('/api/search/result', {
+    method: 'POST',
+    body: { engine: 'github', term: query.value, results: Number(data.value.total || 0) }
+  }).catch(() => {})
+}, { immediate: true })
+
 const pageNumbers = computed(() => {
   const current = page.value
   const count = pageCount.value

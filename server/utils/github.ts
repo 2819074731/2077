@@ -3,6 +3,7 @@ import { readBodyCapped, safeFetch } from './safeUrl'
 import { getGithubSettings } from './githubSettings'
 import { signGithubRawUrl } from './githubAsset'
 import { getGithubTokens } from './githubTokens'
+import { orderRelays } from './githubRelayHealth'
 
 const API = 'https://api.github.com'
 const SEARCH_TTL = 5 * 60 * 1000
@@ -87,7 +88,7 @@ function relayHeaders(): Record<string, string> {
   }
 }
 
-function searchRelays(settings: GithubSettings): string[] {
+export function resolveSearchRelays(settings: GithubSettings): string[] {
   if (settings.searchRelays.length) return settings.searchRelays
   const raw = process.env.GITHUB_SEARCH_RELAYS
   const values = raw ? raw.split(',') : DEFAULT_GITHUB_SEARCH_RELAYS
@@ -174,7 +175,7 @@ async function ghJson(url: string, accept = 'application/vnd.github+json'): Prom
   const settings = await getGithubSettings().catch(() => null)
 
   if (settings?.searchFallback && url.startsWith(`${API}/`)) {
-    for (const base of searchRelays(settings)) {
+    for (const base of orderRelays(resolveSearchRelays(settings))) {
       try {
         return await jsonFrom(`${base}/${url}`, {
           headers: relayHeaders(),
@@ -265,7 +266,7 @@ async function fetchSearchJson(
   }> = []
 
   if (settings.searchFallback) {
-    for (const base of searchRelays(settings)) {
+    for (const base of orderRelays(resolveSearchRelays(settings))) {
       attempts.push({
         label: base,
         url: `${base}/${API}/search/repositories?${queryString}`,

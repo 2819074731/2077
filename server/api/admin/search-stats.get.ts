@@ -23,6 +23,22 @@ export default defineEventHandler(async (event) => {
      GROUP BY term ORDER BY n DESC LIMIT 30`,
     [days - 1]
   )
+  const [[tracked]]: any = await db.query(
+    `SELECT COUNT(*) AS n FROM search_events
+     WHERE results IS NOT NULL AND created_at >= DATE_SUB(CURDATE(), INTERVAL ? DAY)`,
+    [days - 1]
+  )
+  const [[zero]]: any = await db.query(
+    `SELECT COUNT(*) AS n FROM search_events
+     WHERE results = 0 AND created_at >= DATE_SUB(CURDATE(), INTERVAL ? DAY)`,
+    [days - 1]
+  )
+  const [zeroTerms]: any = await db.query(
+    `SELECT term, COUNT(*) AS n, MAX(created_at) AS last_at FROM search_events
+     WHERE results = 0 AND created_at >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+     GROUP BY term ORDER BY n DESC, last_at DESC LIMIT 20`,
+    [days - 1]
+  )
   const [kinds]: any = await db.query(
     `SELECT kind, COUNT(*) AS n FROM search_events
      WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
@@ -47,9 +63,15 @@ export default defineEventHandler(async (event) => {
 
   return {
     days,
-    summary: { total: Number(total?.n || 0), today: Number(today?.n || 0) },
+    summary: {
+      total: Number(total?.n || 0),
+      today: Number(today?.n || 0),
+      tracked: Number(tracked?.n || 0),
+      zero: Number(zero?.n || 0)
+    },
     engines,
     terms,
+    zeroTerms,
     kinds,
     daily
   }

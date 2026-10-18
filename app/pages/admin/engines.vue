@@ -18,6 +18,8 @@ const tabs = [
   { id: 'image', label: '图片' }
 ] as const
 const activeTab = ref<typeof tabs[number]['id']>('search')
+const testingRelays = ref(false)
+const relayHealthList = ref<any[]>([])
 
 useSeoMeta({ title: '引擎设置 · 2077 管理后台', robots: 'noindex' })
 
@@ -50,6 +52,25 @@ function moveRelay(index: number, delta: number) {
 
 function resetRelays() {
   form.searchRelays = [...DEFAULT_GITHUB_SEARCH_RELAYS]
+}
+
+function relayHost(url: string) {
+  try { return new URL(url).host } catch { return url }
+}
+
+async function testRelays() {
+  if (testingRelays.value) return
+  testingRelays.value = true
+  try {
+    const data: any = await $fetch('/api/admin/github-relay-health', { method: 'POST' })
+    relayHealthList.value = data?.relays || []
+    const ok = relayHealthList.value.filter(r => r.ok).length
+    flash(ok ? `线路可用 ${ok}/${relayHealthList.value.length}，搜索会优先走可用线路` : '所有中转线路当前不可用', ok ? 'ok' : 'err')
+  } catch (e: any) {
+    flash(e?.data?.statusMessage || e?.data?.message || '线路测试失败', 'err')
+  } finally {
+    testingRelays.value = false
+  }
 }
 
 function validateRelays(): string {
@@ -254,6 +275,7 @@ async function save() {
                 <p class="mt-0.5 text-[11.5px] text-ink2">按顺序尝试，最多 6 个；用于搜索及项目页 JSON 接口。</p>
               </div>
               <div class="flex items-center gap-2">
+                <button type="button" class="btn btn-sm btn-ghost" :disabled="testingRelays" @click="testRelays">{{ testingRelays ? '测试中…' : '测试线路' }}</button>
                 <button type="button" class="btn btn-sm btn-ghost" @click="resetRelays">恢复默认</button>
                 <button type="button" class="btn btn-sm btn-ghost" :disabled="form.searchRelays.length >= 6" @click="addRelay">添加线路</button>
               </div>
@@ -279,6 +301,19 @@ async function save() {
             <p v-else class="mt-3 rounded-lg border border-dashed border-line px-3 py-2 text-[11.5px] text-ink3">
               当前未配置，将回退到服务端 GITHUB_SEARCH_RELAYS 或内置线路。
             </p>
+            <div v-if="relayHealthList.length" class="mt-3 flex flex-wrap items-center gap-1.5">
+              <span
+                v-for="row in relayHealthList"
+                :key="row.url"
+                class="inline-flex items-center h-[22px] px-2 rounded-md bg-card text-[11px]"
+                :class="row.ok ? 'text-ink' : 'text-ink3'"
+                :title="row.ok ? `${row.url} 响应 ${row.ms}ms` : `${row.url} 请求失败`"
+              >
+                <i class="w-1.5 h-1.5 rounded-full mr-1.5" :class="row.ok ? 'bg-success' : 'bg-ink3'" />
+                {{ relayHost(row.url) }} · {{ row.ok ? `${row.ms}ms` : '失败' }}
+              </span>
+            </div>
+            <p class="mt-2 text-[11px] text-ink3">搜索会优先使用可用且延迟低的线路，全部失败后再回退官方接口。</p>
           </div>
         </div>
 
