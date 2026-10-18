@@ -127,3 +127,21 @@ test('热搜接口返回对应引擎词条', async () => {
     assert.equal(typeof data.live, 'boolean')
   }
 })
+
+test('搜索事件接口可用且忽略网址', async () => {
+  const res = await fetch(base + '/api/search/event', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ engine: 'baidu', term: 'https://example.com/', kind: 'input' })
+  })
+  assert.equal(res.status, 200)
+  const data = await res.json()
+  assert.equal(data.ok, true)
+})
+
+test('搜索分析接口要求管理员权限', async () => {
+  for (const path of ['/api/admin/search-stats', '/api/admin/hot-search-status']) {
+    const res = await get(path)
+    assert.equal(res.status, 401, path)
+  }
+})

@@ -38,7 +38,8 @@ const menus = [
   {
     label: '数据统计',
     items: [
-      { to: '/admin/stats', label: '流量与蜘蛛', icon: 'M3 3v18h18M7 15l3-3 3 3 5-6' }
+      { to: '/admin/stats', label: '流量与蜘蛛', icon: 'M3 3v18h18M7 15l3-3 3 3 5-6' },
+      { to: '/admin/search', label: '搜索分析', icon: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm10 2-4.35-4.35' }
     ]
   },
   {

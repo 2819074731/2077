@@ -36,6 +36,15 @@ const ENGINE_IDS = new Set([
 const cache = new Map<string, HotSearchResult & { at: number }>()
 const inflight = new Map<string, Promise<HotSearchResult>>()
 
+interface FetchStatus {
+  checkedAt: number
+  live: boolean
+  items: number
+  error: string
+}
+
+const statuses = new Map<string, FetchStatus>()
+
 function decodeXml(value: string): string {
   return value
     .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
@@ -200,36 +209,70 @@ const PROVIDERS: Record<string, () => Promise<string[]>> = {
   github
 }
 
-export async function getHotSearch(engine: string): Promise<HotSearchResult> {
+export async function getHotSearch(engine: string, force = false): Promise<HotSearchResult> {
   const id = String(engine || 'bing').toLowerCase()
   if (!ENGINE_IDS.has(id)) {
     return { items: clean(FALLBACK.bing), live: false }
   }
 
   const hit = cache.get(id)
-  if (hit && Date.now() - hit.at < CACHE_TTL) {
+  if (!force && hit && Date.now() - hit.at < CACHE_TTL) {
     return { items: hit.items, live: hit.live }
   }
 
   const running = inflight.get(id)
-  if (running) return running
+  if (running && !force) return running
 
   const task = (async (): Promise<HotSearchResult> => {
     let items: string[] = []
+    let error = ''
     if (PROVIDERS[id]) {
       try {
         items = await PROVIDERS[id]()
-      } catch {
-        items = []
+      } catch (e: any) {
+        error = String(e?.message || '抓取失败').slice(0, 120)
       }
     }
     const live = items.length > 0
-    if (!live) items = clean(FALLBACK[id] || FALLBACK.bing)
+    if (!live) {
+      items = clean(FALLBACK[id] || FALLBACK.bing)
+      if (!error) error = PROVIDERS[id] ? '抓取结果为空，已使用内置词条' : '暂无实时来源，已使用内置词条'
+    }
     const result = { items, live }
     if (items.length) cache.set(id, { ...result, at: Date.now() })
+    statuses.set(id, { checkedAt: Date.now(), live, items: items.length, error })
     return result
   })().finally(() => inflight.delete(id))
 
   inflight.set(id, task)
   return task
+}
+
+export interface HotSearchStatus {
+  engine: string
+  provider: boolean
+  live: boolean
+  items: number
+  checkedAt: number | null
+  ageSeconds: number | null
+  cached: boolean
+  error: string
+}
+
+export function getHotSearchStatuses(engines: string[]): HotSearchStatus[] {
+  return engines.map((raw) => {
+    const id = String(raw || '').toLowerCase()
+    const hit = cache.get(id)
+    const status = statuses.get(id)
+    return {
+      engine: id,
+      provider: !!PROVIDERS[id],
+      live: status?.live ?? hit?.live ?? false,
+      items: hit?.items.length ?? 0,
+      checkedAt: status?.checkedAt ?? null,
+      ageSeconds: hit ? Math.round((Date.now() - hit.at) / 1000) : null,
+      cached: !!hit && Date.now() - hit.at < CACHE_TTL,
+      error: status?.error || ''
+    }
+  })
 }

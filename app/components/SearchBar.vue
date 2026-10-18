@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import type { Engine } from '~/data/nav'
 
 const { allEngines, currentEngine, setEngine } = useNav()
@@ -12,6 +12,7 @@ const customName = ref('')
 const customUrl = ref('')
 
 const rootRef = ref<HTMLElement | null>(null)
+const panelRef = ref<HTMLElement | null>(null)
 const inputRef = ref<HTMLInputElement | null>(null)
 const hotOpen = ref(false)
 const hotItems = ref<string[]>([])
@@ -19,6 +20,11 @@ const hotLoading = ref(false)
 const hotLive = ref(false)
 const hotCache = new Map<string, { items: string[]; live: boolean; at: number }>()
 const HOT_TTL = 5 * 60 * 1000
+const RECENT_KEY = 'nav:recent-searches'
+const RECENT_MAX = 5
+const recent = ref<string[]>([])
+const activeIndex = ref(-1)
+const panelMax = ref(0)
 let hotSeq = 0
 let closeTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -27,6 +33,14 @@ const filteredHot = computed(() => {
   const text = q.value.trim().toLowerCase()
   if (!text) return hotItems.value
   return hotItems.value.filter(item => item.toLowerCase().includes(text)).slice(0, 8)
+})
+const recentCount = computed(() => (q.value.trim() ? 0 : recent.value.length))
+const suggestions = computed(() => {
+  if (q.value.trim()) return filteredHot.value.map(term => ({ term, source: 'hot' as const }))
+  return [
+    ...recent.value.map(term => ({ term, source: 'recent' as const })),
+    ...hotItems.value.map(term => ({ term, source: 'hot' as const }))
+  ]
 })
 
 function cancelClose() {
@@ -40,6 +54,81 @@ function scheduleClose() {
   closeTimer = setTimeout(() => {
     hotOpen.value = false
   }, 120)
+}
+
+function loadRecent() {
+  try {
+    const raw = localStorage.getItem(RECENT_KEY)
+    const parsed = raw ? JSON.parse(raw) : []
+    if (Array.isArray(parsed)) {
+      recent.value = parsed.filter((x): x is string => typeof x === 'string' && !!x.trim()).slice(0, RECENT_MAX)
+    }
+  } catch {}
+}
+
+function remember(term: string) {
+  const text = term.trim()
+  if (!text || /^https?:\/\//i.test(text)) return
+  recent.value = [text, ...recent.value.filter(x => x !== text)].slice(0, RECENT_MAX)
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify(recent.value)) } catch {}
+}
+
+function clearRecent() {
+  recent.value = []
+  activeIndex.value = -1
+  try { localStorage.removeItem(RECENT_KEY) } catch {}
+}
+
+function track(term: string, kind: 'hot' | 'input') {
+  const text = term.trim()
+  if (!text) return
+  const body = JSON.stringify({ engine: engine.value.id, term: text, kind })
+  try {
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon('/api/search/event', new Blob([body], { type: 'application/json' }))
+      return
+    }
+  } catch {}
+  fetch('/api/search/event', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body,
+    keepalive: true
+  }).catch(() => {})
+}
+
+function updatePanelHeight() {
+  if (!isMobile.value) { panelMax.value = 0; return }
+  nextTick(() => {
+    const vv = window.visualViewport
+    const bottom = rootRef.value?.getBoundingClientRect().bottom ?? 0
+    const available = Math.floor((vv?.height || window.innerHeight) - bottom - 16)
+    panelMax.value = Math.max(96, Math.min(available, Math.floor((vv?.height || window.innerHeight) * 0.7)))
+  })
+}
+
+function scrollActive() {
+  nextTick(() => {
+    const el = panelRef.value?.querySelector<HTMLElement>(`[data-idx="${activeIndex.value}"]`)
+    el?.scrollIntoView({ block: 'nearest' })
+  })
+}
+
+function moveActive(delta: number) {
+  if (!hotOpen.value) openHot()
+  const total = suggestions.value.length
+  if (!total) return
+  activeIndex.value = (activeIndex.value + delta + total) % total
+  scrollActive()
+}
+
+function onEnter() {
+  const picked = activeIndex.value >= 0 ? suggestions.value[activeIndex.value] : null
+  if (picked) {
+    pickHot(picked.term, picked.source === 'recent' ? 'input' : 'hot')
+    return
+  }
+  go()
 }
 
 async function loadHot(id: string, force = false) {
@@ -77,7 +166,39 @@ function openHot() {
   cancelClose()
   enginesOpen.value = false
   hotOpen.value = true
+  activeIndex.value = -1
+  updatePanelHeight()
   loadHot(engine.value.id)
+}
+
+function prefetchHot(id: string) {
+  if (id === 'custom' || hotCache.has(id)) return
+  $fetch<{ items?: string[]; live?: boolean }>('/api/hot-search', { query: { engine: id } })
+    .then((res) => {
+      const items = Array.isArray(res.items) ? res.items : []
+      if (items.length) hotCache.set(id, { items, live: !!res.live, at: Date.now() })
+    })
+    .catch(() => {})
+}
+
+function prefetchEngines() {
+  const ids = allEngines().map(e => e.id).filter(id => id !== 'custom' && !hotCache.has(id))
+  if (!ids.length) return
+  const run = () => ids.forEach(prefetchHot)
+  if ('requestIdleCallback' in window) {
+    ;(window as any).requestIdleCallback(run, { timeout: 1500 })
+  } else {
+    setTimeout(run, 400)
+  }
+}
+
+function toggleEngines() {
+  enginesOpen.value = !enginesOpen.value
+  if (enginesOpen.value) {
+    cancelClose()
+    hotOpen.value = false
+    prefetchEngines()
+  }
 }
 
 function pick(e: Engine) {
@@ -88,10 +209,10 @@ function pick(e: Engine) {
   if (e.id !== 'custom') loadHot(e.id)
 }
 
-function pickHot(term: string) {
+function pickHot(term: string, kind: 'hot' | 'input' = 'hot') {
   q.value = term
   hotOpen.value = false
-  go()
+  go(kind)
 }
 
 function onDocPointerDown(event: PointerEvent) {
@@ -105,6 +226,7 @@ function onDocPointerDown(event: PointerEvent) {
 watch(() => engine.value.id, (id) => {
   hotItems.value = []
   hotLive.value = false
+  activeIndex.value = -1
   if (id === 'custom') {
     hotOpen.value = false
     return
@@ -112,13 +234,28 @@ watch(() => engine.value.id, (id) => {
   if (hotOpen.value) loadHot(id)
 })
 
+watch(q, () => {
+  activeIndex.value = -1
+})
+
+watch(hotOpen, (open) => {
+  if (open) updatePanelHeight()
+})
+
 onMounted(() => {
+  loadRecent()
   loadHot(engine.value.id)
   document.addEventListener('pointerdown', onDocPointerDown)
+  window.addEventListener('resize', updatePanelHeight)
+  window.visualViewport?.addEventListener('resize', updatePanelHeight)
+  window.visualViewport?.addEventListener('scroll', updatePanelHeight)
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', onDocPointerDown)
+  window.removeEventListener('resize', updatePanelHeight)
+  window.visualViewport?.removeEventListener('resize', updatePanelHeight)
+  window.visualViewport?.removeEventListener('scroll', updatePanelHeight)
   cancelClose()
 })
 
@@ -138,10 +275,12 @@ function saveCustom() {
   hotOpen.value = false
 }
 
-function go() {
+function go(kind: 'hot' | 'input' = 'input') {
   const text = q.value.trim()
   if (!text) return
   if (/^https?:\/\//.test(text)) { window.location.href = text; return }
+  remember(text)
+  track(text, kind)
   window.location.href = engine.value.url.replace('%s', encodeURIComponent(text))
 }
 </script>
@@ -157,7 +296,7 @@ function go() {
           type="button"
           class="flex items-center gap-1.5 h-9 px-2.5 rounded-xl text-[13px] font-medium text-ink2 hover:text-ink hover:bg-card2 transition-colors"
           :aria-expanded="enginesOpen"
-          @click="enginesOpen = !enginesOpen"
+          @click="toggleEngines"
         >
           <span>{{ engine.name }}</span>
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6" /></svg>
@@ -199,10 +338,13 @@ function go() {
         spellcheck="false"
         aria-label="搜索或输入网址"
         :aria-expanded="hotOpen"
+        aria-controls="search-suggestions"
         @focus="openHot"
         @blur="scheduleClose"
-        @keydown.enter.prevent="go"
-        @keydown.esc="hotOpen = false"
+        @keydown.down.prevent="moveActive(1)"
+        @keydown.up.prevent="moveActive(-1)"
+        @keydown.enter.prevent="onEnter"
+        @keydown.esc="hotOpen = false; activeIndex = -1"
       />
 
       <button
@@ -216,8 +358,11 @@ function go() {
 
     <div
       v-if="hotOpen && engine.id !== 'custom'"
+      id="search-suggestions"
+      ref="panelRef"
       class="absolute left-0 right-0 top-[calc(100%+8px)] z-40 card p-2.5 shadow-pop animate-fade-up max-h-[70vh] overflow-y-auto"
-      aria-label="热搜词"
+      :style="isMobile && panelMax ? { maxHeight: panelMax + 'px' } : undefined"
+      aria-label="搜索建议"
     >
       <div class="flex items-center justify-between gap-3 px-1.5 pb-2">
         <div class="flex items-center gap-1.5 min-w-0">
@@ -230,6 +375,32 @@ function go() {
         <span v-if="hotLoading" class="text-[11px] text-ink3 shrink-0">更新中</span>
       </div>
 
+      <div v-if="!q.trim() && recent.length" class="mb-2">
+        <div class="flex items-center justify-between gap-3 px-1.5 pb-1.5">
+          <span class="text-[11.5px] text-ink3">最近搜索</span>
+          <button
+            type="button"
+            class="text-[11px] text-ink3 hover:text-ink"
+            @pointerdown.prevent="clearRecent"
+          >清除</button>
+        </div>
+        <div class="grid gap-0.5" :class="isMobile ? 'grid-cols-1' : 'grid-cols-2'">
+          <button
+            v-for="(item, idx) in recent"
+            :key="'recent-' + item"
+            type="button"
+            :data-idx="idx"
+            class="group flex items-center gap-2 h-8 px-2 rounded-lg text-left text-[13px] transition-colors"
+            :class="activeIndex === idx ? 'bg-card2 text-ink' : 'text-ink2 hover:bg-card2 hover:text-ink'"
+            :aria-label="`再次搜索 ${item}`"
+            @pointerdown.prevent="pickHot(item, 'input')"
+          >
+            <svg class="shrink-0 text-ink3" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+            <span class="truncate">{{ item }}</span>
+          </button>
+        </div>
+      </div>
+
       <div v-if="hotLoading && !hotItems.length" class="grid gap-0.5" :class="isMobile ? 'grid-cols-1' : 'grid-cols-2'">
         <div v-for="n in 6" :key="n" class="h-8 rounded-lg bg-card2 animate-pulse" />
       </div>
@@ -239,7 +410,9 @@ function go() {
           v-for="(item, idx) in filteredHot"
           :key="item"
           type="button"
-          class="group flex items-center gap-2 h-8 px-2 rounded-lg text-left text-[13px] text-ink2 hover:bg-card2 hover:text-ink transition-colors"
+          :data-idx="recentCount + idx"
+          class="group flex items-center gap-2 h-8 px-2 rounded-lg text-left text-[13px] transition-colors"
+          :class="activeIndex === recentCount + idx ? 'bg-card2 text-ink' : 'text-ink2 hover:bg-card2 hover:text-ink'"
           :aria-label="`搜索 ${item}`"
           @pointerdown.prevent="pickHot(item)"
         >
@@ -253,6 +426,8 @@ function go() {
           <svg class="ml-auto shrink-0 opacity-0 group-hover:opacity-100 text-ink3" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17 17 7M9 7h8v8" /></svg>
         </button>
       </div>
+
+      <div v-else-if="!q.trim() && recent.length" class="hidden" />
 
       <div v-else class="px-2 py-6 text-center text-[12.5px] text-ink2">
         <template v-if="q.trim()">没有匹配的热搜词，回车直接搜索「{{ q.trim() }}」</template>
