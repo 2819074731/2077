@@ -1,8 +1,7 @@
 import { Readable, Transform } from 'node:stream'
 import { openGithubDownload } from '../../utils/github'
 import { rateLimit } from '../../utils/rateLimit'
-
-const MAX_BYTES = 512 * 1024 * 1024
+import { getGithubSettings } from '../../utils/githubSettings'
 
 function attachment(name: string): string {
   const ascii = name.replace(/[^\x20-\x7E]/g, '_').replace(/["\\]/g, '_')
@@ -11,6 +10,7 @@ function attachment(name: string): string {
 
 export default defineEventHandler(async (event) => {
   await rateLimit(event, 'github-download', 15, 60_000)
+  const settings = await getGithubSettings()
 
   const q = getQuery(event)
   const repo = String(q.repo || '').trim()
@@ -18,13 +18,23 @@ export default defineEventHandler(async (event) => {
   const assetId = String(q.id || '')
   const requestedName = String(q.name || '')
 
+  if (kind === 'zip' && !settings.enableZip) {
+    throw createError({ statusCode: 403, statusMessage: '源码打包下载已关闭' })
+  }
+  if (kind === 'asset' && !settings.enableReleaseDownload) {
+    throw createError({ statusCode: 403, statusMessage: 'Release 附件下载已关闭' })
+  }
+  const maxBytes = (kind === 'zip'
+    ? Math.max(10, Number(settings.maxZipMB) || 512)
+    : Math.max(10, Number(settings.maxAssetMB) || 512)) * 1024 * 1024
+
   const file = await openGithubDownload(repo, kind, assetId, requestedName)
   const stream = Readable.fromWeb(file.response.body as any)
   let total = 0
   const limiter = new Transform({
     transform(chunk, _encoding, callback) {
       total += chunk.length
-      if (total > MAX_BYTES) {
+      if (total > maxBytes) {
         callback(new Error('download-too-large'))
         return
       }

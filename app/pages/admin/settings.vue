@@ -39,6 +39,25 @@ function validate(): string {
   if (form.linkTtlDays < 1 || form.linkTtlDays > 90) return '链接巡检周期需在 1-90 天之间'
   if (form.tdkTtlDays < 1 || form.tdkTtlDays > 90) return 'TDK 巡检周期需在 1-90 天之间'
   if (form.contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contactEmail)) return '联系邮箱格式不正确'
+  const gh = form.github
+  if (!['best', 'stars', 'forks', 'updated'].includes(gh.defaultSort)) return 'GitHub 默认排序不正确'
+  if (gh.pageSize < 10 || gh.pageSize > 30) return 'GitHub 每页结果需在 10-30 之间'
+  if (gh.maxPages < 1 || gh.maxPages > 20) return 'GitHub 最大页数需在 1-20 之间'
+  if (gh.readmeMaxKB < 32 || gh.readmeMaxKB > 512) return 'README 上限需在 32-512 KB 之间'
+  if (gh.filePreviewMaxKB < 64 || gh.filePreviewMaxKB > 2048) return '文件预览上限需在 64-2048 KB 之间'
+  if (gh.maxZipMB < 10 || gh.maxZipMB > 1024) return '源码 ZIP 上限需在 10-1024 MB 之间'
+  if (gh.maxAssetMB < 10 || gh.maxAssetMB > 2048) return 'Release 附件上限需在 10-2048 MB 之间'
+  if (gh.rawMaxMB < 1 || gh.rawMaxMB > 100) return '原文件上限需在 1-100 MB 之间'
+  if (gh.assetTtlSec < 60 || gh.assetTtlSec > 3600) return '资源链接有效期需在 60-3600 秒之间'
+  if (gh.imageMaxMB < 1 || gh.imageMaxMB > 50) return '图片大小上限需在 1-50 MB 之间'
+  if (gh.imageRatePerMin < 10 || gh.imageRatePerMin > 300) return '图片限流需在 10-300 次/分钟之间'
+  for (const [label, value, min, max] of [
+    ['搜索缓存', gh.searchCacheSec, 60, 3600],
+    ['仓库缓存', gh.repoCacheSec, 60, 3600],
+    ['README 缓存', gh.readmeCacheSec, 60, 3600]
+  ] as const) {
+    if (value < min || value > max) return `${label}需在 ${min}-${max} 秒之间`
+  }
   return ''
 }
 
@@ -168,6 +187,188 @@ async function save() {
               <input v-model.number="form.tdkTtlDays" type="number" min="1" max="90" class="field" />
               <span class="text-[13px] text-ink2 shrink-0">天</span>
             </div>
+          </label>
+        </div>
+      </section>
+
+      <div class="h-px bg-line" />
+
+      <section class="p-4 sm:p-5">
+        <div class="flex items-center gap-2 flex-wrap">
+          <h2 class="font-semibold text-[15px]">GitHub 搜索</h2>
+          <span class="chip">站内搜索引擎</span>
+        </div>
+        <p class="text-[12.5px] text-ink2 mt-1">控制仓库搜索、项目页内容、下载代理、图片防盗链与缓存。关闭后 GitHub 搜索与项目页将不可访问。</p>
+
+        <div class="mt-4 flex flex-wrap gap-x-6 gap-y-3">
+          <label class="flex items-center gap-2 text-[13.5px]">
+            <input v-model="form.github.enabled" type="checkbox" class="w-4 h-4 accent-current" />
+            启用 GitHub 搜索
+          </label>
+          <label class="flex items-center gap-2 text-[13.5px]">
+            <input v-model="form.github.showReadme" type="checkbox" class="w-4 h-4 accent-current" />
+            展示 README
+          </label>
+          <label class="flex items-center gap-2 text-[13.5px]">
+            <input v-model="form.github.showIssues" type="checkbox" class="w-4 h-4 accent-current" />
+            Issues
+          </label>
+          <label class="flex items-center gap-2 text-[13.5px]">
+            <input v-model="form.github.showPulls" type="checkbox" class="w-4 h-4 accent-current" />
+            Pull requests
+          </label>
+          <label class="flex items-center gap-2 text-[13.5px]">
+            <input v-model="form.github.showReleases" type="checkbox" class="w-4 h-4 accent-current" />
+            Releases
+          </label>
+          <label class="flex items-center gap-2 text-[13.5px]">
+            <input v-model="form.github.showCommits" type="checkbox" class="w-4 h-4 accent-current" />
+            Commits
+          </label>
+          <label class="flex items-center gap-2 text-[13.5px]">
+            <input v-model="form.github.showContributors" type="checkbox" class="w-4 h-4 accent-current" />
+            贡献者
+          </label>
+          <label class="flex items-center gap-2 text-[13.5px]">
+            <input v-model="form.github.showRefs" type="checkbox" class="w-4 h-4 accent-current" />
+            分支与标签
+          </label>
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-3.5 mt-5">
+          <label class="flex flex-col gap-1.5">
+            <span class="text-[13px] font-medium">默认排序</span>
+            <select v-model="form.github.defaultSort" class="field cursor-pointer">
+              <option value="best">最佳匹配</option>
+              <option value="stars">Star 最多</option>
+              <option value="forks">Fork 最多</option>
+              <option value="updated">最近更新</option>
+            </select>
+          </label>
+          <label class="flex flex-col gap-1.5">
+            <span class="text-[13px] font-medium">每页结果数</span>
+            <input v-model.number="form.github.pageSize" type="number" min="10" max="30" class="field" />
+            <span class="text-[11.5px] text-ink3">范围 10-30，默认 20。</span>
+          </label>
+          <label class="flex flex-col gap-1.5">
+            <span class="text-[13px] font-medium">最大页数</span>
+            <input v-model.number="form.github.maxPages" type="number" min="1" max="20" class="field" />
+            <span class="text-[11.5px] text-ink3">范围 1-20，受 GitHub 搜索接口上限约束。</span>
+          </label>
+          <label class="flex flex-col gap-1.5">
+            <span class="text-[13px] font-medium">搜索缓存</span>
+            <div class="flex items-center gap-2">
+              <input v-model.number="form.github.searchCacheSec" type="number" min="60" max="3600" class="field" />
+              <span class="text-[13px] text-ink2 shrink-0">秒</span>
+            </div>
+          </label>
+        </div>
+
+        <h3 class="mt-6 text-[13.5px] font-semibold">项目页内容</h3>
+        <div class="grid sm:grid-cols-2 gap-3.5 mt-3">
+          <label class="flex flex-col gap-1.5">
+            <span class="text-[13px] font-medium">README 大小上限</span>
+            <div class="flex items-center gap-2">
+              <input v-model.number="form.github.readmeMaxKB" type="number" min="32" max="512" class="field" />
+              <span class="text-[13px] text-ink2 shrink-0">KB</span>
+            </div>
+          </label>
+          <label class="flex flex-col gap-1.5">
+            <span class="text-[13px] font-medium">文件预览上限</span>
+            <div class="flex items-center gap-2">
+              <input v-model.number="form.github.filePreviewMaxKB" type="number" min="64" max="2048" class="field" />
+              <span class="text-[13px] text-ink2 shrink-0">KB</span>
+            </div>
+          </label>
+          <label class="flex flex-col gap-1.5">
+            <span class="text-[13px] font-medium">仓库与内容缓存</span>
+            <div class="flex items-center gap-2">
+              <input v-model.number="form.github.repoCacheSec" type="number" min="60" max="3600" class="field" />
+              <span class="text-[13px] text-ink2 shrink-0">秒</span>
+            </div>
+          </label>
+          <label class="flex flex-col gap-1.5">
+            <span class="text-[13px] font-medium">README 缓存</span>
+            <div class="flex items-center gap-2">
+              <input v-model.number="form.github.readmeCacheSec" type="number" min="60" max="3600" class="field" />
+              <span class="text-[13px] text-ink2 shrink-0">秒</span>
+            </div>
+          </label>
+        </div>
+
+        <h3 class="mt-6 text-[13.5px] font-semibold">下载代理</h3>
+        <div class="mt-3 flex flex-wrap gap-x-6 gap-y-3">
+          <label class="flex items-center gap-2 text-[13.5px]">
+            <input v-model="form.github.enableZip" type="checkbox" class="w-4 h-4 accent-current" />
+            允许源码 ZIP
+          </label>
+          <label class="flex items-center gap-2 text-[13.5px]">
+            <input v-model="form.github.enableReleaseDownload" type="checkbox" class="w-4 h-4 accent-current" />
+            允许 Release 附件
+          </label>
+        </div>
+        <div class="grid sm:grid-cols-3 gap-3.5 mt-3">
+          <label class="flex flex-col gap-1.5">
+            <span class="text-[13px] font-medium">源码 ZIP 上限</span>
+            <div class="flex items-center gap-2">
+              <input v-model.number="form.github.maxZipMB" type="number" min="10" max="1024" class="field" />
+              <span class="text-[13px] text-ink2 shrink-0">MB</span>
+            </div>
+          </label>
+          <label class="flex flex-col gap-1.5">
+            <span class="text-[13px] font-medium">Release 附件上限</span>
+            <div class="flex items-center gap-2">
+              <input v-model.number="form.github.maxAssetMB" type="number" min="10" max="2048" class="field" />
+              <span class="text-[13px] text-ink2 shrink-0">MB</span>
+            </div>
+          </label>
+          <label class="flex flex-col gap-1.5">
+            <span class="text-[13px] font-medium">原文件上限</span>
+            <div class="flex items-center gap-2">
+              <input v-model.number="form.github.rawMaxMB" type="number" min="1" max="100" class="field" />
+              <span class="text-[13px] text-ink2 shrink-0">MB</span>
+            </div>
+          </label>
+        </div>
+
+        <h3 class="mt-6 text-[13.5px] font-semibold">图片防盗链</h3>
+        <p class="mt-1 text-[12px] text-ink2">README 与头像图片统一走本站签名代理，仅允许本站页面或白名单来源加载，避免被用作图片 CDN。</p>
+        <div class="mt-3 flex flex-wrap gap-x-6 gap-y-3">
+          <label class="flex items-center gap-2 text-[13.5px]">
+            <input v-model="form.github.antiHotlink" type="checkbox" class="w-4 h-4 accent-current" />
+            启用签名与 Referer 校验
+          </label>
+          <label class="flex items-center gap-2 text-[13.5px]">
+            <input v-model="form.github.allowEmptyReferer" type="checkbox" class="w-4 h-4 accent-current" />
+            允许空 Referer
+          </label>
+        </div>
+        <div class="grid sm:grid-cols-3 gap-3.5 mt-3">
+          <label class="flex flex-col gap-1.5">
+            <span class="text-[13px] font-medium">资源链接有效期</span>
+            <div class="flex items-center gap-2">
+              <input v-model.number="form.github.assetTtlSec" type="number" min="60" max="3600" class="field" />
+              <span class="text-[13px] text-ink2 shrink-0">秒</span>
+            </div>
+          </label>
+          <label class="flex flex-col gap-1.5">
+            <span class="text-[13px] font-medium">图片大小上限</span>
+            <div class="flex items-center gap-2">
+              <input v-model.number="form.github.imageMaxMB" type="number" min="1" max="50" class="field" />
+              <span class="text-[13px] text-ink2 shrink-0">MB</span>
+            </div>
+          </label>
+          <label class="flex flex-col gap-1.5">
+            <span class="text-[13px] font-medium">图片限流</span>
+            <div class="flex items-center gap-2">
+              <input v-model.number="form.github.imageRatePerMin" type="number" min="10" max="300" class="field" />
+              <span class="text-[13px] text-ink2 shrink-0">次/分</span>
+            </div>
+          </label>
+          <label class="flex flex-col gap-1.5 sm:col-span-3">
+            <span class="text-[13px] font-medium">Referer 白名单</span>
+            <textarea v-model="form.github.refererWhitelist" class="field !h-20 py-2.5 resize-y leading-6" maxlength="500" placeholder="example.com, cdn.example.com" />
+            <span class="text-[11.5px] text-ink3">每行或逗号分隔，支持子域名；本站域名始终允许。允许空 Referer 会削弱防盗链效果。</span>
           </label>
         </div>
       </section>

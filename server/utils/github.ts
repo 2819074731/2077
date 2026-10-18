@@ -1,10 +1,11 @@
 import { readBodyCapped, safeFetch } from './safeUrl'
+import { getGithubSettings } from './githubSettings'
+import { signGithubRawUrl } from './githubAsset'
 
 const API = 'https://api.github.com'
 const SEARCH_TTL = 5 * 60 * 1000
 const RELEASE_TTL = 10 * 60 * 1000
 const MAX_CACHE = 300
-const MAX_DOWNLOAD = 512 * 1024 * 1024
 const REPO_RE = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/
 
 export interface GithubRepo {
@@ -191,17 +192,21 @@ export async function searchGithub(
 ): Promise<GithubSearchResult> {
   const q = normalizeGithubQuery(query)
   if (!q) throw createError({ statusCode: 400, statusMessage: '请输入搜索关键词' })
-  const currentPage = Math.max(1, Math.min(20, Number(page) || 1))
-  const key = `${sort}:${currentPage}:${q.toLowerCase()}`
+  const settings = await getGithubSettings()
+  const perPage = Math.max(10, Math.min(30, Number(settings.pageSize) || 20))
+  const maxPages = Math.max(1, Math.min(20, Number(settings.maxPages) || 20))
+  const currentPage = Math.max(1, Math.min(maxPages, Number(page) || 1))
+  const ttl = Math.max(60, Number(settings.searchCacheSec) || 300) * 1000
+  const key = `${sort}:${currentPage}:${perPage}:${q.toLowerCase()}`
 
-  const cached = cacheGet(searchCache, key, SEARCH_TTL)
+  const cached = cacheGet(searchCache, key, ttl)
   if (cached !== undefined) return cached
   const running = searchInflight.get(key)
   if (running) return running
 
   const params = new URLSearchParams({
     q,
-    per_page: '20',
+    per_page: String(perPage),
     page: String(currentPage)
   })
   if (sort !== 'best') {
@@ -311,6 +316,11 @@ export async function openGithubDownload(
 ): Promise<GithubDownload> {
   const name = String(repo || '').trim()
   if (!isGithubRepo(name)) throw createError({ statusCode: 400, statusMessage: '仓库名格式不正确' })
+  const settings = await getGithubSettings()
+  const limitMB = kind === 'zip'
+    ? Math.max(10, Number(settings.maxZipMB) || 512)
+    : Math.max(10, Number(settings.maxAssetMB) || 512)
+  const maxBytes = limitMB * 1024 * 1024
 
   let url: string
   let accept: string
@@ -344,7 +354,7 @@ export async function openGithubDownload(
   }
 
   const length = Number(res.headers.get('content-length') || 0)
-  if (length > MAX_DOWNLOAD) {
+  if (length > maxBytes) {
     try { await res.body?.cancel() } catch {}
     throw createError({ statusCode: 413, statusMessage: '文件过大，暂不支持本站代理下载' })
   }
@@ -366,10 +376,6 @@ export async function openGithubDownload(
 }
 
 
-const REPO_TTL = 5 * 60 * 1000
-const CONTENTS_TTL = 2 * 60 * 1000
-const MAX_TEXT = 2 * 1024 * 1024
-const MAX_RAW = 20 * 1024 * 1024
 
 export interface GithubTreeEntry {
   name: string
@@ -417,13 +423,9 @@ function encodeGithubPath(path: string): string {
   return path.split('/').filter(Boolean).map(part => encodeURIComponent(part)).join('/')
 }
 
-function rawApiUrl(repo: string, path: string): string {
-  return `/api/github/raw?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(path)}`
-}
-
-function fileKind(path: string, size: number): 'image' | 'too-large' | 'text' {
-  if (/\.(png|jpe?g|gif|webp|avif|bmp|ico)$/i.test(path)) return size > MAX_RAW ? 'too-large' : 'image'
-  if (size > MAX_TEXT) return 'too-large'
+function fileKind(path: string, size: number, maxText: number, maxImage: number): 'image' | 'too-large' | 'text' {
+  if (/\.(png|jpe?g|gif|webp|avif|bmp|ico)$/i.test(path)) return size > maxImage ? 'too-large' : 'image'
+  if (size > maxText) return 'too-large'
   return 'text'
 }
 
@@ -463,9 +465,11 @@ async function readTextFromUrl(url: string, maxBytes: number): Promise<{ text: s
 export async function getGithubRepo(repo: string): Promise<GithubRepo> {
   const name = String(repo || '').trim()
   if (!isGithubRepo(name)) throw createError({ statusCode: 400, statusMessage: '仓库名格式不正确' })
+  const settings = await getGithubSettings()
+  const ttl = Math.max(60, Number(settings.repoCacheSec) || 300) * 1000
   const key = name.toLowerCase()
 
-  const cached = cacheGet(repoCache, key, REPO_TTL)
+  const cached = cacheGet(repoCache, key, ttl)
   if (cached !== undefined) return cached
   const running = repoInflight.get(key)
   if (running) return running
@@ -486,9 +490,13 @@ export async function getGithubContents(repo: string, pathValue: string): Promis
   const name = String(repo || '').trim()
   if (!isGithubRepo(name)) throw createError({ statusCode: 400, statusMessage: '仓库名格式不正确' })
   const path = normalizeGithubPath(pathValue)
+  const settings = await getGithubSettings()
+  const ttl = Math.max(60, Number(settings.repoCacheSec) || 300) * 1000
+  const maxText = Math.max(64, Number(settings.filePreviewMaxKB) || 512) * 1024
+  const maxImage = Math.max(1, Number(settings.imageMaxMB) || 20) * 1024 * 1024
   const key = `${name.toLowerCase()}:${path}`
 
-  const cached = cacheGet(contentsCache, key, CONTENTS_TTL)
+  const cached = cacheGet(contentsCache, key, ttl)
   if (cached !== undefined) return cached
   const running = contentsInflight.get(key)
   if (running) return running
@@ -522,7 +530,7 @@ export async function getGithubContents(repo: string, pathValue: string): Promis
 
       const size = Number(data.size) || 0
       const itemPath = normalizeGithubPath(data.path || path)
-      let kind = fileKind(itemPath, size)
+      let kind = fileKind(itemPath, size, maxText, maxImage)
       let contentText = ''
       let truncated = false
 
@@ -535,10 +543,10 @@ export async function getGithubContents(repo: string, pathValue: string): Promis
             contentText = decodeFileText(buffer)
             if (!contentText && buffer.length) kind = 'binary'
           }
-        } else if (data.download_url && size <= MAX_TEXT) {
-          const remote = await readTextFromUrl(String(data.download_url), MAX_TEXT)
+        } else if (data.download_url && size <= maxText) {
+          const remote = await readTextFromUrl(String(data.download_url), maxText)
           contentText = remote.text
-          truncated = remote.truncated || size > MAX_TEXT
+          truncated = remote.truncated || size > maxText
         } else if (size > 0) {
           kind = 'too-large'
         }
@@ -552,7 +560,7 @@ export async function getGithubContents(repo: string, pathValue: string): Promis
         kind,
         text: contentText,
         truncated,
-        rawUrl: rawApiUrl(name, itemPath)
+        rawUrl: signGithubRawUrl(name, itemPath, settings.assetTtlSec)
       }
       const result: GithubContents = { type: 'file', path: itemPath, entries: [], file }
       cachePut(contentsCache, key, result)
@@ -570,6 +578,8 @@ export async function openGithubRaw(repo: string, pathValue: string): Promise<Gi
   const path = normalizeGithubPath(pathValue)
   if (!path) throw createError({ statusCode: 400, statusMessage: '文件路径不能为空' })
 
+  const settings = await getGithubSettings()
+  const maxBytes = Math.max(1, Number(settings.rawMaxMB) || 20) * 1024 * 1024
   const detail = await getGithubRepo(name)
   const ref = detail.defaultBranch || 'HEAD'
   const url = `https://raw.githubusercontent.com/${name}/${encodeGithubPath(ref)}/${encodeGithubPath(path)}`
@@ -588,7 +598,7 @@ export async function openGithubRaw(repo: string, pathValue: string): Promise<Gi
   }
 
   const length = Number(res.headers.get('content-length') || 0)
-  if (length > MAX_RAW) {
+  if (length > maxBytes) {
     try { await res.body?.cancel() } catch {}
     throw createError({ statusCode: 413, statusMessage: '文件过大，请直接到 GitHub 查看' })
   }
@@ -600,4 +610,285 @@ export async function openGithubRaw(repo: string, pathValue: string): Promise<Gi
     contentType: upstreamType || 'application/octet-stream',
     contentLength: Number.isFinite(length) && length > 0 ? length : 0
   }
+}
+
+
+export interface GithubReadme {
+  path: string
+  markdown: string
+  truncated: boolean
+  branch: string
+}
+
+export interface GithubIssueItem {
+  number: number
+  title: string
+  state: string
+  author: string
+  avatar: string
+  comments: number
+  createdAt: string
+  updatedAt: string
+  labels: Array<{ name: string; color: string }>
+  pullRequest: boolean
+  body: string
+}
+
+export interface GithubCommitItem {
+  sha: string
+  shortSha: string
+  message: string
+  authorName: string
+  authorLogin: string
+  avatar: string
+  date: string
+  url: string
+}
+
+export interface GithubContributorItem {
+  login: string
+  avatar: string
+  contributions: number
+  url: string
+}
+
+export interface GithubBranchItem {
+  name: string
+  sha: string
+  protected: boolean
+}
+
+export interface GithubTagItem {
+  name: string
+  sha: string
+}
+
+export interface GithubReleaseItem {
+  id: number
+  tag: string
+  name: string
+  body: string
+  publishedAt: string
+  prerelease: boolean
+  draft: boolean
+  author: string
+  assets: GithubAsset[]
+}
+
+export interface GithubExploreResult {
+  issues: GithubIssueItem[]
+  pulls: GithubIssueItem[]
+  commits: GithubCommitItem[]
+  contributors: GithubContributorItem[]
+  branches: GithubBranchItem[]
+  tags: GithubTagItem[]
+  releases: GithubReleaseItem[]
+  partial: boolean
+}
+
+const readmeCache = new Map<string, Entry<GithubReadme | null>>()
+const exploreCache = new Map<string, Entry<GithubExploreResult>>()
+
+function avatarUrl(value: unknown): string {
+  const url = String(value || '').trim()
+  if (!url || !/^https:\/\//i.test(url)) return ''
+  return url.slice(0, 300)
+}
+
+function normalizeIssue(item: any): GithubIssueItem | null {
+  const number = Number(item?.number)
+  if (!number) return null
+  return {
+    number,
+    title: text(item?.title, 240),
+    state: text(item?.state, 20) || 'open',
+    author: text(item?.user?.login, 80),
+    avatar: avatarUrl(item?.user?.avatar_url),
+    comments: Number(item?.comments) || 0,
+    createdAt: text(item?.created_at, 40),
+    updatedAt: text(item?.updated_at, 40),
+    labels: Array.isArray(item?.labels)
+      ? item.labels.slice(0, 6).map((label: any) => ({ name: text(label?.name, 40), color: text(label?.color, 8) })).filter((label: any) => label.name)
+      : [],
+    pullRequest: !!item?.pull_request,
+    body: text(item?.body, 400)
+  }
+}
+
+export async function getGithubReadme(repo: string): Promise<GithubReadme | null> {
+  const name = String(repo || '').trim()
+  if (!isGithubRepo(name)) throw createError({ statusCode: 400, statusMessage: '仓库名格式不正确' })
+  const settings = await getGithubSettings()
+  const ttl = Math.max(60, Number(settings.readmeCacheSec) || 300) * 1000
+  const maxBytes = Math.max(32, Number(settings.readmeMaxKB) || 256) * 1024
+  const key = name.toLowerCase()
+
+  const cached = cacheGet(readmeCache, key, ttl)
+  if (cached !== undefined) return cached
+
+  let data: any
+  try {
+    data = await ghJson(`${API}/repos/${name}/readme`)
+  } catch (error: any) {
+    if (error?.statusCode === 404) {
+      cachePut(readmeCache, key, null)
+      return null
+    }
+    throw error
+  }
+  if (!data || !data.path) {
+    cachePut(readmeCache, key, null)
+    return null
+  }
+
+  let markdown = ''
+  let truncated = false
+  const size = Number(data.size) || 0
+  const detail = await getGithubRepo(name).catch(() => null)
+  const branch = detail?.defaultBranch || 'HEAD'
+
+  if (data.content && String(data.encoding).toLowerCase() === 'base64') {
+    const buffer = Buffer.from(String(data.content), 'base64')
+    truncated = buffer.length > maxBytes
+    markdown = buffer.subarray(0, maxBytes).toString('utf8')
+  } else if (data.download_url) {
+    const hit = await safeFetch(String(data.download_url), {
+      timeout: 12000,
+      maxRedirects: 3,
+      headers: { 'User-Agent': '2077Bot/1.0 (+https://my2077.com)' }
+    })
+    if (!hit || !hit.res.ok) {
+      try { await hit?.res.body?.cancel() } catch {}
+      throw createError({ statusCode: 502, statusMessage: '读取 README 失败，请稍后重试' })
+    }
+    const buffer = await readBodyCapped(hit.res, maxBytes, 12000, true)
+    truncated = buffer.length >= maxBytes || size > maxBytes
+    markdown = buffer.toString('utf8')
+  }
+
+  const result: GithubReadme = {
+    path: text(data.path, 300),
+    markdown,
+    truncated,
+    branch
+  }
+  cachePut(readmeCache, key, result)
+  return result
+}
+
+async function exploreIssues(name: string): Promise<GithubIssueItem[]> {
+  const data = await ghJson(`${API}/repos/${name}/issues?state=all&sort=updated&per_page=15`)
+  return Array.isArray(data)
+    ? data.map(normalizeIssue).filter((item): item is GithubIssueItem => !!item && !item.pullRequest)
+    : []
+}
+
+async function explorePulls(name: string): Promise<GithubIssueItem[]> {
+  const data = await ghJson(`${API}/repos/${name}/pulls?state=all&sort=updated&direction=desc&per_page=15`)
+  return Array.isArray(data)
+    ? data.map(normalizeIssue).filter((item): item is GithubIssueItem => !!item)
+    : []
+}
+
+async function exploreCommits(name: string): Promise<GithubCommitItem[]> {
+  const data = await ghJson(`${API}/repos/${name}/commits?per_page=15`)
+  if (!Array.isArray(data)) return []
+  return data.filter((item: any) => item?.sha).slice(0, 15).map((item: any) => ({
+    sha: text(item.sha, 40),
+    shortSha: text(item.sha, 40).slice(0, 7),
+    message: text(String(item.commit?.message || '').split('\n')[0], 160),
+    authorName: text(item.commit?.author?.name, 80),
+    authorLogin: text(item.author?.login, 80),
+    avatar: avatarUrl(item.author?.avatar_url),
+    date: text(item.commit?.author?.date, 40),
+    url: text(item.html_url, 300)
+  }))
+}
+
+async function exploreContributors(name: string): Promise<GithubContributorItem[]> {
+  const data = await ghJson(`${API}/repos/${name}/contributors?per_page=20`)
+  if (!Array.isArray(data)) return []
+  return data.filter((item: any) => item?.login).slice(0, 20).map((item: any) => ({
+    login: text(item.login, 80),
+    avatar: avatarUrl(item.avatar_url),
+    contributions: Number(item.contributions) || 0,
+    url: text(item.html_url, 300)
+  }))
+}
+
+async function exploreBranches(name: string): Promise<GithubBranchItem[]> {
+  const data = await ghJson(`${API}/repos/${name}/branches?per_page=100`)
+  if (!Array.isArray(data)) return []
+  return data.filter((item: any) => item?.name).slice(0, 100).map((item: any) => ({
+    name: text(item.name, 120),
+    sha: text(item.commit?.sha, 40),
+    protected: !!item.protected
+  }))
+}
+
+async function exploreTags(name: string): Promise<GithubTagItem[]> {
+  const data = await ghJson(`${API}/repos/${name}/tags?per_page=50`)
+  if (!Array.isArray(data)) return []
+  return data.filter((item: any) => item?.name).slice(0, 50).map((item: any) => ({
+    name: text(item.name, 80),
+    sha: text(item.commit?.sha, 40)
+  }))
+}
+
+async function exploreReleases(name: string): Promise<GithubReleaseItem[]> {
+  const data = await ghJson(`${API}/repos/${name}/releases?per_page=10`)
+  if (!Array.isArray(data)) return []
+  return data.filter((item: any) => item?.tag_name).slice(0, 10).map((item: any) => {
+    const release = normalizeRelease(item)
+    return {
+      id: Number(item.id) || 0,
+      tag: release?.tag || text(item.tag_name, 80),
+      name: release?.name || text(item.name || item.tag_name, 160),
+      body: text(item.body, 1200),
+      publishedAt: text(item.published_at, 40),
+      prerelease: !!item.prerelease,
+      draft: !!item.draft,
+      author: text(item.author?.login, 80),
+      assets: release?.assets || []
+    }
+  })
+}
+
+export type GithubExploreType = 'issues' | 'pulls' | 'commits' | 'contributors' | 'branches' | 'tags' | 'releases'
+
+export async function getGithubExplore(repo: string, type: GithubExploreType): Promise<GithubExploreResult> {
+  const name = String(repo || '').trim()
+  if (!isGithubRepo(name)) throw createError({ statusCode: 400, statusMessage: '仓库名格式不正确' })
+  const settings = await getGithubSettings()
+  const ttl = Math.max(60, Number(settings.repoCacheSec) || 300) * 1000
+  const key = `${name.toLowerCase()}:${type}`
+
+  const cached = cacheGet(exploreCache, key, ttl)
+  if (cached !== undefined) return cached
+
+  let partial = false
+  const pick = <T>(task: Promise<T[]>): Promise<T[]> => task.catch(() => { partial = true; return [] })
+
+  const result: GithubExploreResult = {
+    issues: [],
+    pulls: [],
+    commits: [],
+    contributors: [],
+    branches: [],
+    tags: [],
+    releases: [],
+    partial: false
+  }
+
+  if (type === 'issues') result.issues = await pick(exploreIssues(name))
+  else if (type === 'pulls') result.pulls = await pick(explorePulls(name))
+  else if (type === 'commits') result.commits = await pick(exploreCommits(name))
+  else if (type === 'contributors') result.contributors = await pick(exploreContributors(name))
+  else if (type === 'branches') result.branches = await pick(exploreBranches(name))
+  else if (type === 'tags') result.tags = await pick(exploreTags(name))
+  else if (type === 'releases') result.releases = await pick(exploreReleases(name))
+
+  result.partial = partial
+  cachePut(exploreCache, key, result)
+  return result
 }

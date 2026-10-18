@@ -1,8 +1,10 @@
 import { getGithubContents } from '../../utils/github'
 import { rateLimit } from '../../utils/rateLimit'
+import { requireGithubSettings } from '../../utils/githubSettings'
 
 export default defineEventHandler(async (event) => {
   await rateLimit(event, 'github-contents', 60, 60_000)
+  await requireGithubSettings()
 
   const q = getQuery(event)
   const repo = String(q.repo || '').trim()

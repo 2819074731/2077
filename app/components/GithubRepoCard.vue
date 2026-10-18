@@ -108,7 +108,7 @@ function formatDate(value: string): string {
             查看项目
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6" /></svg>
           </NuxtLink>
-          <span class="text-[11.5px] text-ink3">浏览文件与版本下载</span>
+          <span class="text-[11.5px] text-ink3">阅读 README 与项目内容</span>
         </div>
       </div>
     </div>

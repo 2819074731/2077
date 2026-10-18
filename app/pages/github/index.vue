@@ -26,13 +26,17 @@ interface SearchResult {
 const route = useRoute()
 const router = useRouter()
 const siteUrl = useRuntimeConfig().public.siteUrl
+const { settings, loadSiteSettings } = useSiteSettings()
+await loadSiteSettings()
+
+const gh = computed(() => settings.value.github)
 
 const query = computed(() => String(route.query.q || '').replace(/\s+/g, ' ').trim().slice(0, 80))
 const sort = computed(() => {
-  const value = String(route.query.sort || 'best')
-  return ['stars', 'forks', 'updated'].includes(value) ? value : 'best'
+  const value = String(route.query.sort || gh.value.defaultSort)
+  return ['stars', 'forks', 'updated'].includes(value) ? value : gh.value.defaultSort
 })
-const page = computed(() => Math.max(1, Math.min(20, Number.parseInt(String(route.query.page || '1'), 10) || 1)))
+const page = computed(() => Math.max(1, Math.min(gh.value.maxPages, Number.parseInt(String(route.query.page || '1'), 10) || 1)))
 
 const SORTS = [
   { value: 'best', label: '最佳匹配' },
@@ -56,7 +60,7 @@ const { data, pending, error, refresh } = await useAsyncData<SearchResult | null
 const loading = computed(() => pending.value || (!data.value && !error.value))
 const items = computed(() => data.value?.items || [])
 const total = computed(() => data.value?.total || 0)
-const pageCount = computed(() => Math.min(20, Math.max(1, Math.ceil(total.value / 20))))
+const pageCount = computed(() => Math.min(gh.value.maxPages, Math.max(1, Math.ceil(total.value / Math.max(10, gh.value.pageSize)))))
 const errorMessage = computed(() => {
   const e: any = error.value
   return e?.data?.statusMessage || e?.statusMessage || '搜索失败，请稍后重试'
@@ -64,9 +68,9 @@ const errorMessage = computed(() => {
 
 useSeoMeta({
   title: () => query.value ? `${query.value} · GitHub 项目搜索` : 'GitHub 项目搜索',
-  description: '搜索 GitHub 仓库，查看项目文件、Release 与源码下载。',
+  description: '搜索 GitHub 仓库，阅读 README、Issues、提交与版本。',
   ogTitle: () => query.value ? `${query.value} · GitHub 项目搜索` : 'GitHub 项目搜索',
-  ogDescription: '搜索 GitHub 仓库，查看项目文件、Release 与源码下载。'
+  ogDescription: '搜索 GitHub 仓库，阅读 README、Issues、提交与版本。'
 })
 
 useHead(() => ({
@@ -79,7 +83,7 @@ function pushSearch(text: string, nextSort = sort.value, nextPage = 1) {
     path: '/github',
     query: {
       q: text,
-      ...(nextSort !== 'best' ? { sort: nextSort } : {}),
+      ...(nextSort !== gh.value.defaultSort ? { sort: nextSort } : {}),
       ...(nextPage > 1 ? { page: String(nextPage) } : {})
     }
   })
@@ -91,7 +95,7 @@ function submit(text: string) {
 
 function changeSort(value: string) {
   if (!query.value) return
-  pushSearch(query.value, ['stars', 'forks', 'updated'].includes(value) ? value : 'best')
+  pushSearch(query.value, ['stars', 'forks', 'updated'].includes(value) ? value : gh.value.defaultSort)
 }
 
 function goPage(value: number) {
@@ -106,7 +110,7 @@ function tryQuery(term: string) {
 <template>
   <SearchResultsPage
     title="GitHub 项目搜索"
-    description="搜索仓库，查看项目文件、Release 与源码下载"
+    description="搜索仓库，默认阅读 README，并查看 Issues、提交与版本"
     badge="仓库搜索"
     placeholder="搜索仓库，支持 language:typescript stars:&gt;1000 等语法"
     :query="query"
@@ -141,12 +145,12 @@ function tryQuery(term: string) {
             <p class="leading-relaxed">查看简介、Star、Fork、语言、许可证与更新时间。</p>
           </div>
           <div class="rounded-xl border border-line bg-card2 p-4">
-            <p class="font-medium text-ink mb-1">文件浏览</p>
-            <p class="leading-relaxed">进入项目即可查看目录与文件内容，无需跳转 GitHub。</p>
+            <p class="font-medium text-ink mb-1">项目主页</p>
+            <p class="leading-relaxed">默认展示 README，并可切换 Issues、Pull requests、Commits 与版本。</p>
           </div>
           <div class="rounded-xl border border-line bg-card2 p-4">
-            <p class="font-medium text-ink mb-1">版本下载</p>
-            <p class="leading-relaxed">获取默认分支源码 ZIP 与最新 Release 附件。</p>
+            <p class="font-medium text-ink mb-1">文件与下载</p>
+            <p class="leading-relaxed">浏览目录与文件内容，获取源码 ZIP 与 Release 附件。</p>
           </div>
         </div>
       </section>

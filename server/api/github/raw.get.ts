@@ -1,8 +1,8 @@
 import { Readable, Transform } from 'node:stream'
 import { openGithubRaw } from '../../utils/github'
 import { rateLimit } from '../../utils/rateLimit'
-
-const MAX_BYTES = 20 * 1024 * 1024
+import { assertGithubAssetAccess, githubRawTarget } from '../../utils/githubAsset'
+import { getGithubSettings } from '../../utils/githubSettings'
 
 function attachment(name: string): string {
   const ascii = name.replace(/[^\x20-\x7E]/g, '_').replace(/["\\]/g, '_')
@@ -11,11 +11,17 @@ function attachment(name: string): string {
 
 export default defineEventHandler(async (event) => {
   await rateLimit(event, 'github-raw', 30, 60_000)
+  const settings = await getGithubSettings()
+  const maxBytes = Math.max(1, Number(settings.rawMaxMB) || 20) * 1024 * 1024
 
   const q = getQuery(event)
   const repo = String(q.repo || '').trim()
   const path = String(q.path || '')
   const download = String(q.download || '') === '1'
+
+  if (settings.antiHotlink) {
+    assertGithubAssetAccess(event, 'raw', githubRawTarget(repo, path), settings)
+  }
 
   const file = await openGithubRaw(repo, path)
   const stream = Readable.fromWeb(file.response.body as any)
@@ -23,7 +29,7 @@ export default defineEventHandler(async (event) => {
   const limiter = new Transform({
     transform(chunk, _encoding, callback) {
       total += chunk.length
-      if (total > MAX_BYTES) {
+      if (total > maxBytes) {
         callback(new Error('file-too-large'))
         return
       }

@@ -1,4 +1,35 @@
 export type SubmitTarget = 'nav' | 'directory'
+export type GithubSort = 'best' | 'stars' | 'forks' | 'updated'
+
+export interface GithubSettings {
+  enabled: boolean
+  defaultSort: GithubSort
+  pageSize: number
+  maxPages: number
+  showReadme: boolean
+  readmeMaxKB: number
+  filePreviewMaxKB: number
+  showIssues: boolean
+  showPulls: boolean
+  showReleases: boolean
+  showCommits: boolean
+  showContributors: boolean
+  showRefs: boolean
+  enableZip: boolean
+  enableReleaseDownload: boolean
+  maxZipMB: number
+  maxAssetMB: number
+  rawMaxMB: number
+  antiHotlink: boolean
+  allowEmptyReferer: boolean
+  refererWhitelist: string
+  assetTtlSec: number
+  imageMaxMB: number
+  imageRatePerMin: number
+  searchCacheSec: number
+  repoCacheSec: number
+  readmeCacheSec: number
+}
 
 export interface SiteSettings {
   siteName: string
@@ -17,6 +48,7 @@ export interface SiteSettings {
   tdkTtlDays: number
   icpNumber: string
   contactEmail: string
+  github: GithubSettings
 }
 
 export const DEFAULT_SITE_SETTINGS: SiteSettings = {
@@ -35,7 +67,36 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   linkTtlDays: 7,
   tdkTtlDays: 7,
   icpNumber: '',
-  contactEmail: ''
+  contactEmail: '',
+  github: {
+    enabled: true,
+    defaultSort: 'best',
+    pageSize: 20,
+    maxPages: 20,
+    showReadme: true,
+    readmeMaxKB: 256,
+    filePreviewMaxKB: 512,
+    showIssues: true,
+    showPulls: true,
+    showReleases: true,
+    showCommits: true,
+    showContributors: true,
+    showRefs: true,
+    enableZip: true,
+    enableReleaseDownload: true,
+    maxZipMB: 512,
+    maxAssetMB: 512,
+    rawMaxMB: 20,
+    antiHotlink: true,
+    allowEmptyReferer: false,
+    refererWhitelist: '',
+    assetTtlSec: 600,
+    imageMaxMB: 10,
+    imageRatePerMin: 120,
+    searchCacheSec: 300,
+    repoCacheSec: 300,
+    readmeCacheSec: 600
+  }
 }
 
 function text(value: unknown, fallback: string, max: number): string {
@@ -70,6 +131,11 @@ export function normalizeSiteSettings(raw: any): SiteSettings {
   let schedule = text(src.maintenanceSchedule, DEFAULT_SITE_SETTINGS.maintenanceSchedule, 5)
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(schedule)) schedule = DEFAULT_SITE_SETTINGS.maintenanceSchedule
 
+  const ghSrc = src.github && typeof src.github === 'object' ? src.github : {}
+  const ghSort: GithubSort = ['best', 'stars', 'forks', 'updated'].includes(ghSrc.defaultSort)
+    ? ghSrc.defaultSort
+    : DEFAULT_SITE_SETTINGS.github.defaultSort
+
   return {
     siteName: text(src.siteName, DEFAULT_SITE_SETTINGS.siteName, 40) || DEFAULT_SITE_SETTINGS.siteName,
     siteShortName: text(src.siteShortName, DEFAULT_SITE_SETTINGS.siteShortName, 12) || DEFAULT_SITE_SETTINGS.siteShortName,
@@ -86,7 +152,36 @@ export function normalizeSiteSettings(raw: any): SiteSettings {
     linkTtlDays: integer(src.linkTtlDays, DEFAULT_SITE_SETTINGS.linkTtlDays, 1, 90),
     tdkTtlDays: integer(src.tdkTtlDays, DEFAULT_SITE_SETTINGS.tdkTtlDays, 1, 90),
     icpNumber: text(src.icpNumber, DEFAULT_SITE_SETTINGS.icpNumber, 60),
-    contactEmail: text(src.contactEmail, DEFAULT_SITE_SETTINGS.contactEmail, 120)
+    contactEmail: text(src.contactEmail, DEFAULT_SITE_SETTINGS.contactEmail, 120),
+    github: {
+      enabled: bool(ghSrc.enabled, DEFAULT_SITE_SETTINGS.github.enabled),
+      defaultSort: ghSort,
+      pageSize: integer(ghSrc.pageSize, DEFAULT_SITE_SETTINGS.github.pageSize, 10, 30),
+      maxPages: integer(ghSrc.maxPages, DEFAULT_SITE_SETTINGS.github.maxPages, 1, 20),
+      showReadme: bool(ghSrc.showReadme, DEFAULT_SITE_SETTINGS.github.showReadme),
+      readmeMaxKB: integer(ghSrc.readmeMaxKB, DEFAULT_SITE_SETTINGS.github.readmeMaxKB, 32, 512),
+      filePreviewMaxKB: integer(ghSrc.filePreviewMaxKB, DEFAULT_SITE_SETTINGS.github.filePreviewMaxKB, 64, 2048),
+      showIssues: bool(ghSrc.showIssues, DEFAULT_SITE_SETTINGS.github.showIssues),
+      showPulls: bool(ghSrc.showPulls, DEFAULT_SITE_SETTINGS.github.showPulls),
+      showReleases: bool(ghSrc.showReleases, DEFAULT_SITE_SETTINGS.github.showReleases),
+      showCommits: bool(ghSrc.showCommits, DEFAULT_SITE_SETTINGS.github.showCommits),
+      showContributors: bool(ghSrc.showContributors, DEFAULT_SITE_SETTINGS.github.showContributors),
+      showRefs: bool(ghSrc.showRefs, DEFAULT_SITE_SETTINGS.github.showRefs),
+      enableZip: bool(ghSrc.enableZip, DEFAULT_SITE_SETTINGS.github.enableZip),
+      enableReleaseDownload: bool(ghSrc.enableReleaseDownload, DEFAULT_SITE_SETTINGS.github.enableReleaseDownload),
+      maxZipMB: integer(ghSrc.maxZipMB, DEFAULT_SITE_SETTINGS.github.maxZipMB, 10, 1024),
+      maxAssetMB: integer(ghSrc.maxAssetMB, DEFAULT_SITE_SETTINGS.github.maxAssetMB, 10, 2048),
+      rawMaxMB: integer(ghSrc.rawMaxMB, DEFAULT_SITE_SETTINGS.github.rawMaxMB, 1, 100),
+      antiHotlink: bool(ghSrc.antiHotlink, DEFAULT_SITE_SETTINGS.github.antiHotlink),
+      allowEmptyReferer: bool(ghSrc.allowEmptyReferer, DEFAULT_SITE_SETTINGS.github.allowEmptyReferer),
+      refererWhitelist: text(ghSrc.refererWhitelist, DEFAULT_SITE_SETTINGS.github.refererWhitelist, 500),
+      assetTtlSec: integer(ghSrc.assetTtlSec, DEFAULT_SITE_SETTINGS.github.assetTtlSec, 60, 3600),
+      imageMaxMB: integer(ghSrc.imageMaxMB, DEFAULT_SITE_SETTINGS.github.imageMaxMB, 1, 50),
+      imageRatePerMin: integer(ghSrc.imageRatePerMin, DEFAULT_SITE_SETTINGS.github.imageRatePerMin, 10, 300),
+      searchCacheSec: integer(ghSrc.searchCacheSec, DEFAULT_SITE_SETTINGS.github.searchCacheSec, 60, 3600),
+      repoCacheSec: integer(ghSrc.repoCacheSec, DEFAULT_SITE_SETTINGS.github.repoCacheSec, 60, 3600),
+      readmeCacheSec: integer(ghSrc.readmeCacheSec, DEFAULT_SITE_SETTINGS.github.readmeCacheSec, 60, 3600)
+    }
   }
 }
 
