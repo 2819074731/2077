@@ -177,7 +177,26 @@ async function jsonFrom(
 }
 
 async function ghJson(url: string, accept = 'application/vnd.github+json'): Promise<any> {
-  return jsonFrom(url, { headers: apiHeaders(accept) })
+  try {
+    return await jsonFrom(url, { headers: apiHeaders(accept) })
+  } catch (error: any) {
+    const status = Number(error?.statusCode)
+    if (!url.startsWith(`${API}/`) || (status !== 502 && status !== 503)) throw error
+    const settings = await getGithubSettings().catch(() => null)
+    if (!settings?.searchFallback) throw error
+    for (const base of searchRelays(settings)) {
+      try {
+        return await jsonFrom(`${base}/${url}`, {
+          headers: relayHeaders(),
+          timeout: 9000,
+          maxRedirects: 3
+        })
+      } catch (relayError: any) {
+        console.warn('[github-api] relay failed:', base, relayError?.statusMessage || relayError?.message || relayError)
+      }
+    }
+    throw error
+  }
 }
 
 function text(value: unknown, max: number): string {
