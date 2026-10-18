@@ -1,9 +1,9 @@
+import { DEFAULT_GITHUB_SEARCH_RELAYS, type GithubSettings } from '#shared/siteSettings'
 import { readBodyCapped, safeFetch } from './safeUrl'
 import { getGithubSettings } from './githubSettings'
 import { signGithubRawUrl } from './githubAsset'
 
 const API = 'https://api.github.com'
-const DEFAULT_SEARCH_RELAYS = ['https://gh-proxy.com', 'https://gh.llkk.cc']
 const SEARCH_TTL = 5 * 60 * 1000
 const RELEASE_TTL = 10 * 60 * 1000
 const MAX_CACHE = 300
@@ -93,14 +93,15 @@ function relayHeaders(): Record<string, string> {
   }
 }
 
-function searchRelays(): string[] {
+function searchRelays(settings: GithubSettings): string[] {
+  if (settings.searchRelays.length) return settings.searchRelays
   const raw = process.env.GITHUB_SEARCH_RELAYS
-  const values = raw ? raw.split(',') : DEFAULT_SEARCH_RELAYS
+  const values = raw ? raw.split(',') : DEFAULT_GITHUB_SEARCH_RELAYS
   const result: string[] = []
   for (const value of values) {
     try {
       const url = new URL(String(value).trim())
-      if (url.protocol !== 'https:' || url.username || url.password) continue
+      if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) continue
       result.push(url.href.replace(/\/$/, ''))
     } catch {}
     if (result.length >= 6) break
@@ -260,7 +261,7 @@ async function fetchSearchJson(
   }]
 
   if (settings.searchFallback) {
-    for (const base of searchRelays()) {
+    for (const base of searchRelays(settings)) {
       attempts.push({
         label: base,
         url: `${base}/${API}/search/repositories?${queryString}`,

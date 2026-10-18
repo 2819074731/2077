@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { reactive, ref, onMounted } from 'vue'
-import { DEFAULT_SITE_SETTINGS, normalizeSiteSettings, type GithubSettings } from '#shared/siteSettings'
+import { DEFAULT_GITHUB_SEARCH_RELAYS, DEFAULT_SITE_SETTINGS, normalizeSiteSettings, type GithubSettings } from '#shared/siteSettings'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
@@ -22,6 +22,48 @@ function apply(raw: any) {
   Object.assign(form, normalizeSiteSettings({ ...DEFAULT_SITE_SETTINGS, github: raw }).github)
 }
 
+function addRelay() {
+  if (form.searchRelays.length >= 6) return
+  form.searchRelays.push('')
+}
+
+function removeRelay(index: number) {
+  form.searchRelays.splice(index, 1)
+}
+
+function moveRelay(index: number, delta: number) {
+  const next = index + delta
+  if (next < 0 || next >= form.searchRelays.length) return
+  const [item] = form.searchRelays.splice(index, 1)
+  if (item === undefined) return
+  form.searchRelays.splice(next, 0, item)
+}
+
+function resetRelays() {
+  form.searchRelays = [...DEFAULT_GITHUB_SEARCH_RELAYS]
+}
+
+function validateRelays(): string {
+  const seen = new Set<string>()
+  for (const value of form.searchRelays) {
+    const raw = value.trim()
+    if (!raw) continue
+    let url: URL
+    try {
+      url = new URL(raw)
+    } catch {
+      return `中转线路格式不正确：${raw}`
+    }
+    if (url.protocol !== 'https:') return '中转线路必须使用 https'
+    if (url.username || url.password) return '中转线路不能包含账号密码'
+    if (url.search || url.hash) return '中转线路不能包含查询参数或锚点'
+    const normalized = url.href.replace(/\/$/, '')
+    if (seen.has(normalized)) return `中转线路重复：${normalized}`
+    seen.add(normalized)
+  }
+  return ''
+}
+
 onMounted(async () => {
   try {
     const data: any = await $fetch('/api/admin/engine-settings')
@@ -35,6 +77,8 @@ onMounted(async () => {
 
 function validate(): string {
   if (!['best', 'stars', 'forks', 'updated'].includes(form.defaultSort)) return 'GitHub 默认排序不正确'
+  const relayError = validateRelays()
+  if (relayError) return relayError
   if (form.pageSize < 10 || form.pageSize > 30) return 'GitHub 每页结果需在 10-30 之间'
   if (form.maxPages < 1 || form.maxPages > 20) return 'GitHub 最大页数需在 1-20 之间'
   if (form.readmeMaxKB < 32 || form.readmeMaxKB > 512) return 'README 上限需在 32-512 KB 之间'
@@ -61,9 +105,10 @@ async function save() {
   if (error) { flash(error, 'err'); return }
   saving.value = true
   try {
+    const relays = form.searchRelays.map(value => value.trim()).filter(Boolean)
     const data: any = await $fetch('/api/admin/engine-settings', {
       method: 'PUT',
-      body: { github: { ...form } }
+      body: { github: { ...form, searchRelays: relays } }
     })
     apply(data?.github)
     flash('已保存，前台约 15 秒内生效')
@@ -166,10 +211,44 @@ async function save() {
             <span>
               官方接口受限时自动切换第三方中转
               <span class="mt-1 block text-[11.5px] font-normal leading-relaxed text-ink2">
-                按顺序尝试 GitHub 官方接口和第三方中转，第三方不会收到 GitHub Token。服务端可用 GITHUB_TOKENS 配置多个 Token 轮询，用 GITHUB_SEARCH_RELAYS 覆盖默认中转线路。
+                按顺序尝试 GitHub 官方接口和下方中转线路，第三方不会收到 GitHub Token。多 Token 仍通过服务端 GITHUB_TOKENS 配置，不会保存在这里。
               </span>
             </span>
           </label>
+
+          <div class="mt-4 border-t border-line pt-3">
+            <div class="flex items-start justify-between gap-3 flex-wrap">
+              <div>
+                <p class="text-[13px] font-semibold">第三方中转线路</p>
+                <p class="mt-0.5 text-[11.5px] text-ink2">按顺序尝试，最多 6 个；仅用于搜索接口。</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <button type="button" class="btn btn-sm btn-ghost" @click="resetRelays">恢复默认</button>
+                <button type="button" class="btn btn-sm btn-ghost" :disabled="form.searchRelays.length >= 6" @click="addRelay">添加线路</button>
+              </div>
+            </div>
+
+            <div v-if="form.searchRelays.length" class="mt-3 space-y-2">
+              <div v-for="(relay, index) in form.searchRelays" :key="index" class="flex items-center gap-2">
+                <span class="w-5 shrink-0 text-center text-[11px] tabular-nums text-ink3">{{ index + 1 }}</span>
+                <input
+                  v-model="form.searchRelays[index]"
+                  type="text"
+                  class="field min-w-0 flex-1 text-[12.5px]"
+                  :aria-label="`中转线路 ${index + 1}`"
+                  placeholder="https://example.com"
+                  spellcheck="false"
+                  autocomplete="off"
+                />
+                <button type="button" class="btn btn-sm btn-ghost !px-2" :disabled="index === 0" aria-label="上移" @click="moveRelay(index, -1)">↑</button>
+                <button type="button" class="btn btn-sm btn-ghost !px-2" :disabled="index === form.searchRelays.length - 1" aria-label="下移" @click="moveRelay(index, 1)">↓</button>
+                <button type="button" class="btn btn-sm btn-ghost !px-2 text-danger" aria-label="移除" @click="removeRelay(index)">×</button>
+              </div>
+            </div>
+            <p v-else class="mt-3 rounded-lg border border-dashed border-line px-3 py-2 text-[11.5px] text-ink3">
+              当前未配置，将回退到服务端 GITHUB_SEARCH_RELAYS 或内置线路。
+            </p>
+          </div>
         </div>
 
         <h3 class="mt-6 text-[13.5px] font-semibold">项目页内容</h3>

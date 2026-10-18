@@ -1,6 +1,8 @@
 export type SubmitTarget = 'nav' | 'directory'
 export type GithubSort = 'best' | 'stars' | 'forks' | 'updated'
 
+export const DEFAULT_GITHUB_SEARCH_RELAYS = ['https://gh-proxy.com', 'https://gh.llkk.cc']
+
 export interface GithubSettings {
   enabled: boolean
   defaultSort: GithubSort
@@ -28,6 +30,7 @@ export interface GithubSettings {
   imageRatePerMin: number
   searchCacheSec: number
   searchFallback: boolean
+  searchRelays: string[]
   repoCacheSec: number
   readmeCacheSec: number
 }
@@ -96,6 +99,7 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
     imageRatePerMin: 120,
     searchCacheSec: 300,
     searchFallback: true,
+    searchRelays: [...DEFAULT_GITHUB_SEARCH_RELAYS],
     repoCacheSec: 300,
     readmeCacheSec: 600
   }
@@ -114,6 +118,24 @@ function integer(value: unknown, fallback: number, min: number, max: number): nu
   const n = Number(value)
   if (!Number.isFinite(n)) return fallback
   return Math.min(max, Math.max(min, Math.round(n)))
+}
+
+function relayList(value: unknown, fallback: string[]): string[] {
+  if (!Array.isArray(value)) return [...fallback]
+  const result: string[] = []
+  for (const item of value) {
+    if (typeof item !== 'string') continue
+    const raw = item.trim()
+    if (!raw) continue
+    try {
+      const url = new URL(raw)
+      if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) continue
+      const normalized = url.href.replace(/\/$/, '')
+      if (!result.includes(normalized)) result.push(normalized)
+    } catch {}
+    if (result.length >= 6) break
+  }
+  return result
 }
 
 /** 统一清洗配置，服务端保存与公开读取共用，避免历史脏数据进入页面。 */
@@ -182,6 +204,7 @@ export function normalizeSiteSettings(raw: any): SiteSettings {
       imageRatePerMin: integer(ghSrc.imageRatePerMin, DEFAULT_SITE_SETTINGS.github.imageRatePerMin, 10, 300),
       searchCacheSec: integer(ghSrc.searchCacheSec, DEFAULT_SITE_SETTINGS.github.searchCacheSec, 60, 3600),
       searchFallback: bool(ghSrc.searchFallback, DEFAULT_SITE_SETTINGS.github.searchFallback),
+      searchRelays: relayList(ghSrc.searchRelays, DEFAULT_GITHUB_SEARCH_RELAYS),
       repoCacheSec: integer(ghSrc.repoCacheSec, DEFAULT_SITE_SETTINGS.github.repoCacheSec, 60, 3600),
       readmeCacheSec: integer(ghSrc.readmeCacheSec, DEFAULT_SITE_SETTINGS.github.readmeCacheSec, 60, 3600)
     }
