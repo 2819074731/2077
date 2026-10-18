@@ -350,7 +350,7 @@ async function toggleDownload(repo: Repo) {
       </div>
 
       <div v-else class="grid gap-3">
-        <article v-for="repo in items" :key="repo.fullName" class="card p-4 sm:p-5">
+        <article v-for="repo in items" :key="repo.fullName" class="card min-w-0 p-4 sm:p-5">
           <div class="flex gap-3 sm:gap-4">
             <div class="grid place-items-center w-10 h-10 rounded-xl text-white text-[13px] font-bold shrink-0" :style="avatarStyle(repo.owner)">
               {{ initial(repo.owner) }}
@@ -414,7 +414,7 @@ async function toggleDownload(repo: Repo) {
                         :href="assetHref(repo, asset)"
                         class="flex items-center justify-between gap-3 min-h-9 px-3 py-1.5 rounded-lg bg-card border border-line text-[13px] hover:border-line2 transition-colors"
                       >
-                        <span class="truncate">{{ asset.name }}</span>
+                        <span class="truncate min-w-0">{{ asset.name }}</span>
                         <span class="text-[11px] text-ink3 shrink-0">{{ formatBytes(asset.size) }}</span>
                       </a>
                       <p v-if="!releaseFor(repo)?.assets?.length" class="px-1 text-[12px] text-ink2">
