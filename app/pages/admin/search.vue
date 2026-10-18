@@ -136,19 +136,33 @@ function ago(checkedAt: number | null) {
     <section class="card overflow-hidden mb-3">
       <div class="px-4 py-3 border-b border-line flex items-center gap-2 flex-wrap">
         <h2 class="font-semibold text-[14px]">每日搜索</h2>
-        <span class="text-[11.5px] text-ink3">共 {{ summary.total }} 次</span>
+        <span class="text-[11.5px] text-ink3">近 {{ days }} 天共 {{ summary.total }} 次</span>
+        <span class="ml-auto inline-flex items-center gap-2 text-[11px] text-ink3">
+          <span class="inline-flex items-center gap-1"><i class="w-2 h-2 rounded-sm bg-ink/70" />有搜索</span>
+          <span class="inline-flex items-center gap-1"><i class="w-2 h-2 rounded-sm bg-line" />无搜索</span>
+        </span>
       </div>
       <div v-if="loading" class="p-8 text-center text-ink2 text-[13px]">加载中…</div>
       <div v-else-if="!summary.total" class="p-8 text-center text-ink2 text-[13px]">暂无搜索数据，前台产生搜索后自动统计</div>
       <div v-else class="p-4">
-        <div class="flex items-end h-24" :class="daily.length > 30 ? 'gap-px' : 'gap-[2px]'">
-          <div
-            v-for="d in daily"
-            :key="d.d"
-            class="flex-1 min-w-0 rounded-t bg-ink/70 hover:bg-ink transition-colors"
-            :style="{ height: Math.max(2, Math.round(Number(d.n) / maxDaily * 100)) + '%' }"
-            :title="`${d.d}：${d.n} 次`"
-          />
+        <div class="flex items-center gap-2 text-[11.5px] text-ink2 mb-2">
+          <span class="font-medium text-ink">今日 {{ summary.today }} 次</span>
+          <span class="text-ink3">峰值 {{ maxDaily }} 次</span>
+        </div>
+        <div class="relative h-28 rounded-lg bg-card2/60 overflow-hidden">
+          <div class="absolute inset-0 flex flex-col justify-between py-1 pointer-events-none">
+            <span v-for="n in 4" :key="n" class="block border-t border-line/70" />
+          </div>
+          <div class="absolute inset-0 flex items-end px-1.5 pb-1.5" :class="daily.length > 30 ? 'gap-px' : 'gap-[3px]'">
+            <div
+              v-for="d in daily"
+              :key="d.d"
+              class="flex-1 min-w-0 rounded-t transition-colors"
+              :class="Number(d.n) > 0 ? 'bg-ink/70 hover:bg-ink' : 'bg-line'"
+              :style="{ height: Number(d.n) > 0 ? Math.max(8, Math.round(Number(d.n) / maxDaily * 100)) + '%' : '3px' }"
+              :title="`${d.d}：${d.n} 次`"
+            />
+          </div>
         </div>
         <div class="flex justify-between text-[10.5px] text-ink3 mt-2">
           <span>{{ daily[0]?.d }}</span>

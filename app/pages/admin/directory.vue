@@ -355,8 +355,9 @@ async function act(e: Entry, action: string) {
   try {
     const body: any = { action, id: e.id }
     if (action === 'status') body.status = e.status === 'published' ? 'hidden' : 'published'
+    if (action === 'featured') body.featured = e.featured ? 0 : 1
     await $fetch('/api/admin/directory', { method: 'POST', body })
-    flash(action === 'delete' ? '已删除' : '状态已更新')
+    flash(action === 'delete' ? '已删除' : action === 'featured' ? (e.featured ? '已取消推荐' : '已设为推荐') : '状态已更新')
     await load()
   } catch (err: any) {
     flash(err?.data?.statusMessage || err?.data?.message || '操作失败')
@@ -521,6 +522,7 @@ onBeforeUnmount(() => {
               <a v-else :href="e.url" target="_blank" rel="noopener" class="flex items-center h-8 px-2.5 rounded-lg text-[12.5px] text-ink2 hover:bg-card2" @click="closeRowMenu">访问官网</a>
               <button class="flex items-center w-full h-8 px-2.5 rounded-lg text-[12.5px] text-ink2 hover:bg-card2" @click="closeRowMenu($event); openEdit(e)">编辑</button>
               <button class="flex items-center w-full h-8 px-2.5 rounded-lg text-[12.5px] text-ink2 hover:bg-card2" @click="closeRowMenu($event); act(e, 'status')">{{ e.status === 'published' ? '隐藏' : '发布' }}</button>
+              <button class="flex items-center w-full h-8 px-2.5 rounded-lg text-[12.5px] text-ink2 hover:bg-card2" @click="closeRowMenu($event); act(e, 'featured')">{{ e.featured ? '取消推荐' : '设为推荐' }}</button>
               <button class="flex items-center w-full h-8 px-2.5 rounded-lg text-[12.5px] text-danger hover:bg-card2" @click="closeRowMenu($event); act(e, 'delete')">删除</button>
             </div>
           </details>

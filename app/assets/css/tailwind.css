@@ -139,6 +139,7 @@ img.img-error {
     color: var(--bg);
   }
   .btn-primary:hover {
+    @apply bg-accent;
     filter: brightness(0.94);
   }
   .btn-ghost {

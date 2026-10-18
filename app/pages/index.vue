@@ -119,7 +119,7 @@ function openDrawer() { drawerOpen.value = true }
     <CategoryBar />
 
     <div class="animate-fade-up [content-visibility:auto] [contain-intrinsic-size:auto_600px]">
-      <DirectoryCategory v-if="activeEmpty && !diy" :category="activeCategoryName" />
+      <DirectoryCategory v-if="activeEmpty && !diy" :key="activeCategoryName" :category="activeCategoryName" />
       <div v-else-if="activeEmpty" class="card p-6 sm:p-8 text-center mb-8">
         <p class="text-[15px] font-semibold">{{ activeCategoryName }}</p>
         <p class="mt-1 text-[12.5px] text-ink2">该分类暂无首页导航站点，可在分类目录中浏览收录内容。</p>

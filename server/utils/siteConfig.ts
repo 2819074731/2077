@@ -33,7 +33,7 @@ export async function getSiteConfig(): Promise<SiteConfig> {
   if (stored && Array.isArray(stored.groups) && stored.groups.length) {
     data = {
       groups: stored.groups,
-      recommended: Array.isArray(stored.recommended) && stored.recommended.length
+      recommended: Array.isArray(stored.recommended)
         ? stored.recommended
         : RECOMMENDED_LINKS.map((l) => ({ name: l.name, url: l.url }))
     }

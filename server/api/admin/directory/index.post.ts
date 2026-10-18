@@ -30,6 +30,14 @@ export default defineEventHandler(async (event) => {
     return { ok: true, status }
   }
 
+  if (action === 'featured') {
+    const id = Number(body?.id)
+    if (!id) throw createError({ statusCode: 400, statusMessage: '缺少 ID' })
+    const featured = body?.featured ? 1 : 0
+    await db.execute('UPDATE directory_entries SET featured = ? WHERE id = ?', [featured, id])
+    return { ok: true, featured }
+  }
+
   if (action === 'bulk') {
     const ids = Array.isArray(body?.ids)
       ? [...new Set(body.ids.map(Number).filter((n: number) => Number.isInteger(n) && n > 0))]

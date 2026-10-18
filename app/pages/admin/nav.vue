@@ -5,12 +5,11 @@ import { parseBookmarksHtml } from '#shared/bookmarks'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
-interface ALink { name: string; url: string; icon?: string; category?: string }
+interface ALink { name: string; url: string; icon?: string; category?: string; recommended?: boolean }
 interface NavLink extends ALink { category: string }
 interface HealthInfo { status: number; checkedAt: string }
 
 const links = ref<NavLink[]>([])
-const recommended = ref<ALink[]>([])
 const categories = ref<string[]>([])
 const loading = ref(true)
 const saving = ref(false)
@@ -27,7 +26,6 @@ const checking = ref(false)
 const checkDone = ref(0)
 const checkTotal = ref(0)
 
-const view = ref<'nav' | 'recommended'>('nav')
 const category = ref('')
 const kw = ref('')
 const page = ref(1)
@@ -36,7 +34,6 @@ const snapshot = ref('')
 
 interface LinkEditor {
   mode: 'new' | 'edit'
-  kind: 'nav' | 'recommended'
   draft: ALink
   original?: NavLink
   indexAtOpen: number
@@ -109,21 +106,19 @@ const navDuplicateKeys = computed(() => {
   }
   return new Set(Array.from(counts.entries()).filter(([, n]) => n > 1).map(([id]) => id))
 })
-const recDuplicateKeys = computed(() => keysWithDuplicates(recommended.value))
+const recommendedLinks = computed(() => links.value.filter(l => l.recommended))
 const duplicateCount = computed(() =>
   links.value.filter(l => navDuplicateKeys.value.has(`${l.category}\u0000${normalizeKey(l.url)}`)).length
-  + recommended.value.filter(l => recDuplicateKeys.value.has(normalizeKey(l.url))).length
 )
 const invalidCount = computed(() =>
-  [...links.value, ...recommended.value].filter(l => !l.name.trim() || !/^https?:\/\//i.test(l.url.trim())).length
+  links.value.filter(l => !l.name.trim() || !/^https?:\/\//i.test(l.url.trim())).length
 )
-const dirty = computed(() => JSON.stringify({ links: links.value, recommended: recommended.value }) !== snapshot.value)
+const dirty = computed(() => JSON.stringify(links.value) !== snapshot.value)
 
 const filtered = computed(() => {
   const keyword = kw.value.trim().toLowerCase()
-  const list = view.value === 'recommended' ? recommended.value : links.value
-  return list.filter((l) => {
-    if (view.value === 'nav' && category.value && (l as NavLink).category !== category.value) return false
+  return links.value.filter((l) => {
+    if (category.value && l.category !== category.value) return false
     if (!keyword) return true
     return l.name.toLowerCase().includes(keyword) || l.url.toLowerCase().includes(keyword)
   })
@@ -131,20 +126,10 @@ const filtered = computed(() => {
 const pages = computed(() => Math.max(1, Math.ceil(filtered.value.length / PAGE_SIZE)))
 const paged = computed(() => filtered.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE))
 
-watch([view, category, kw], () => { page.value = 1 })
+watch([category, kw], () => { page.value = 1 })
 watch(pages, (n) => { if (page.value > n) page.value = n })
 
-function keysWithDuplicates(list: ALink[]): Set<string> {
-  const counts = new Map<string, number>()
-  for (const l of list) {
-    const k = normalizeKey(l.url)
-    if (!k) continue
-    counts.set(k, (counts.get(k) || 0) + 1)
-  }
-  return new Set(Array.from(counts.entries()).filter(([, n]) => n > 1).map(([k]) => k))
-}
 function isDup(l: ALink) {
-  if (view.value === 'recommended') return recDuplicateKeys.value.has(normalizeKey(l.url))
   return navDuplicateKeys.value.has(`${l.category}\u0000${normalizeKey(l.url)}`)
 }
 const editorDup = computed(() => {
@@ -152,9 +137,7 @@ const editorDup = computed(() => {
   if (!ed) return false
   const key = normalizeKey(ed.draft.url)
   if (!key) return false
-  const pool: ALink[] = ed.kind === 'recommended'
-    ? recommended.value
-    : links.value.filter((l) => l.category === (ed.draft.category || '其他'))
+  const pool = links.value.filter((l) => l.category === (ed.draft.category || '其他'))
   return pool.some(l => l !== ed.original && normalizeKey(l.url) === key)
 })
 
@@ -205,35 +188,24 @@ function moveLink(link: NavLink, dir: number) {
   links.value.splice(a, 1)
   links.value.splice(b, 0, link)
 }
-function moveRec(link: ALink, dir: number) {
-  const i = recommended.value.indexOf(link)
-  const j = i + dir
-  if (i < 0 || j < 0 || j >= recommended.value.length) return
-  const [item] = recommended.value.splice(i, 1)
-  recommended.value.splice(j, 0, item)
-}
-
 function openNew() {
-  const cat = view.value === 'nav'
-    ? (category.value || categoryOptions.value[0] || '其他')
-    : ''
+  const cat = category.value || categoryOptions.value[0] || '其他'
   linkEditor.value = {
     mode: 'new',
-    kind: view.value,
-    draft: view.value === 'nav'
-      ? { name: '', url: '', category: cat }
-      : { name: '', url: '' },
+    draft: { name: '', url: '', category: cat },
     indexAtOpen: -1
   }
 }
 function openEdit(l: ALink) {
   linkEditor.value = {
     mode: 'edit',
-    kind: view.value,
-    draft: view.value === 'nav' ? { ...(l as NavLink) } : { ...l },
+    draft: { ...(l as NavLink) },
     original: l as NavLink,
-    indexAtOpen: view.value === 'nav' ? links.value.indexOf(l as NavLink) : recommended.value.indexOf(l)
+    indexAtOpen: links.value.indexOf(l as NavLink)
   }
+}
+function toggleRecommended(l: ALink) {
+  l.recommended = !l.recommended
 }
 function closeLinkEditor() {
   linkEditor.value = null
@@ -246,26 +218,17 @@ function saveLinkEditor() {
   if (!name) { flash('请填写站点名称', 'err'); return }
   if (!/^https?:\/\//i.test(url)) { flash('请填写有效网址', 'err'); return }
   const icon = ed.draft.icon || iconFor(url)
-  if (ed.kind === 'recommended') {
-    if (ed.mode === 'new') {
-      recommended.value.push({ name, url, icon })
-      page.value = Math.max(1, Math.ceil(recommended.value.length / PAGE_SIZE))
-    } else if (ed.original) {
-      Object.assign(ed.original, { name, url, icon })
-    }
-  } else {
-    const next: NavLink = { name, url, icon, category: ed.draft.category || '其他' }
-    if (ed.mode === 'new') {
-      insertAtCategoryEnd(next)
-      page.value = 1
-    } else if (ed.original) {
-      const oldCategory = ed.original.category
-      Object.assign(ed.original, next)
-      if (oldCategory !== next.category) {
-        const i = links.value.indexOf(ed.original)
-        if (i >= 0) links.value.splice(i, 1)
-        insertAtCategoryEnd(ed.original)
-      }
+  const next: NavLink = { name, url, icon, category: ed.draft.category || '其他', recommended: !!ed.draft.recommended }
+  if (ed.mode === 'new') {
+    insertAtCategoryEnd(next)
+    page.value = 1
+  } else if (ed.original) {
+    const oldCategory = ed.original.category
+    Object.assign(ed.original, next)
+    if (oldCategory !== next.category) {
+      const i = links.value.indexOf(ed.original)
+      if (i >= 0) links.value.splice(i, 1)
+      insertAtCategoryEnd(ed.original)
     }
   }
   linkEditor.value = null
@@ -274,21 +237,15 @@ function saveLinkEditor() {
 function editorMove(dir: number) {
   const ed = linkEditor.value
   if (!ed || ed.mode !== 'edit' || !ed.original) return
-  if (ed.kind === 'recommended') moveRec(ed.original, dir)
-  else moveLink(ed.original as NavLink, dir)
+  moveLink(ed.original as NavLink, dir)
 }
 function editorDelete() {
   const ed = linkEditor.value
   if (!ed || ed.mode !== 'edit' || !ed.original) return
   const label = ed.draft.name || hostOf(ed.draft.url) || '该站点'
   if (!confirm(`确定删除「${label}」？保存全部后生效。`)) return
-  if (ed.kind === 'recommended') {
-    const i = recommended.value.indexOf(ed.original)
-    if (i >= 0) recommended.value.splice(i, 1)
-  } else {
-    const i = links.value.indexOf(ed.original as NavLink)
-    if (i >= 0) links.value.splice(i, 1)
-  }
+  const i = links.value.indexOf(ed.original as NavLink)
+  if (i >= 0) links.value.splice(i, 1)
   linkEditor.value = null
   flash('已删除，保存全部后生效')
 }
@@ -309,14 +266,20 @@ async function loadHealth() {
 }
 
 function applyData(groups: any[], rec: any[]) {
+  const recKeys = new Set((rec || []).map((l: any) => normalizeKey(String(l?.url || ''))).filter(Boolean))
   links.value = []
   for (const g of groups || []) {
     for (const l of g.links || []) {
-      links.value.push({ name: l.name, url: l.url, icon: l.icon || '', category: String(g.name || '其他') })
+      links.value.push({
+        name: l.name,
+        url: l.url,
+        icon: l.icon || '',
+        category: String(g.name || '其他'),
+        recommended: recKeys.has(normalizeKey(l.url))
+      })
     }
   }
-  recommended.value = (rec || []).map((l: any) => ({ name: l.name, url: l.url, icon: l.icon || '' }))
-  snapshot.value = JSON.stringify({ links: links.value, recommended: recommended.value })
+  snapshot.value = JSON.stringify(links.value)
 }
 
 async function load() {
@@ -354,7 +317,9 @@ async function save() {
           .map((l) => ({ name: l.name, url: normalizeUrl(l.url), icon: l.icon || iconFor(l.url) }))
       }))
       .filter((g) => g.links.length)
-    const payloadRec = recommended.value.map(l => ({ ...l, url: normalizeUrl(l.url), icon: l.icon || iconFor(l.url) }))
+    const payloadRec = links.value
+      .filter(l => l.recommended)
+      .map(l => ({ name: l.name, url: normalizeUrl(l.url), icon: l.icon || iconFor(l.url) }))
     const d: any = await $fetch('/api/admin/nav', {
       method: 'PUT',
       body: { groups, recommended: payloadRec }
@@ -527,24 +492,12 @@ onBeforeUnmount(() => {
   <div class="animate-fade-up pb-16 lg:pb-0">
     <div class="flex flex-col gap-3 mb-4">
       <div class="flex flex-wrap items-center gap-2">
-        <div class="flex gap-1 p-1 rounded-xl bg-card2 border border-line">
-          <button
-            class="h-8 px-3 rounded-lg text-[12.5px] whitespace-nowrap transition-colors"
-            :class="view === 'nav' ? 'bg-ink text-bg font-medium' : 'text-ink2 hover:text-ink'"
-            @click="view = 'nav'"
-          >导航站点 <span class="opacity-70">{{ links.length }}</span></button>
-          <button
-            class="h-8 px-3 rounded-lg text-[12.5px] whitespace-nowrap transition-colors"
-            :class="view === 'recommended' ? 'bg-ink text-bg font-medium' : 'text-ink2 hover:text-ink'"
-            @click="view = 'recommended'"
-          >推荐站点 <span class="opacity-70">{{ recommended.length }}</span></button>
-        </div>
-        <select v-if="view === 'nav'" v-model="category" class="field !w-auto max-w-[180px]">
+        <select v-model="category" class="field !w-auto max-w-[180px]">
           <option value="">全部分类</option>
           <option v-for="c in categoryOptions" :key="c" :value="c">{{ c }}（{{ navCounts.get(c) || 0 }}）</option>
         </select>
         <span v-if="dirty" class="chip !text-[10px] text-warning">有未保存修改</span>
-        <span class="text-[12.5px] text-ink2 ml-auto">{{ categoryOptions.length }} 个分类 · {{ links.length }} 条导航 · {{ recommended.length }} 条推荐</span>
+        <span class="text-[12.5px] text-ink2 ml-auto">{{ categoryOptions.length }} 个分类 · {{ links.length }} 条导航 · {{ recommendedLinks.length }} 条推荐</span>
         <button class="btn btn-sm btn-primary" @click="openNew">添加站点</button>
       </div>
       <form class="flex gap-2" @submit.prevent="page = 1">
@@ -570,7 +523,7 @@ onBeforeUnmount(() => {
 
     <div v-if="loading" class="card p-8 text-center text-ink2 text-[13px]">加载中…</div>
     <div v-else-if="!filtered.length" class="card p-8 text-center text-ink2 text-[13px]">
-      {{ view === 'recommended' ? '暂无推荐站点' : '当前分类暂无导航站点，点击「添加站点」开始。' }}
+      当前分类暂无导航站点，点击「添加站点」开始。
     </div>
     <div v-else class="card overflow-hidden divide-y divide-line">
       <div v-for="l in paged" :key="l" class="p-3.5 sm:p-4">
@@ -581,7 +534,8 @@ onBeforeUnmount(() => {
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-1.5 flex-wrap">
               <span class="font-medium text-[13.5px]" :class="!l.name && 'text-ink3'">{{ l.name || '未命名站点' }}</span>
-              <span v-if="view === 'nav' && l.category" class="chip !text-[10px]">{{ l.category }}</span>
+              <span v-if="l.category" class="chip !text-[10px]">{{ l.category }}</span>
+              <span v-if="l.recommended" class="chip !text-[10px]">推荐</span>
               <span v-if="isDup(l)" class="chip !text-[10px] text-warning">重复</span>
               <span v-if="healthOf(l)" class="w-1.5 h-1.5 rounded-full shrink-0" :class="healthOf(l)!.status && healthOf(l)!.status < 400 ? 'bg-success' : 'bg-danger'" :title="healthText(l)" />
             </div>
@@ -593,6 +547,9 @@ onBeforeUnmount(() => {
           <button class="btn btn-sm" @click="openEdit(l)">编辑</button>
           <a :href="l.url" target="_blank" rel="noopener" class="btn btn-sm btn-ghost">访问网站</a>
           <div class="flex-1" />
+          <button class="btn btn-sm btn-ghost" :class="l.recommended && '!text-ink'" @click="toggleRecommended(l)">
+            {{ l.recommended ? '取消推荐' : '设为推荐' }}
+          </button>
           <button class="btn btn-sm btn-ghost" @click="openEdit(l)">调整顺序</button>
         </div>
       </div>
@@ -606,9 +563,9 @@ onBeforeUnmount(() => {
         <div class="shrink-0 flex items-center gap-2 px-4 h-14 border-b border-line bg-card">
           <div class="min-w-0 flex-1">
             <h2 class="font-semibold text-[15px] truncate">
-              {{ linkEditor.mode === 'new' ? '添加站点' : linkEditor.kind === 'recommended' ? '编辑推荐站点' : '编辑导航站点' }}
+              {{ linkEditor.mode === 'new' ? '添加站点' : '编辑导航站点' }}
             </h2>
-            <p class="text-[11px] text-ink3 truncate">{{ linkEditor.kind === 'recommended' ? '推荐站点' : linkEditor.draft.category }} · 修改后点「保存全部」生效</p>
+            <p class="text-[11px] text-ink3 truncate">{{ linkEditor.draft.category }} · 修改后点「保存全部」生效</p>
           </div>
           <button type="button" class="btn btn-sm btn-ghost btn-icon-sm" aria-label="关闭" @click="closeLinkEditor">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12" /></svg>
@@ -638,7 +595,7 @@ onBeforeUnmount(() => {
               <input v-model="linkEditor.draft.url" class="field" placeholder="https://..." inputmode="url" />
             </label>
 
-            <label v-if="linkEditor.kind === 'nav'" class="flex flex-col gap-1.5">
+            <label class="flex flex-col gap-1.5">
               <span class="text-[12px] text-ink2">分类</span>
               <select v-model="linkEditor.draft.category" class="field">
                 <option v-for="c in categoryOptions" :key="c" :value="c">{{ c }}</option>
@@ -650,7 +607,15 @@ onBeforeUnmount(() => {
               <input v-model="linkEditor.draft.icon" class="field" placeholder="https://.../icon.png" />
             </label>
 
-            <p v-if="editorDup" class="text-[11.5px] text-warning">该网址与{{ linkEditor.kind === 'recommended' ? '其他推荐站点' : '其他导航站点' }}重复</p>
+            <label class="flex items-center gap-2.5 rounded-xl border border-line bg-card2 px-3 py-2.5 cursor-pointer">
+              <input v-model="linkEditor.draft.recommended" type="checkbox" class="w-4 h-4 accent-current" />
+              <span class="min-w-0">
+                <span class="block text-[12.5px] text-ink">设为推荐</span>
+                <span class="block text-[11px] text-ink3 mt-0.5">在该分类内置顶展示，并标记「荐」</span>
+              </span>
+            </label>
+
+            <p v-if="editorDup" class="text-[11.5px] text-warning">该网址与其他导航站点重复</p>
             <p v-if="healthText(linkEditor.draft)" class="text-[11.5px] text-ink3">{{ healthText(linkEditor.draft) }}</p>
 
             <div class="flex flex-wrap items-center gap-1.5 pt-1">
