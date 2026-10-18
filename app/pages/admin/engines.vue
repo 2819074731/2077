@@ -277,7 +277,7 @@ async function save() {
               <div>
                 <p class="text-[13px] font-semibold">GitHub Token（可选）</p>
                 <p class="mt-0.5 text-[11.5px] leading-relaxed text-ink2">
-                  作为官方接口兜底：每个 Token 独立 5,000 次/小时，搜索接口 30 次/分钟；不配置时按服务器 IP 仅 60 次/小时。保存位置为服务器 <code class="text-ink2">data/github-tokens.json</code>（权限 600），不会进入公开设置或源码包。
+                  作为官方接口兜底：每个 GitHub 账号 5,000 次/小时，搜索接口 30 次/分钟；同一账号的多个 Token 共享额度，不同账号才分别计算。不配置时按服务器 IP 仅 60 次/小时。保存位置为服务器 <code class="text-ink2">data/github-tokens.json</code>（权限 600），不会进入公开设置或源码包。
                 </p>
               </div>
               <div v-if="tokenInfo" class="text-[11.5px] leading-relaxed text-ink3 sm:text-right">
