@@ -9,6 +9,11 @@ const loading = ref(true)
 const saving = ref(false)
 const msg = ref('')
 const msgKind = ref<'ok' | 'err'>('ok')
+const tokenInfo = ref<any>(null)
+const tokenInput = ref('')
+const tokenBusy = ref(false)
+const tokenMsg = ref('')
+const tokenMsgKind = ref<'ok' | 'err'>('ok')
 
 useSeoMeta({ title: '引擎设置 · 2077 管理后台', robots: 'noindex' })
 
@@ -16,6 +21,56 @@ function flash(text: string, kind: 'ok' | 'err' = 'ok') {
   msg.value = text
   msgKind.value = kind
   setTimeout(() => { if (msg.value === text) msg.value = '' }, kind === 'err' ? 4800 : 2200)
+}
+
+function tokenFlash(text: string, kind: 'ok' | 'err' = 'ok') {
+  tokenMsg.value = text
+  tokenMsgKind.value = kind
+  setTimeout(() => { if (tokenMsg.value === text) tokenMsg.value = '' }, kind === 'err' ? 4800 : 2200)
+}
+
+async function loadTokens() {
+  try {
+    tokenInfo.value = await $fetch('/api/admin/github-tokens')
+  } catch (e: any) {
+    tokenFlash(e?.data?.statusMessage || e?.data?.message || 'Token 状态读取失败', 'err')
+  }
+}
+
+async function addToken() {
+  if (tokenBusy.value) return
+  const token = tokenInput.value.trim()
+  if (!token) { tokenFlash('请先粘贴 GitHub Token', 'err'); return }
+  tokenBusy.value = true
+  try {
+    const data: any = await $fetch('/api/admin/github-tokens', { method: 'POST', body: { token } })
+    tokenInfo.value = data
+    tokenInput.value = ''
+    tokenFlash('Token 已保存并生效')
+  } catch (e: any) {
+    tokenFlash(e?.data?.statusMessage || e?.data?.message || 'Token 保存失败', 'err')
+  } finally {
+    tokenBusy.value = false
+  }
+}
+
+async function removeToken(index: number) {
+  if (tokenBusy.value) return
+  tokenBusy.value = true
+  try {
+    const data: any = await $fetch('/api/admin/github-tokens', { method: 'DELETE', body: { index } })
+    tokenInfo.value = data
+    tokenFlash('Token 已移除')
+  } catch (e: any) {
+    tokenFlash(e?.data?.statusMessage || e?.data?.message || 'Token 移除失败', 'err')
+  } finally {
+    tokenBusy.value = false
+  }
+}
+
+function resetText(timestamp: number | undefined) {
+  if (!timestamp) return ''
+  return new Date(timestamp * 1000).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
 }
 
 function apply(raw: any) {
@@ -72,6 +127,7 @@ onMounted(async () => {
     flash(e?.data?.statusMessage || e?.data?.message || '配置读取失败', 'err')
   } finally {
     loading.value = false
+    loadTokens()
   }
 })
 
@@ -209,9 +265,9 @@ async function save() {
           <label class="flex items-start gap-2.5 text-[13.5px]">
             <input v-model="form.searchFallback" type="checkbox" class="mt-0.5 w-4 h-4 accent-current" />
             <span>
-              官方接口受限时自动切换第三方中转
+              优先使用第三方中转，失败后回退 GitHub 官方接口
               <span class="mt-1 block text-[11.5px] font-normal leading-relaxed text-ink2">
-                按顺序尝试 GitHub 官方接口和下方中转线路，第三方不会收到 GitHub Token。多 Token 仍通过服务端 GITHUB_TOKENS 配置，不会保存在这里。
+                中转通常有多个出口 IP，会优先承载搜索与项目页 JSON 请求；全部中转失败后才请求官方接口。GitHub Token 只发送给官方 api.github.com，绝不会发给第三方中转。
               </span>
             </span>
           </label>
@@ -219,8 +275,66 @@ async function save() {
           <div class="mt-4 border-t border-line pt-3">
             <div class="flex items-start justify-between gap-3 flex-wrap">
               <div>
+                <p class="text-[13px] font-semibold">GitHub Token（可选）</p>
+                <p class="mt-0.5 text-[11.5px] leading-relaxed text-ink2">
+                  作为官方接口兜底：每个 Token 独立 5,000 次/小时，搜索接口 30 次/分钟；不配置时按服务器 IP 仅 60 次/小时。保存位置为服务器 <code class="text-ink2">data/github-tokens.json</code>（权限 600），不会进入公开设置或源码包。
+                </p>
+              </div>
+              <div v-if="tokenInfo" class="text-[11.5px] leading-relaxed text-ink3 sm:text-right">
+                <p v-if="tokenInfo.quota?.core">
+                  核心接口剩余 <span class="font-medium text-ink2">{{ tokenInfo.quota.core.remaining }}</span> / {{ tokenInfo.quota.core.limit }}
+                  <span v-if="tokenInfo.quota.core.reset"> · {{ resetText(tokenInfo.quota.core.reset) }} 重置</span>
+                </p>
+                <p v-if="tokenInfo.quota?.search">
+                  搜索接口剩余 <span class="font-medium text-ink2">{{ tokenInfo.quota.search.remaining }}</span> / {{ tokenInfo.quota.search.limit }} 每分钟
+                </p>
+                <p v-else-if="tokenInfo.quota && !tokenInfo.quota.valid" class="text-danger">当前 Token 无效或已过期，请移除后重新添加</p>
+                <p v-else-if="tokenInfo.quotaError" class="text-danger">{{ tokenInfo.quotaError }}</p>
+              </div>
+            </div>
+
+            <div v-if="tokenInfo?.tokens?.length" class="mt-3 space-y-2">
+              <div v-for="item in tokenInfo.tokens" :key="item.index" class="flex items-center gap-2 rounded-lg border border-line bg-card px-3 py-2">
+                <span class="min-w-0 flex-1 truncate font-mono text-[12px]">{{ item.masked }}</span>
+                <span class="chip shrink-0">已保存</span>
+                <button type="button" class="btn btn-sm btn-ghost !px-2 text-danger" :disabled="tokenBusy" aria-label="移除 Token" @click="removeToken(item.index)">×</button>
+              </div>
+            </div>
+            <p v-else class="mt-3 rounded-lg border border-dashed border-line px-3 py-2 text-[11.5px] text-ink3">
+              {{ tokenInfo?.source === 'env' ? `当前使用服务器环境变量中的 ${tokenInfo.envCount} 个 Token；在此添加后将优先使用页面配置。` : '当前未配置 Token，使用 GitHub 匿名额度（60 次/小时）。' }}
+            </p>
+
+            <div class="mt-3 flex items-center gap-2 flex-wrap">
+              <input
+                v-model="tokenInput"
+                type="password"
+                class="field min-w-[220px] flex-1 text-[12.5px]"
+                placeholder="github_pat_... 或 ghp_..."
+                maxlength="255"
+                spellcheck="false"
+                autocomplete="off"
+                aria-label="GitHub Token"
+                @keydown.enter.prevent="addToken"
+              />
+              <button type="button" class="btn btn-sm btn-primary shrink-0" :disabled="tokenBusy || !tokenInput.trim() || (tokenInfo?.storedCount || 0) >= 10" @click="addToken">
+                {{ tokenBusy ? '处理中…' : '添加 Token' }}
+              </button>
+            </div>
+            <div class="mt-2 flex items-center gap-2 flex-wrap text-[11.5px]">
+              <span v-if="tokenMsg" :class="tokenMsgKind === 'err' ? 'text-danger' : 'text-ink2'">{{ tokenMsg }}</span>
+              <span class="text-ink3">
+                获取方式：GitHub → Settings → Developer settings →
+                <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer" class="text-accent hover:underline">Fine-grained tokens</a>
+                ，Repository access 选 Public repositories，Contents / Issues / Pull requests 设为 Read-only 即可。
+              </span>
+            </div>
+          </div>
+
+          <div class="mt-4 border-t border-line pt-3">
+            <div class="flex items-start justify-between gap-3 flex-wrap">
+              <div>
                 <p class="text-[13px] font-semibold">第三方中转线路</p>
-                <p class="mt-0.5 text-[11.5px] text-ink2">按顺序尝试，最多 6 个；仅用于搜索接口。</p>
+                <p class="mt-0.5 text-[11.5px] text-ink2">按顺序尝试，最多 6 个；用于搜索及项目页 JSON 接口。</p>
               </div>
               <div class="flex items-center gap-2">
                 <button type="button" class="btn btn-sm btn-ghost" @click="resetRelays">恢复默认</button>

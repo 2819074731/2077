@@ -2,6 +2,7 @@ import { DEFAULT_GITHUB_SEARCH_RELAYS, type GithubSettings } from '#shared/siteS
 import { readBodyCapped, safeFetch } from './safeUrl'
 import { getGithubSettings } from './githubSettings'
 import { signGithubRawUrl } from './githubAsset'
+import { getGithubTokens } from './githubTokens'
 
 const API = 'https://api.github.com'
 const SEARCH_TTL = 5 * 60 * 1000
@@ -60,17 +61,10 @@ const releaseCache = new Map<string, Entry<GithubRelease | null>>()
 const searchInflight = new Map<string, Promise<GithubSearchResult>>()
 const releaseInflight = new Map<string, Promise<GithubRelease | null>>()
 
-function tokenPool(): string[] {
-  const raw = [process.env.GITHUB_TOKENS, process.env.GITHUB_TOKEN, process.env.GH_TOKEN]
-    .filter(Boolean)
-    .join(',')
-  return [...new Set(raw.split(/[\s,]+/).map(value => value.trim()).filter(Boolean))]
-}
-
 let tokenCursor = 0
 
 function nextToken(): string {
-  const pool = tokenPool()
+  const pool = getGithubTokens()
   if (!pool.length) return ''
   return pool[tokenCursor++ % pool.length] || ''
 }
@@ -177,13 +171,9 @@ async function jsonFrom(
 }
 
 async function ghJson(url: string, accept = 'application/vnd.github+json'): Promise<any> {
-  try {
-    return await jsonFrom(url, { headers: apiHeaders(accept) })
-  } catch (error: any) {
-    const status = Number(error?.statusCode)
-    if (!url.startsWith(`${API}/`) || (status !== 502 && status !== 503)) throw error
-    const settings = await getGithubSettings().catch(() => null)
-    if (!settings?.searchFallback) throw error
+  const settings = await getGithubSettings().catch(() => null)
+
+  if (settings?.searchFallback && url.startsWith(`${API}/`)) {
     for (const base of searchRelays(settings)) {
       try {
         return await jsonFrom(`${base}/${url}`, {
@@ -195,8 +185,9 @@ async function ghJson(url: string, accept = 'application/vnd.github+json'): Prom
         console.warn('[github-api] relay failed:', base, relayError?.statusMessage || relayError?.message || relayError)
       }
     }
-    throw error
   }
+
+  return jsonFrom(url, { headers: apiHeaders(accept) })
 }
 
 function text(value: unknown, max: number): string {
@@ -271,13 +262,7 @@ async function fetchSearchJson(
     headers: Record<string, string>
     timeout: number
     maxRedirects: number
-  }> = [{
-    label: 'github',
-    url: `${API}/search/repositories?${queryString}`,
-    headers: apiHeaders(),
-    timeout: 12000,
-    maxRedirects: 2
-  }]
+  }> = []
 
   if (settings.searchFallback) {
     for (const base of searchRelays(settings)) {
@@ -290,6 +275,13 @@ async function fetchSearchJson(
       })
     }
   }
+  attempts.push({
+    label: 'github',
+    url: `${API}/search/repositories?${queryString}`,
+    headers: apiHeaders(),
+    timeout: 12000,
+    maxRedirects: 2
+  })
 
   let firstError: any = null
   for (const attempt of attempts) {
@@ -301,7 +293,7 @@ async function fetchSearchJson(
       })
     } catch (error: any) {
       if (!firstError) firstError = error
-      if (error?.statusCode === 400) throw error
+      if (attempt.label === 'github' && error?.statusCode === 400) throw error
       if (attempt.label !== 'github') {
         console.warn('[github-search] relay failed:', attempt.label, error?.statusMessage || error?.message || error)
       }
