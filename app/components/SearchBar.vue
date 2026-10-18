@@ -75,6 +75,7 @@ async function loadHot(id: string, force = false) {
 
 function openHot() {
   cancelClose()
+  enginesOpen.value = false
   hotOpen.value = true
   loadHot(engine.value.id)
 }
@@ -82,12 +83,9 @@ function openHot() {
 function pick(e: Engine) {
   setEngine(e.id)
   enginesOpen.value = false
-  if (e.id === 'custom') {
-    hotOpen.value = false
-    return
-  }
-  hotOpen.value = true
-  loadHot(e.id)
+  cancelClose()
+  hotOpen.value = false
+  if (e.id !== 'custom') loadHot(e.id)
 }
 
 function pickHot(term: string) {
@@ -160,7 +158,6 @@ function go() {
           class="flex items-center gap-1.5 h-9 px-2.5 rounded-xl text-[13px] font-medium text-ink2 hover:text-ink hover:bg-card2 transition-colors"
           :aria-expanded="enginesOpen"
           @click="enginesOpen = !enginesOpen"
-          @blur="setTimeout(() => (enginesOpen = false), 120)"
         >
           <span>{{ engine.name }}</span>
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6" /></svg>
@@ -175,14 +172,14 @@ function go() {
             type="button"
             class="flex w-full items-center h-8 px-2.5 rounded-lg text-[13px] text-left transition-colors"
             :class="e.id === engine.id ? 'bg-card2 text-ink font-medium' : 'text-ink2 hover:bg-card2 hover:text-ink'"
-            @pointerdown.prevent="pick(e)"
+            @click.stop="pick(e)"
           >
             {{ e.name }}
           </button>
           <button
             type="button"
             class="flex w-full items-center h-8 px-2.5 rounded-lg text-[13px] text-left text-ink2 hover:bg-card2 hover:text-ink"
-            @pointerdown.prevent="customOpen = true; enginesOpen = false"
+            @click.stop="customOpen = true; enginesOpen = false"
           >
             + 自定义
           </button>
