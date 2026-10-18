@@ -59,7 +59,9 @@ test('健康检查正常', async () => {
   assert.equal(res.status, 200)
   const data = await res.json()
   assert.ok(['ok', 'degraded'].includes(data.status))
-  assert.equal(data.db, true)
+  assert.equal(typeof data.time, 'string')
+  assert.equal(data.db, undefined)
+  assert.equal(data.uptime, undefined)
 })
 
 test('提交预检查不落库', async () => {

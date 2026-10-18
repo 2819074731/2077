@@ -2,6 +2,9 @@ import { statfs } from 'node:fs/promises'
 
 export default defineEventHandler(async (event) => {
   setHeader(event, 'Cache-Control', 'no-store')
+  const ip = String(getRequestHeader(event, 'x-real-ip') || '').trim()
+  const isLocal = !ip || ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1'
+  const me = isLocal ? null : await getSessionUser(event).catch(() => null)
 
   let dbOk = false
   try {
@@ -17,6 +20,10 @@ export default defineEventHandler(async (event) => {
     diskFree = Number(fs.bavail) * Number(fs.bsize)
     diskOk = Number.isFinite(diskFree)
   } catch {}
+
+  if (!isLocal && !me?.is_admin) {
+    return { status: dbOk ? 'ok' : 'degraded', time: new Date().toISOString() }
+  }
 
   const memory = process.memoryUsage()
 

@@ -7,6 +7,7 @@ const TTL = 1000 * 60 * 60 * 24 * 7
 const NEG_TTL = 1000 * 60 * 10
 const MAX_MEM = 600
 const MAX_NEG = 5000
+const CACHE_VERSION = 'v2'
 const ICON_DIR = process.env.ICON_CACHE_DIR || join(process.cwd(), 'data', 'icons')
 
 interface Cached { body: Buffer; type: string; at: number }
@@ -27,7 +28,7 @@ function normalize(input: string): string {
 }
 
 function keyOf(host: string): string {
-  return createHash('sha1').update(host).digest('hex')
+  return createHash('sha1').update(`${CACHE_VERSION}:${host}`).digest('hex')
 }
 
 async function diskGet(host: string): Promise<Cached | null> {
@@ -182,18 +183,20 @@ export default defineEventHandler(async (event) => {
     neg.delete(host)
   }
 
-  // 第一梯队：官网 favicon 与 Google 并行，整体 3.5s 截止，避免单个慢上游拖住请求。
+  // 优先 64px 的小体积图标源，避免官网多尺寸 favicon.ico 拉高传输量。
   let img = await firstImage([
-    { url: `https://${host}/favicon.ico`, guarded: true },
     { url: `https://www.google.com/s2/favicons?domain=${host}&sz=64`, guarded: false }
-  ], 3500)
-
-  // 第二梯队：第一梯队失败后再并行尝试 DuckDuckGo 与 favicon.im。
+  ], 1800)
   if (!img) {
-    img = await firstImage([
-      { url: `https://icons.duckduckgo.com/ip3/${host}.ico`, guarded: false },
-      { url: `https://favicon.im/${host}`, guarded: false }
-    ], 2500)
+    img = await firstImage([{ url: `https://icons.duckduckgo.com/ip3/${host}.ico`, guarded: false }], 1200)
+  }
+
+  // 其次使用 favicon.im，最后才回退官网 favicon。
+  if (!img) {
+    img = await firstImage([{ url: `https://favicon.im/${host}`, guarded: false }], 3000)
+  }
+  if (!img) {
+    img = await firstImage([{ url: `https://${host}/favicon.ico`, guarded: true }], 4500)
   }
 
   if (img) {

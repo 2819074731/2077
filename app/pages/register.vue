@@ -41,7 +41,7 @@ async function submit() {
       </div>
       <input v-model="username" class="field" placeholder="用户名（可选，用于登录）" autocomplete="username" />
       <input v-model="nickname" class="field" placeholder="昵称（可选）" />
-      <input v-model="password" class="field" type="password" placeholder="密码（至少 6 位）" autocomplete="new-password" required />
+      <input v-model="password" class="field" type="password" placeholder="密码（至少 8 位）" autocomplete="new-password" required />
       <p v-if="err" class="text-[13px] text-red-500">{{ err }}</p>
       <button class="btn btn-primary w-full mt-1" :disabled="loading">{{ loading ? '注册中...' : '注册' }}</button>
       <p class="text-[13px] text-ink2 text-center mt-1">

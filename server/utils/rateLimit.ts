@@ -3,9 +3,22 @@ import type { H3Event } from 'h3'
 interface Bucket { count: number; reset: number }
 const buckets = new Map<string, Bucket>()
 
+function normalizeIp(value: string): string {
+  const ip = String(value || '').trim()
+  return ip.startsWith('::ffff:') ? ip.slice(7) : ip
+}
+
+/**
+ * 只信任反向代理覆盖写入的 x-real-ip；
+ * 否则取 X-Forwarded-For 最后一跳，避免客户端自带的伪造值绕过限流。
+ */
 function clientIp(event: H3Event): string {
+  const real = normalizeIp(getRequestHeader(event, 'x-real-ip') || '')
+  if (real) return real
   const xff = getRequestHeader(event, 'x-forwarded-for') || ''
-  return xff.split(',')[0].trim() || event.node.req.socket.remoteAddress || 'unknown'
+  const parts = xff.split(',').map(v => normalizeIp(v)).filter(Boolean)
+  const last = parts[parts.length - 1]
+  return last || normalizeIp(event.node.req.socket.remoteAddress || '') || 'unknown'
 }
 
 function memoryLimit(id: string, limit: number, windowMs: number): void {

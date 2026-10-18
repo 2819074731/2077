@@ -8,7 +8,8 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
-    "test:smoke": "node --test tests/smoke.test.mjs"
+    "test:smoke": "node --test tests/smoke.test.mjs",
+    "warm:icons": "node scripts/warm-icons.mjs"
   },
   "dependencies": {
     "@nuxtjs/color-mode": "^4.0.1",

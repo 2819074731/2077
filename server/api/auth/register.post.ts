@@ -1,6 +1,7 @@
 import { normalizeQq, withDefaultAvatar } from '../../utils/user'
 
 export default defineEventHandler(async (event) => {
+  await rateLimit(event, 'register', 5, 60 * 60_000)
   const body = await readBody(event)
   const email = String(body?.email || '').trim().toLowerCase()
   const username = String(body?.username || '').trim().toLowerCase()
@@ -10,7 +11,8 @@ export default defineEventHandler(async (event) => {
 
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw createError({ statusCode: 400, statusMessage: '邮箱格式不正确' })
   if (username && !/^[a-z0-9_-]{3,60}$/.test(username)) throw createError({ statusCode: 400, statusMessage: '用户名需 3-60 位字母、数字、下划线或短横线' })
-  if (password.length < 6) throw createError({ statusCode: 400, statusMessage: '密码至少 6 位' })
+  const pwProblem = passwordProblem(password)
+  if (pwProblem) throw createError({ statusCode: 400, statusMessage: pwProblem })
   if (!qq) throw createError({ statusCode: 400, statusMessage: '请填写正确的 QQ 号' })
 
   const db = useDb()
@@ -34,7 +36,7 @@ export default defineEventHandler(async (event) => {
   try {
     ;[r] = await db.execute(
       'INSERT INTO users (email, username, nickname, qq, slug, password_hash, config_json) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [email, username || null, nickname, qq, slug, hashPassword(password), JSON.stringify({ groups: [], version: 0 })]
+      [email, username || null, nickname, qq, slug, await hashPassword(password), JSON.stringify({ groups: [], version: 0 })]
     )
   } catch (err: any) {
     if (err?.code === 'ER_DUP_ENTRY' || String(err?.message || '').includes('Duplicate entry')) {

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, computed, ref } from 'vue'
-import { DEFAULT_GROUPS, INLINE_GROUP_COUNT } from '~/data/nav'
+import { INLINE_GROUP_COUNT } from '~/data/nav'
 
 const { groups, diy, syncMsg, loadLocal, applySite, addGroup, resetAll, activeCat, visibleGroups } = useNav()
 const { categories, loadCategories } = useCategories()
@@ -35,7 +35,7 @@ useHead(() => ({
   link: [{ rel: 'canonical', href: siteUrl + '/' }],
   script: [{
     type: 'application/ld+json',
-    innerHTML: JSON.stringify({
+    innerHTML: jsonLd({
       '@context': 'https://schema.org',
       '@graph': [
         {
@@ -122,24 +122,17 @@ function openDrawer() { drawerOpen.value = true }
 
     <CategoryBar />
 
-    <ClientOnly>
-      <div class="animate-fade-up">
-        <DirectoryCategory v-if="activeEmpty && !diy" :category="activeCategoryName" />
-        <div v-else-if="activeEmpty" class="card p-6 sm:p-8 text-center mb-8">
-          <p class="text-[15px] font-semibold">{{ activeCategoryName }}</p>
-          <p class="mt-1 text-[12.5px] text-ink2">该分类暂无首页导航站点，可在分类目录中浏览收录内容。</p>
-          <NuxtLink :to="`/site?category=${encodeURIComponent(activeCategoryName)}`" class="btn btn-sm btn-primary mt-4">查看分类目录</NuxtLink>
-        </div>
-        <template v-else>
-          <LinkGroup v-for="g in shownGroups" :key="g.id" :group="g" />
-        </template>
+    <div class="animate-fade-up [content-visibility:auto] [contain-intrinsic-size:auto_600px]">
+      <DirectoryCategory v-if="activeEmpty && !diy" :category="activeCategoryName" />
+      <div v-else-if="activeEmpty" class="card p-6 sm:p-8 text-center mb-8">
+        <p class="text-[15px] font-semibold">{{ activeCategoryName }}</p>
+        <p class="mt-1 text-[12.5px] text-ink2">该分类暂无首页导航站点，可在分类目录中浏览收录内容。</p>
+        <NuxtLink :to="`/site?category=${encodeURIComponent(activeCategoryName)}`" class="btn btn-sm btn-primary mt-4">查看分类目录</NuxtLink>
       </div>
-      <template #fallback>
-        <div>
-          <LinkGroup v-for="g in DEFAULT_GROUPS.slice(0, INLINE_GROUP_COUNT)" :key="g.id" :group="g" />
-        </div>
+      <template v-else>
+        <LinkGroup v-for="g in shownGroups" :key="g.id" :group="g" />
       </template>
-    </ClientOnly>
+    </div>
 
     <div v-if="hasMoreGroups" class="text-center mb-8">
       <button v-if="isMobile" class="btn btn-sm" @click="openDrawer">查看全部 {{ menuCount }} 个分类</button>
@@ -155,6 +148,6 @@ function openDrawer() { drawerOpen.value = true }
       <NuxtLink to="/login" class="text-ink hover:underline">登录</NuxtLink> 后可将导航配置同步到云端，并展示你的云端网址。
     </p>
 
-    <QuickImport v-model="importOpen" />
+    <LazyQuickImport v-if="importOpen" v-model="importOpen" />
   </div>
 </template>

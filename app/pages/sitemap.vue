@@ -41,7 +41,7 @@ useHead(() => ({
   link: [{ rel: 'canonical', href: siteUrl + '/sitemap' }],
   script: [{
     type: 'application/ld+json',
-    innerHTML: JSON.stringify({
+    innerHTML: jsonLd({
       '@context': 'https://schema.org',
       '@graph': [
         {

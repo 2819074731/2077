@@ -21,7 +21,7 @@ useHead({
   link: [{ rel: 'canonical', href: () => siteUrl + canonical.value }],
   script: computed(() => profile.value ? [{
     type: 'application/ld+json',
-    innerHTML: JSON.stringify({
+    innerHTML: jsonLd({
       '@context': 'https://schema.org',
       '@type': 'Person',
       name: profile.value.nickname,

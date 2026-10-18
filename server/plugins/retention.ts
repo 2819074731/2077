@@ -22,7 +22,7 @@ async function runCleanup(reason: string): Promise<void> {
     console.log(`[retention] 开始清理（${reason}）`)
     await purge('link_clicks', 'DELETE FROM link_clicks WHERE created_at < NOW() - INTERVAL 90 DAY LIMIT 1000', [])
     await purge('search_events', 'DELETE FROM search_events WHERE created_at < NOW() - INTERVAL 180 DAY LIMIT 1000', [])
-    await purge('search_events', 'DELETE FROM search_events WHERE created_at < NOW() - INTERVAL 180 DAY LIMIT 1000', [])
+    await purge('sessions', 'DELETE FROM sessions WHERE expires_at < NOW() LIMIT 1000', [])
     await purge('traffic_log', 'DELETE FROM traffic_log WHERE created_at < NOW() - INTERVAL 180 DAY LIMIT 1000', [])
     await purge('rate_limits', 'DELETE FROM rate_limits WHERE reset_at < ? LIMIT 1000', [Date.now()])
   } catch (error) {

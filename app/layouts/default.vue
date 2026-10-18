@@ -42,7 +42,7 @@ function goHome() {
     class="relative min-h-screen flex flex-col"
     :class="[{ 'wp-on': wp.active.value }, wp.active.value ? `wp-tone-${wp.tone.value}` : '']"
   >
-    <WallpaperLayer />
+    <LazyWallpaperLayer v-if="wp.active.value" />
     <div v-if="!wp.active.value" class="pointer-events-none fixed inset-0 -z-10 grid-bg opacity-60" />
 
     <header class="sticky top-0 z-30 border-b border-line bg-header backdrop-blur-xl">
@@ -59,7 +59,7 @@ function goHome() {
         <!-- PC：头部天气 -->
         <ClientOnly>
           <template v-if="!isMobile">
-            <WeatherCard variant="header" />
+            <LazyWeatherCard variant="header" />
           </template>
           <template #fallback>
             <div v-if="!isMobile" class="w-[120px] h-9 rounded-xl bg-card2 animate-pulse" />
@@ -148,6 +148,6 @@ function goHome() {
     </footer>
 
     <AppDrawer />
-    <WallpaperSettings />
+    <LazyWallpaperSettings v-if="wpSettingsOpen" />
   </div>
 </template>

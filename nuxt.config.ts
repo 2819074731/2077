@@ -89,7 +89,7 @@ export default defineNuxtConfig({
       globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
       runtimeCaching: [
         {
-          urlPattern: ({ request }) => request.mode === 'navigate',
+          urlPattern: ({ request, url }) => request.mode === 'navigate' && !/^\/(admin|settings)(\/|$)/.test(url.pathname),
           handler: 'NetworkFirst',
           options: {
             cacheName: 'pages',
@@ -107,9 +107,13 @@ export default defineNuxtConfig({
           }
         },
         {
-          urlPattern: /\/api\/(config|me|nav).*/i,
+          urlPattern: /\/api\/(site|categories|hot-search|friends)(\/|\?|$)/i,
           handler: 'NetworkFirst',
-          options: { cacheName: 'api', networkTimeoutSeconds: 3 }
+          options: {
+            cacheName: 'public-api',
+            networkTimeoutSeconds: 3,
+            expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 }
+          }
         }
       ]
     },
