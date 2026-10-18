@@ -9,11 +9,15 @@ const loading = ref(true)
 const saving = ref(false)
 const msg = ref('')
 const msgKind = ref<'ok' | 'err'>('ok')
-const tokenInfo = ref<any>(null)
-const tokenInput = ref('')
-const tokenBusy = ref(false)
-const tokenMsg = ref('')
-const tokenMsgKind = ref<'ok' | 'err'>('ok')
+
+const tabs = [
+  { id: 'search', label: '搜索' },
+  { id: 'source', label: '数据源' },
+  { id: 'content', label: '项目页' },
+  { id: 'download', label: '下载' },
+  { id: 'image', label: '图片' }
+] as const
+const activeTab = ref<typeof tabs[number]['id']>('search')
 
 useSeoMeta({ title: '引擎设置 · 2077 管理后台', robots: 'noindex' })
 
@@ -21,56 +25,6 @@ function flash(text: string, kind: 'ok' | 'err' = 'ok') {
   msg.value = text
   msgKind.value = kind
   setTimeout(() => { if (msg.value === text) msg.value = '' }, kind === 'err' ? 4800 : 2200)
-}
-
-function tokenFlash(text: string, kind: 'ok' | 'err' = 'ok') {
-  tokenMsg.value = text
-  tokenMsgKind.value = kind
-  setTimeout(() => { if (tokenMsg.value === text) tokenMsg.value = '' }, kind === 'err' ? 4800 : 2200)
-}
-
-async function loadTokens() {
-  try {
-    tokenInfo.value = await $fetch('/api/admin/github-tokens')
-  } catch (e: any) {
-    tokenFlash(e?.data?.statusMessage || e?.data?.message || 'Token 状态读取失败', 'err')
-  }
-}
-
-async function addToken() {
-  if (tokenBusy.value) return
-  const token = tokenInput.value.trim()
-  if (!token) { tokenFlash('请先粘贴 GitHub Token', 'err'); return }
-  tokenBusy.value = true
-  try {
-    const data: any = await $fetch('/api/admin/github-tokens', { method: 'POST', body: { token } })
-    tokenInfo.value = data
-    tokenInput.value = ''
-    tokenFlash('Token 已保存并生效')
-  } catch (e: any) {
-    tokenFlash(e?.data?.statusMessage || e?.data?.message || 'Token 保存失败', 'err')
-  } finally {
-    tokenBusy.value = false
-  }
-}
-
-async function removeToken(index: number) {
-  if (tokenBusy.value) return
-  tokenBusy.value = true
-  try {
-    const data: any = await $fetch('/api/admin/github-tokens', { method: 'DELETE', body: { index } })
-    tokenInfo.value = data
-    tokenFlash('Token 已移除')
-  } catch (e: any) {
-    tokenFlash(e?.data?.statusMessage || e?.data?.message || 'Token 移除失败', 'err')
-  } finally {
-    tokenBusy.value = false
-  }
-}
-
-function resetText(timestamp: number | undefined) {
-  if (!timestamp) return ''
-  return new Date(timestamp * 1000).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
 }
 
 function apply(raw: any) {
@@ -127,7 +81,6 @@ onMounted(async () => {
     flash(e?.data?.statusMessage || e?.data?.message || '配置读取失败', 'err')
   } finally {
     loading.value = false
-    loadTokens()
   }
 })
 
@@ -178,23 +131,38 @@ async function save() {
 
 <template>
   <div class="animate-fade-up max-w-[900px]">
-    <div class="flex items-center gap-2 mb-4 flex-wrap">
-      <p class="text-[13px] text-ink2 flex-1 min-w-[240px]">
-        管理站内搜索引擎的开关、内容展示、下载限制与缓存。保存后前台约 15 秒内生效。
+    <div class="flex items-start gap-2 mb-4 flex-wrap">
+      <p class="text-[13px] text-ink2 flex-1 min-w-[220px] leading-relaxed">
+        管理 GitHub 搜索的开关、数据源、内容展示与下载限制。保存后前台约 15 秒内生效。
       </p>
-      <span v-if="msg" class="text-[12.5px]" :class="msgKind === 'err' ? 'text-danger' : 'text-ink2'">{{ msg }}</span>
-      <button class="btn btn-sm btn-primary" :disabled="saving || loading" @click="save">{{ saving ? '保存中…' : '保存设置' }}</button>
+      <span v-if="msg" class="text-[12.5px] w-full sm:w-auto" :class="msgKind === 'err' ? 'text-danger' : 'text-ink2'">{{ msg }}</span>
+      <button class="btn btn-sm btn-primary w-full sm:w-auto" :disabled="saving || loading" @click="save">{{ saving ? '保存中…' : '保存设置' }}</button>
     </div>
 
     <div v-if="loading" class="card p-8 text-center text-ink2 text-[13px]">加载中…</div>
 
-    <form v-else class="card" @submit.prevent="save">
-      <section class="p-4 sm:p-5">
+    <form v-else class="card overflow-hidden" @submit.prevent="save">
+      <div class="border-b border-line bg-card2/40 p-2.5 sm:p-3">
+        <div role="tablist" aria-label="引擎设置分类" class="flex gap-1 rounded-xl border border-line bg-card2 p-1 overflow-x-auto no-scrollbar">
+          <button
+            v-for="tab in tabs"
+            :key="tab.id"
+            type="button"
+            role="tab"
+            :aria-selected="activeTab === tab.id"
+            class="h-8 shrink-0 whitespace-nowrap rounded-lg px-3.5 text-[12.5px] transition-colors"
+            :class="activeTab === tab.id ? 'bg-ink text-bg font-medium' : 'text-ink2 hover:text-ink'"
+            @click="activeTab = tab.id"
+          >{{ tab.label }}</button>
+        </div>
+      </div>
+
+      <section v-show="activeTab === 'search'" class="p-4 sm:p-5">
         <div class="flex items-center gap-2 flex-wrap">
           <h2 class="font-semibold text-[15px]">GitHub 搜索</h2>
           <span class="chip">站内搜索引擎</span>
         </div>
-        <p class="text-[12.5px] text-ink2 mt-1">控制仓库搜索、项目页内容、下载代理、图片防盗链与缓存。关闭后 GitHub 搜索与项目页将不可访问。</p>
+        <p class="text-[12.5px] text-ink2 mt-1">关闭后 GitHub 搜索与项目页将不可访问。</p>
 
         <div class="mt-4 flex flex-wrap gap-x-6 gap-y-3">
           <label class="flex items-center gap-2 text-[13.5px]">
@@ -260,75 +228,24 @@ async function save() {
           </label>
         </div>
 
-        <h3 class="mt-6 text-[13.5px] font-semibold">数据源</h3>
+      </section>
+
+      <section v-show="activeTab === 'source'" class="p-4 sm:p-5">
+        <div class="flex items-center gap-2 flex-wrap">
+          <h2 class="font-semibold text-[15px]">数据源</h2>
+          <span class="chip">中转优先</span>
+        </div>
+        <p class="text-[12.5px] text-ink2 mt-1">搜索与项目页 JSON 请求优先走第三方中转，全部失败后才回退 GitHub 官方接口。</p>
         <div class="mt-3 rounded-xl border border-line bg-card2 p-3.5">
           <label class="flex items-start gap-2.5 text-[13.5px]">
             <input v-model="form.searchFallback" type="checkbox" class="mt-0.5 w-4 h-4 accent-current" />
             <span>
               优先使用第三方中转，失败后回退 GitHub 官方接口
               <span class="mt-1 block text-[11.5px] font-normal leading-relaxed text-ink2">
-                中转通常有多个出口 IP，会优先承载搜索与项目页 JSON 请求；全部中转失败后才请求官方接口。GitHub Token 只发送给官方 api.github.com，绝不会发给第三方中转。
+                中转通常有多个出口 IP，会优先承载搜索与项目页 JSON 请求。关闭后将直接请求官方接口，服务器 IP 的匿名额度仅 60 次/小时。
               </span>
             </span>
           </label>
-
-          <div class="mt-4 border-t border-line pt-3">
-            <div class="flex items-start justify-between gap-3 flex-wrap">
-              <div>
-                <p class="text-[13px] font-semibold">GitHub Token（可选）</p>
-                <p class="mt-0.5 text-[11.5px] leading-relaxed text-ink2">
-                  作为官方接口兜底：每个 GitHub 账号 5,000 次/小时，搜索接口 30 次/分钟；同一账号的多个 Token 共享额度，不同账号才分别计算。不配置时按服务器 IP 仅 60 次/小时。保存位置为服务器 <code class="text-ink2">data/github-tokens.json</code>（权限 600），不会进入公开设置或源码包。
-                </p>
-              </div>
-              <div v-if="tokenInfo" class="text-[11.5px] leading-relaxed text-ink3 sm:text-right">
-                <p v-if="tokenInfo.quota?.core">
-                  核心接口剩余 <span class="font-medium text-ink2">{{ tokenInfo.quota.core.remaining }}</span> / {{ tokenInfo.quota.core.limit }}
-                  <span v-if="tokenInfo.quota.core.reset"> · {{ resetText(tokenInfo.quota.core.reset) }} 重置</span>
-                </p>
-                <p v-if="tokenInfo.quota?.search">
-                  搜索接口剩余 <span class="font-medium text-ink2">{{ tokenInfo.quota.search.remaining }}</span> / {{ tokenInfo.quota.search.limit }} 每分钟
-                </p>
-                <p v-else-if="tokenInfo.quota && !tokenInfo.quota.valid" class="text-danger">当前 Token 无效或已过期，请移除后重新添加</p>
-                <p v-else-if="tokenInfo.quotaError" class="text-danger">{{ tokenInfo.quotaError }}</p>
-              </div>
-            </div>
-
-            <div v-if="tokenInfo?.tokens?.length" class="mt-3 space-y-2">
-              <div v-for="item in tokenInfo.tokens" :key="item.index" class="flex items-center gap-2 rounded-lg border border-line bg-card px-3 py-2">
-                <span class="min-w-0 flex-1 truncate font-mono text-[12px]">{{ item.masked }}</span>
-                <span class="chip shrink-0">已保存</span>
-                <button type="button" class="btn btn-sm btn-ghost !px-2 text-danger" :disabled="tokenBusy" aria-label="移除 Token" @click="removeToken(item.index)">×</button>
-              </div>
-            </div>
-            <p v-else class="mt-3 rounded-lg border border-dashed border-line px-3 py-2 text-[11.5px] text-ink3">
-              {{ tokenInfo?.source === 'env' ? `当前使用服务器环境变量中的 ${tokenInfo.envCount} 个 Token；在此添加后将优先使用页面配置。` : '当前未配置 Token，使用 GitHub 匿名额度（60 次/小时）。' }}
-            </p>
-
-            <div class="mt-3 flex items-center gap-2 flex-wrap">
-              <input
-                v-model="tokenInput"
-                type="password"
-                class="field min-w-[220px] flex-1 text-[12.5px]"
-                placeholder="github_pat_... 或 ghp_..."
-                maxlength="255"
-                spellcheck="false"
-                autocomplete="off"
-                aria-label="GitHub Token"
-                @keydown.enter.prevent="addToken"
-              />
-              <button type="button" class="btn btn-sm btn-primary shrink-0" :disabled="tokenBusy || !tokenInput.trim() || (tokenInfo?.storedCount || 0) >= 10" @click="addToken">
-                {{ tokenBusy ? '处理中…' : '添加 Token' }}
-              </button>
-            </div>
-            <div class="mt-2 flex items-center gap-2 flex-wrap text-[11.5px]">
-              <span v-if="tokenMsg" :class="tokenMsgKind === 'err' ? 'text-danger' : 'text-ink2'">{{ tokenMsg }}</span>
-              <span class="text-ink3">
-                获取方式：GitHub → Settings → Developer settings →
-                <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer" class="text-accent hover:underline">Fine-grained tokens</a>
-                ，Repository access 选 Public repositories，Contents / Issues / Pull requests 设为 Read-only 即可。
-              </span>
-            </div>
-          </div>
 
           <div class="mt-4 border-t border-line pt-3">
             <div class="flex items-start justify-between gap-3 flex-wrap">
@@ -365,8 +282,12 @@ async function save() {
           </div>
         </div>
 
-        <h3 class="mt-6 text-[13.5px] font-semibold">项目页内容</h3>
-        <div class="grid sm:grid-cols-2 gap-3.5 mt-3">
+      </section>
+
+      <section v-show="activeTab === 'content'" class="p-4 sm:p-5">
+        <h2 class="font-semibold text-[15px]">项目页内容</h2>
+        <p class="text-[12.5px] text-ink2 mt-1">限制 README 与文件预览大小，并设置内容缓存时间。</p>
+        <div class="mt-3 grid sm:grid-cols-2 gap-3.5">
           <label class="flex flex-col gap-1.5">
             <span class="text-[13px] font-medium">README 大小上限</span>
             <div class="flex items-center gap-2">
@@ -397,7 +318,11 @@ async function save() {
           </label>
         </div>
 
-        <h3 class="mt-6 text-[13.5px] font-semibold">下载代理</h3>
+      </section>
+
+      <section v-show="activeTab === 'download'" class="p-4 sm:p-5">
+        <h2 class="font-semibold text-[15px]">下载代理</h2>
+        <p class="text-[12.5px] text-ink2 mt-1">控制源码 ZIP 与 Release 附件的下载开关及大小限制。</p>
         <div class="mt-3 flex flex-wrap gap-x-6 gap-y-3">
           <label class="flex items-center gap-2 text-[13.5px]">
             <input v-model="form.enableZip" type="checkbox" class="w-4 h-4 accent-current" />
@@ -432,7 +357,10 @@ async function save() {
           </label>
         </div>
 
-        <h3 class="mt-6 text-[13.5px] font-semibold">图片防盗链</h3>
+      </section>
+
+      <section v-show="activeTab === 'image'" class="p-4 sm:p-5">
+        <h2 class="font-semibold text-[15px]">图片防盗链</h2>
         <p class="mt-1 text-[12px] text-ink2">README 与头像图片统一走本站签名代理，仅允许本站页面或白名单来源加载，避免被用作图片 CDN。</p>
         <div class="mt-3 flex flex-wrap gap-x-6 gap-y-3">
           <label class="flex items-center gap-2 text-[13.5px]">

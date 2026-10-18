@@ -116,10 +116,6 @@ function openDrawer() { drawerOpen.value = true }
       <button class="btn btn-sm" @click="resetAll">恢复默认</button>
     </div>
 
-    <ClientOnly>
-      <FrequentLinks />
-    </ClientOnly>
-
     <CategoryBar />
 
     <div class="animate-fade-up [content-visibility:auto] [contain-intrinsic-size:auto_600px]">
