@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useWallpaper, ROTATE_INTERVALS, EFFECT_PRESETS, TONE_MODES } from '~/composables/useWallpaper'
+import { useHomeLine } from '~/composables/useHomeLine'
 
 const open = useState<boolean>('wp-settings-open', () => false)
 const wp = useWallpaper()
+const { homeLinePref, loadHomeLine, setHomeLinePref } = useHomeLine()
 const { isMobile } = useDevice()
 
 const tab = ref<'wallpaper' | 'appearance'>('wallpaper')
 
 onMounted(() => {
   wp.loadLocal()
+  loadHomeLine()
   if (wp.mode.value === 'bing' && !wp.items.value.length) wp.fetchList(8)
 })
 
@@ -151,6 +154,27 @@ const list = computed(() => wp.items.value)
 
           <!-- 显示效果 -->
           <template v-else>
+            <div class="mb-6">
+              <div class="flex items-center gap-2 mb-3">
+                <span class="h-4 w-1 rounded-full accent-bar" />
+                <span class="text-[13.5px] font-semibold">首页信息栏</span>
+                <span class="text-[11.5px] text-ink2">搜索框下方显示的内容</span>
+              </div>
+              <div class="grid grid-cols-3 gap-2.5">
+                <button
+                  v-for="opt in [{ v: 'default', l: '跟随默认', d: '使用站点设置' }, { v: 'stats', l: '站点统计', d: '分类与站点数' }, { v: 'comment', l: '网易云热评', d: '每日热评' }]"
+                  :key="opt.v"
+                  class="rounded-xl border-2 p-3 flex flex-col items-center gap-1 transition-colors text-center"
+                  :class="homeLinePref === opt.v ? 'border-ink bg-card' : 'border-line bg-card hover:border-line2'"
+                  @click="setHomeLinePref(opt.v as any)"
+                >
+                  <span class="text-[13px] font-medium">{{ opt.l }}</span>
+                  <span class="text-[10.5px] text-ink2 leading-tight">{{ opt.d }}</span>
+                </button>
+              </div>
+              <p class="text-[11.5px] text-ink3 mt-2">仅保存在本机，默认选项跟随后台「首页展示」设置。</p>
+            </div>
+
             <template v-if="wp.mode.value === 'bing'">
               <div class="mb-6">
                 <div class="flex items-center gap-2 mb-3">

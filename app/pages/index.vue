@@ -8,13 +8,15 @@ const { categories, loadCategories } = useCategories()
 const { user, refresh } = useAuth()
 const { isMobile } = useDevice()
 const { settings, loadSiteSettings } = useSiteSettings()
+const { loadHomeLine, resolveHomeLine } = useHomeLine()
 await loadSiteSettings()
 
 onMounted(async () => {
   loadLocal()
+  loadHomeLine()
   await refresh()
   loadLocal()
-  if (settings.value.homeLineMode !== 'comment') return
+  if (lineMode.value !== 'comment') return
   try {
     const d: any = await $fetch('/api/home/comment')
     if (d?.text) {
@@ -26,6 +28,7 @@ onMounted(async () => {
 
 const siteUrl = useRuntimeConfig().public.siteUrl
 const dailyComment = dailyNetEaseComment()
+const lineMode = computed(() => resolveHomeLine(settings.value.homeLineMode))
 const liveComment = ref('')
 const liveSong = ref('')
 const homeComment = computed(() => liveComment.value || dailyComment)
@@ -156,7 +159,7 @@ function openDrawer() { drawerOpen.value = true }
       <div class="w-full max-w-[680px]">
         <SearchBar />
       </div>
-      <div v-if="settings.homeLineMode === 'comment'" class="w-full max-w-[640px] flex flex-col items-center gap-1.5">
+      <div v-if="lineMode === 'comment'" class="w-full max-w-[640px] flex flex-col items-center gap-1.5">
         <p class="text-[12.5px] leading-6 text-ink2 min-h-[48px] flex items-center justify-center">
           <span><span class="text-ink3">「</span>{{ homeComment }}<span class="text-ink3">」</span></span>
         </p>
