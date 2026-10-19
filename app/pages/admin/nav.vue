@@ -336,20 +336,42 @@ async function save() {
     flash(`有 ${duplicateCount.value} 条重复网址，请先处理`, 'err')
     return false
   }
+  const order = categoryOptions.value
+  const groups = order
+    .map((name) => ({
+      name,
+      links: links.value
+        .filter((l) => l.category === name)
+        .map((l) => ({ name: l.name, url: normalizeUrl(l.url), icon: l.icon || iconFor(l.url) }))
+    }))
+    .filter((g) => g.links.length)
+  const payloadRec = links.value
+    .filter(l => l.recommended)
+    .map(l => ({ name: l.name, url: normalizeUrl(l.url), icon: l.icon || iconFor(l.url) }))
+  try {
+    const preview: any = await $fetch('/api/admin/category-sync/preview', {
+      method: 'POST',
+      body: { kind: 'nav', groups }
+    }).catch(() => null)
+    const dirChanges = Array.isArray(preview?.directory) ? preview.directory : []
+    const urlChanges = Array.isArray(preview?.urlChanges) ? preview.urlChanges : []
+    if (dirChanges.length || urlChanges.length) {
+      const lines: string[] = []
+      if (dirChanges.length) {
+        lines.push(`目录池 ${dirChanges.length} 个站点将调整分类：`)
+        for (const c of dirChanges.slice(0, 5)) lines.push(`  ${c.name}：${c.from || '未分类'} → ${c.to}`)
+        if (dirChanges.length > 5) lines.push(`  …另有 ${dirChanges.length - 5} 个`)
+      }
+      if (urlChanges.length) {
+        lines.push(`目录池 ${urlChanges.length} 个站点将跟随新网址：`)
+        for (const c of urlChanges.slice(0, 5)) lines.push(`  ${c.name}：${c.fromUrl} → ${c.toUrl}`)
+        if (urlChanges.length > 5) lines.push(`  …另有 ${urlChanges.length - 5} 个`)
+      }
+      if (!confirm(`${lines.join('\n')}\n\n确认保存并同步？`)) return false
+    }
+  } catch {}
   saving.value = true
   try {
-    const order = categoryOptions.value
-    const groups = order
-      .map((name) => ({
-        name,
-        links: links.value
-          .filter((l) => l.category === name)
-          .map((l) => ({ name: l.name, url: normalizeUrl(l.url), icon: l.icon || iconFor(l.url) }))
-      }))
-      .filter((g) => g.links.length)
-    const payloadRec = links.value
-      .filter(l => l.recommended)
-      .map(l => ({ name: l.name, url: normalizeUrl(l.url), icon: l.icon || iconFor(l.url) }))
     const d: any = await $fetch('/api/admin/nav', {
       method: 'PUT',
       body: { groups, recommended: payloadRec }
@@ -357,11 +379,13 @@ async function save() {
     applyData(d.groups || [], d.recommended || [])
     const created = Number(d.sync?.created || 0)
     const updated = Number(d.sync?.updated || 0)
+    const movedUrl = Array.isArray(d.urlChanges) ? d.urlChanges.length : 0
     if (d.syncError) flash(`已保存，目录同步失败：${d.syncError}`, 'err')
-    else if (created || updated) {
+    else if (created || updated || movedUrl) {
       const parts = []
       if (created) parts.push(`新增 ${created} 个目录站点`)
       if (updated) parts.push(`同步 ${updated} 个分类`)
+      if (movedUrl) parts.push(`更新 ${movedUrl} 个网址`)
       flash(`已保存，并${parts.join('、')}`)
     } else flash('已保存并同步到前台')
     return true

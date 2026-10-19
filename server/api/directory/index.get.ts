@@ -1,3 +1,5 @@
+import { getSetting } from '../../utils/settings'
+
 const CACHE_TTL = 60 * 1000
 
 interface CountCache<T> {
@@ -11,6 +13,22 @@ const provinceCache = new Map<string, CountCache<any[]>>()
 const levelCache = new Map<string, CountCache<any[]>>()
 const typeCache = new Map<string, CountCache<any[]>>()
 let ngramReady: boolean | null = null
+let cacheVersion = -1
+
+function clearListCaches() {
+  categoriesCache = null
+  totalCache = null
+  provinceCache.clear()
+  levelCache.clear()
+  typeCache.clear()
+}
+
+async function ensureCacheVersion() {
+  const version = Number(await getSetting('directory_cache_version', 0)) || 0
+  if (version === cacheVersion) return
+  cacheVersion = version
+  clearListCaches()
+}
 
 async function hasNgram(db: any): Promise<boolean> {
   if (ngramReady !== null) return ngramReady
@@ -114,6 +132,7 @@ export default defineEventHandler(async (event) => {
   const sort = ['latest', 'name'].includes(sortRaw) ? sortRaw : 'recommended'
 
   const db = useDb()
+  await ensureCacheVersion()
 
   const buildWhere = (fulltext: boolean) => {
     const where = ["status = 'published'", 'health_hidden = 0']

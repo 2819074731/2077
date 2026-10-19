@@ -1,6 +1,7 @@
 import { getSiteConfig, invalidateSiteConfig } from '../../../utils/siteConfig'
 import { setSetting } from '../../../utils/settings'
-import { navCategoryChanges, syncNavDirectory } from '../../../utils/directorySync'
+import { navCategoryChanges, syncNavDirectory, syncNavUrlChanges } from '../../../utils/directorySync'
+import { logAdmin } from '../../../utils/adminLog'
 
 interface NavLink { name: string; url: string; icon?: string }
 
@@ -42,7 +43,7 @@ function sanitizeRecommended(input: any): NavLink[] {
 }
 
 export default defineEventHandler(async (event) => {
-  await requireAdmin(event)
+  const user = await requireAdmin(event)
   const body = await readBody(event)
   const data = body?.data && typeof body.data === 'object' ? body.data : body
   const groups = sanitizeGroups(data?.groups)
@@ -55,10 +56,19 @@ export default defineEventHandler(async (event) => {
   invalidateSiteConfig()
   let sync: { created: number; updated: number; skipped: number } | null = null
   let syncError = ''
+  let urlChanges: Array<{ id: number; fromUrl: string; toUrl: string }> = []
   try {
+    urlChanges = await syncNavUrlChanges(current.groups, groups)
     sync = await syncNavDirectory(groups, recommended, await navCategoryChanges(current.groups, groups))
   } catch (err: any) {
     syncError = err?.message || '目录同步失败'
   }
-  return { ok: true, groups, recommended, sync, syncError }
+  await logAdmin(event, user, 'nav.import', '', {
+    groups: groups.length,
+    links: groups.reduce((n, group) => n + group.links.length, 0),
+    sync,
+    syncError,
+    urlChanges
+  })
+  return { ok: true, groups, recommended, sync, syncError, urlChanges }
 })

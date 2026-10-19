@@ -51,6 +51,7 @@ const msg = ref('')
 const size = 20
 
 const editing = ref<Entry | null>(null)
+const originalCategory = ref('')
 const saving = ref(false)
 const metaFetching = ref(false)
 const tdkRunning = ref(false)
@@ -345,21 +346,36 @@ function openCreate() {
 
 function openEdit(e: Entry) {
   editing.value = { ...e, content: e.content || '' }
+  originalCategory.value = String(e.category || '')
   formError.value = ''
 }
 
 async function save() {
   const e = editing.value
   if (!e || saving.value) return
+  if (e.id && originalCategory.value && originalCategory.value !== e.category) {
+    const preview: any = await $fetch('/api/admin/category-sync/preview', {
+      method: 'POST',
+      body: { kind: 'directory', urls: [e.url], category: e.category }
+    }).catch(() => null)
+    const links = Array.isArray(preview?.links) ? preview.links : []
+    if (links.length) {
+      const lines = links.slice(0, 6).map((l: any) => `  ${l.name}：${l.from} → ${l.to}`)
+      if (links.length > 6) lines.push(`  …另有 ${links.length - 6} 条`)
+      const extra = preview?.createdGroup ? `\n将新建导航分组「${e.category}」` : ''
+      if (!confirm(`该分类变更会同时移动导航池 ${links.length} 条链接：\n${lines.join('\n')}${extra}\n\n确认保存？`)) return
+    }
+  }
   saving.value = true
   formError.value = ''
   try {
-    await $fetch('/api/admin/directory', {
+    const d: any = await $fetch('/api/admin/directory', {
       method: 'POST',
       body: { id: e.id || 0, entry: { ...e, featured: e.featured ? 1 : 0 } }
     })
     editing.value = null
-    flash(e.id ? '已更新' : '已新增')
+    const moved = Number(d?.navSync?.moved || 0)
+    flash(e.id ? `已更新${moved ? `，并同步 ${moved} 条导航链接` : ''}` : '已新增')
     await load()
   } catch (err: any) {
     formError.value = err?.data?.statusMessage || err?.data?.message || '保存失败'

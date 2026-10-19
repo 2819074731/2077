@@ -1,3 +1,5 @@
+import { touchDirectoryCache } from '../../../utils/directoryCache'
+
 export default defineEventHandler(async (event) => {
   await requireAdmin(event)
   const body = await readBody(event).catch(() => ({}))
@@ -13,5 +15,6 @@ export default defineEventHandler(async (event) => {
      WHERE id IN (${ids.map(() => '?').join(',')})`,
     [hidden ? 1 : 0, ...ids]
   )
+  await touchDirectoryCache()
   return { ok: true, affected: Number(result?.affectedRows || 0), hidden }
 })

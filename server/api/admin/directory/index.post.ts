@@ -1,13 +1,15 @@
 import { sanitizeDirectoryEntry, iconForUrl } from '../../../utils/directory'
 import { syncNavCategoryFromDirectory } from '../../../utils/directorySync'
+import { touchDirectoryCache } from '../../../utils/directoryCache'
 import { notifySearchUrls } from '../../../utils/searchPush'
+import { logAdmin } from '../../../utils/adminLog'
 
 function isDup(e: any): boolean {
   return e?.code === 'ER_DUP_ENTRY' || String(e?.message || '').includes('Duplicate entry')
 }
 
 export default defineEventHandler(async (event) => {
-  await requireAdmin(event)
+  const user = await requireAdmin(event)
   const body = await readBody(event)
   const action = String(body?.action || 'save')
   const db = useDb()
@@ -16,6 +18,7 @@ export default defineEventHandler(async (event) => {
     const id = Number(body?.id)
     if (!id) throw createError({ statusCode: 400, statusMessage: '缺少 ID' })
     await db.execute('DELETE FROM directory_entries WHERE id = ?', [id])
+    await touchDirectoryCache()
     return { ok: true }
   }
 
@@ -25,6 +28,7 @@ export default defineEventHandler(async (event) => {
     const status = String(body?.status) === 'hidden' ? 'hidden' : 'published'
     const [rows]: any = await db.query('SELECT category, detail_enabled FROM directory_entries WHERE id = ? LIMIT 1', [id])
     await db.execute('UPDATE directory_entries SET status = ? WHERE id = ?', [status, id])
+    await touchDirectoryCache()
     if (status === 'published' && rows[0]?.detail_enabled) {
       notifySearchUrls([`/site/${id}.html`, `/site?category=${encodeURIComponent(String(rows[0].category || '其他'))}`])
     }
@@ -76,6 +80,7 @@ export default defineEventHandler(async (event) => {
       }
     }
     if (pushed.length) notifySearchUrls(pushed)
+    await touchDirectoryCache()
 
     return { ok: true, updated, skipped, errors }
   }
@@ -106,6 +111,7 @@ export default defineEventHandler(async (event) => {
       }
     }
     if (pushed.length) notifySearchUrls(pushed)
+    await touchDirectoryCache()
     return { ok: true, created, skipped }
   }
 
@@ -127,11 +133,20 @@ export default defineEventHandler(async (event) => {
         if (oldCategory && oldCategory !== e.category) urls.push(`/site?category=${encodeURIComponent(oldCategory)}`)
         notifySearchUrls(urls)
       }
-      let navSync: { moved: number; createdGroup: boolean } | null = null
+      await touchDirectoryCache()
+      let navSync: Awaited<ReturnType<typeof syncNavCategoryFromDirectory>> | null = null
       if (oldCategory && oldCategory !== e.category) {
         try {
           navSync = await syncNavCategoryFromDirectory([oldUrl, e.url], e.category)
         } catch {}
+      }
+      if (oldCategory && oldCategory !== e.category) {
+        await logAdmin(event, user, 'directory.category', String(id), {
+          from: oldCategory,
+          to: e.category,
+          url: e.url,
+          navSync
+        })
       }
       return { ok: true, id, navSync }
     }
@@ -144,6 +159,7 @@ export default defineEventHandler(async (event) => {
     if (e.status === 'published' && e.detail_enabled) {
       notifySearchUrls([`/site/${newId}.html`, `/site?category=${encodeURIComponent(e.category)}`])
     }
+    await touchDirectoryCache()
     return { ok: true, id: newId }
   } catch (err: any) {
     if (isDup(err)) throw createError({ statusCode: 409, statusMessage: '目录中已存在该网址' })
