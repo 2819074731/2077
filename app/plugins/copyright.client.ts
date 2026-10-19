@@ -6,11 +6,13 @@ export default defineNuxtPlugin(() => {
   root.setAttribute('data-license', COPYRIGHT.license)
   root.setAttribute('data-license-url', COPYRIGHT.licenseUrl)
 
-  Object.defineProperty(window, '__COPYRIGHT__', {
-    value: Object.freeze({ ...COPYRIGHT }),
-    writable: false,
-    configurable: false
-  })
+  if (!('__COPYRIGHT__' in window)) {
+    Object.defineProperty(window, '__COPYRIGHT__', {
+      value: Object.freeze({ ...COPYRIGHT }),
+      writable: false,
+      configurable: true
+    })
+  }
 
   const tags: Array<[string, string]> = [
     ['copyright', COPYRIGHT.zh],
