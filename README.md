@@ -1,103 +1,127 @@
 # 2077 导航
 
-可自定义的浏览器起始页。黑白 Monochrome 设计，本地优先，离线可用，登录后云端同步。
+可自定义的浏览器起始页与网站目录。黑白 Monochrome 设计，本地优先，离线可用，登录后云端同步。
+
+- 线上站点：https://my2077.com
+- 许可说明：https://my2077.com/license
+- 源码仓库：https://gitea.com/qiqius/2077
 
 ## 功能
 
-- **自定义导航**：分组与链接的增删改，本地保存，登录后同步到云端
-- **推荐 / 常用**：推荐为站长精选，常用按用户点击习惯独立排序
-- **分类切换**：分类栏与抽屉按分类切换首页内容（SPA，不刷新整页）
-- **搜索直达**：内置多搜索引擎（默认必应），支持自定义搜索引擎，输入网址回车直达
-- **天气**：按访问 IP 自动定位（清秋 IP 接口），支持手动切换城市
-- **站点图标**：服务端 `/api/icon` 代理，多级回退（Google s2 64px → DuckDuckGo → favicon.im → 站点 favicon），7 天缓存
-- **提交收录**：一键抓取站点 TDK（title / description / keywords）与图标，提交后由后台审核
-- **友情链接**：后台维护，前台页脚展示
-- **PC / 手机自适应**：按 UA 自动判定，也可在页脚 / 抽屉手动切换「跟随设备 / 电脑版 / 手机版」
-- **管理后台** `/admin`：概览、收录审核、导航管理、友情链接、点击统计、用户管理（响应式，适配手机与 PC）
-- **导航导入导出**：后台「导航管理」支持站点配置导出为 JSON 与导入恢复
-- **点击统计**：匿名记录站点点击，后台「点击统计」展示总点击、今日点击、趋势与热门榜
-- **PWA**：离线可用，可添加到主屏幕
+### 起始页
+
+- 自定义分组与链接，本地保存，登录后同步到云端
+- 按分类切换首页内容，分类栏与手机抽屉共用同一套 SPA 状态
+- 推荐位由站长维护，常用站点按点击时间衰减独立排序，支持置顶与隐藏
+- 多搜索引擎切换、自定义引擎、输入网址回车直达
+- 热评信息栏、天气（IP 定位与城市切换）、必应壁纸与显示效果预设
+- PWA 离线访问、添加到主屏幕、系统分享目标
+
+### 搜索与目录
+
+- 站内搜索 GitHub 仓库、用户、Issue 与代码文件
+- 独立的分类网站目录，支持分面筛选、详情页、热门榜与收录状态查询
+- 前台提交收录，自动抓取 TDK 与图标，后台人工审核
+- 死链巡检、自动隐藏、链接发现、sitemap 批量导入
+
+### 账号与后台
+
+- 邮箱/用户名 + 密码登录，QQ 号绑定与默认头像
+- 个人资料、修改密码、退出其他设备、公开主页 `/u/{id}`
+- 收藏夹、云端导航同步、导入导出 JSON
+- 管理后台 `/admin`：概览、收录审核、导航管理、分类目录、分类管理、链接发现、友情链接、用户管理、流量与蜘蛛统计、搜索分析、引擎设置、操作日志、网站设置
+
+### 运维与 SEO
+
+- 动态 sitemap、robots、HTML 站点地图、`llms.txt`、JSON-LD、canonical
+- 全站版权与许可标记，响应头、HTML 注释、meta、JSON-LD、页脚多位置覆盖
+- 安全响应头、CSP、限流、SSRF 防护、会话哈希、scrypt 密码哈希
+- PM2 cluster + 原子切换产物的零停机发布脚本
 
 ## 技术栈
 
-- Nuxt 4 全栈（Nitro `node-server`）
-- Tailwind CSS 4 + 黑白 Monochrome 令牌（`--glim-*` 体系）
-- MySQL（`mysql2`）
+- Nuxt 4（Vue 3 + Nitro `node-server`）
+- Tailwind CSS 与 CSS 变量设计令牌
+- MySQL 8 / MariaDB 10.11（`mysql2`）
+- PM2 cluster、Nginx 反向代理
 - `@vite-pwa/nuxt`、`@nuxtjs/sitemap`、`@nuxtjs/robots`、`@nuxtjs/color-mode`
 
-## 目录结构
-
-```
-app/
-  app.vue                 # 根组件，套用 layout
-  layouts/
-    default.vue           # 前台布局（头部、页脚、抽屉）
-    admin.vue             # 后台布局（侧栏 + 响应式）
-  components/
-    SearchBar.vue         # 搜索框（内置引擎切换 + 自定义）
-    WeatherCard.vue       # 天气（compact 模式用于头部）
-    RecommendLinks.vue    # 站长推荐
-    FrequentLinks.vue     # 个人常用
-    CategoryBar.vue       # 分类切换栏（SPA）
-    LinkGroup.vue         # 分组
-    LinkItem.vue          # 链接项（记录点击频次）
-    AppDrawer.vue         # 手机抽屉菜单（分类切换 + 显示模式）
-  composables/
-    useNav.ts             # 导航数据、频次、引擎、云端同步
-    useAuth.ts            # 登录态
-    useDevice.ts          # PC / 手机自适应（UA + 手动偏好）
-  middleware/
-    admin.ts              # 后台鉴权
-  pages/
-    index.vue             # 首页
-    submit.vue            # 提交收录
-    login.vue / register.vue / settings.vue
-    u/[name].vue          # 用户公开主页
-    admin/                # 后台页面
-shared/nav.ts             # 前后端共用：内置引擎、推荐站点、默认分组
-server/
-  api/                    # 接口（auth / config / links / meta / submit / icon / weather / click / friends / admin）
-  utils/                  # db / auth / site / weather / settings / siteConfig / friendLinks
-  schema.sql / migrate-*.sql
-```
-
-## 本地开发
+## 快速开始
 
 ```bash
 # 安装依赖
 pnpm install
 
+# 复制环境变量模板并填写数据库与站点地址
+cp .env.example .env
+
+# 初始化数据库（先创建库和账号）
+mysql -u my2077 -p my2077 < schema.sql
+
+# 执行增量迁移
+bash deploy/migrate.sh
+
 # 启动开发服务器
 pnpm dev
 ```
 
-## 构建与部署
+默认开发地址为 `http://localhost:3000`。生产环境请参考完整的安装文档。
+
+## 文档
+
+- [文档索引](docs/README.md)
+- [安装部署](docs/INSTALLATION.md)
+- [开发指南](docs/DEVELOPMENT.md)
+- [架构说明](docs/ARCHITECTURE.md)
+- [配置参考](docs/CONFIGURATION.md)
+- [接口概览](docs/API.md)
+- [常见问题](docs/FAQ.md)
+
+## 目录结构
+
+```text
+app/                      # Nuxt 前端（srcDir）
+  components/             # 通用组件
+  composables/            # 导航、认证、设备、壁纸、设置等状态
+  layouts/                # 前台与后台布局
+  middleware/             # 后台鉴权
+  pages/                  # 页面路由
+  plugins/                # 客户端插件
+  utils/                  # 前端工具
+server/                   # Nitro 服务端
+  api/                    # 接口路由
+  database/migrations/    # 增量 SQL
+  middleware/             # 安全、统计、版权响应头
+  plugins/                # CSP、巡检、内存守卫、版权注入
+  routes/                 # 非 /api 路由（llms.txt）
+  utils/                  # 数据库、认证、抓取、缓存、设置等
+shared/                   # 前后端共用类型、默认数据、版权常量
+public/                   # 静态资源
+deploy/                   # 初始化、迁移、备份、Nginx、零停机发布
+scripts/                  # 迁移、备份、图标预热脚本
+tests/                    # 冒烟测试
+```
+
+## 生产部署
 
 ```bash
-# 构建
+# 安装依赖并构建
+pnpm install --frozen-lockfile
 pnpm build
 
-# 使用 pm2 启动（读取同目录 .env 注入环境变量）
+# 使用 PM2 启动（读取同目录 .env）
 pm2 start ecosystem.config.cjs
 pm2 save
 ```
 
-生产环境需要 `.env`（参考 `.env.example`），Nginx 反代到 `127.0.0.1:3100`。
+推荐使用 `deploy/release.sh` 做零停机发布：在临时目录构建、预检新版本、原子切换 `.output`、平滑重载 PM2，失败自动回滚。
 
-## 环境变量
+## 许可与版权
 
-见 `.env.example`。`ecosystem.config.cjs` 会在启动时读取同目录 `.env`，不会把密钥提交到仓库。
-
-## 数据库
-
-首次部署执行 `schema.sql`，后续变更执行 `migrate-*.sql`。
-
-## 许可
-
-本项目采用 PolyForm Noncommercial License 1.0.0 发布，禁止商业使用。
+本项目采用 **PolyForm Noncommercial License 1.0.0** 发布，允许个人与非商业组织使用、修改和分发，禁止任何商业用途。
 
 - 许可说明：https://my2077.com/license
 - 官方全文：https://polyformproject.org/licenses/noncommercial/1.0.0
 - 保留声明：`Required Notice: Copyright (c) 2026 2077 Navigation (my2077.com)`
 
-分发源码或修改版本时，必须保留版权声明、许可名称与许可链接。商业授权请联系 my2077.com。
+分发源码或修改版本时，必须保留版权声明、许可名称与许可链接。首页底部版权链接固定指向 https://my2077.com/，请勿移除或改写。商业授权请联系 my2077.com。
