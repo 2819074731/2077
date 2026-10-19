@@ -134,11 +134,9 @@ function goHome() {
         </div>
         <div class="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
           <CopyrightBar />
-          <nav class="flex flex-wrap items-center gap-x-3 gap-y-1" aria-label="页脚导航">
+          <nav class="flex flex-wrap items-center gap-x-4 gap-y-1" aria-label="页脚导航">
             <NuxtLink to="/site" class="hover:text-ink">分类目录</NuxtLink>
-            <span class="opacity-40" aria-hidden="true">·</span>
             <NuxtLink to="/sitemap" class="hover:text-ink">站点地图</NuxtLink>
-            <span class="opacity-40" aria-hidden="true">·</span>
             <NuxtLink to="/submit" class="hover:text-ink">提交收录</NuxtLink>
           </nav>
         </div>
