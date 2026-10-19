@@ -51,9 +51,9 @@
 | `maintenanceSchedule` | 每日巡检时间，格式 `HH:mm` |
 | `linkTtlDays` | 死链巡检间隔天数 |
 | `tdkTtlDays` | TDK 缓存天数 |
-| `icpNumber` | 备案号，设置后显示在页脚并链接到工信部备案系统 |
-| `contactEmail` | 联系邮箱，设置后以 mailto 链接显示在页脚 |
-| `footerText` | 页脚自定义文案，显示在版权行下方，最多 200 字 |
+| `icpNumber` | ICP 备案号 |
+| `contactEmail` | 联系邮箱 |
+| `footerLinks` | 页脚导航入口数组，每项包含 `label` 与 `url`，最多 8 个；`url` 支持站内 `/` 路径或 `http(s)://` 链接，空数组则隐藏页脚导航 |
 
 其他配置键：
 

@@ -33,6 +33,20 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, statusMessage: '巡检周期需在 1-90 天之间' })
     }
   }
+  const footerLinks = Array.isArray(raw.footerLinks) ? raw.footerLinks : []
+  if (footerLinks.length > 8) {
+    throw createError({ statusCode: 400, statusMessage: '页脚导航最多 8 个入口' })
+  }
+  for (const item of footerLinks) {
+    const label = String(item?.label || '').trim()
+    const url = String(item?.url || '').trim()
+    if (!label || !url) {
+      throw createError({ statusCode: 400, statusMessage: '请填写完整的页脚导航名称和链接' })
+    }
+    if (!/^https?:\/\//i.test(url) && !/^\/(?!\/)/.test(url)) {
+      throw createError({ statusCode: 400, statusMessage: '页脚导航链接需以 / 或 http(s):// 开头' })
+    }
+  }
 
   const stored = await readStoredSiteSettings()
   const saved = await saveSiteSettings({

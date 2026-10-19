@@ -2,6 +2,11 @@ export type SubmitTarget = 'nav' | 'directory'
 export type HomeLineMode = 'stats' | 'comment'
 export type GithubSort = 'best' | 'stars' | 'forks' | 'updated'
 
+export interface FooterLink {
+  label: string
+  url: string
+}
+
 export const DEFAULT_GITHUB_SEARCH_RELAYS = [
   'https://gh-proxy.com',
   'https://gh-proxy.org',
@@ -59,7 +64,7 @@ export interface SiteSettings {
   tdkTtlDays: number
   icpNumber: string
   contactEmail: string
-  footerText: string
+  footerLinks: FooterLink[]
   github: GithubSettings
 }
 
@@ -81,7 +86,11 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   tdkTtlDays: 7,
   icpNumber: '',
   contactEmail: '',
-  footerText: '',
+  footerLinks: [
+    { label: '分类目录', url: '/site' },
+    { label: '站点地图', url: '/sitemap' },
+    { label: '提交收录', url: '/submit' }
+  ],
   github: {
     enabled: true,
     defaultSort: 'best',
@@ -128,6 +137,22 @@ function integer(value: unknown, fallback: number, min: number, max: number): nu
   const n = Number(value)
   if (!Number.isFinite(n)) return fallback
   return Math.min(max, Math.max(min, Math.round(n)))
+}
+
+function footerLinkList(value: unknown, fallback: FooterLink[]): FooterLink[] {
+  if (!Array.isArray(value)) return fallback.map((item) => ({ ...item }))
+  const result: FooterLink[] = []
+  for (const raw of value) {
+    if (!raw || typeof raw !== 'object') continue
+    const item = raw as Partial<FooterLink>
+    const label = text(item.label, '', 20)
+    const url = text(item.url, '', 300)
+    if (!label || !url) continue
+    if (!/^https?:\/\//i.test(url) && !/^\/(?!\/)/.test(url)) continue
+    result.push({ label, url })
+    if (result.length >= 8) break
+  }
+  return result
 }
 
 function relayList(value: unknown, fallback: string[]): string[] {
@@ -188,7 +213,7 @@ export function normalizeSiteSettings(raw: any): SiteSettings {
     tdkTtlDays: integer(src.tdkTtlDays, DEFAULT_SITE_SETTINGS.tdkTtlDays, 1, 90),
     icpNumber: text(src.icpNumber, DEFAULT_SITE_SETTINGS.icpNumber, 60),
     contactEmail: text(src.contactEmail, DEFAULT_SITE_SETTINGS.contactEmail, 120),
-    footerText: text(src.footerText, DEFAULT_SITE_SETTINGS.footerText, 200),
+    footerLinks: footerLinkList(src.footerLinks, DEFAULT_SITE_SETTINGS.footerLinks),
     github: {
       enabled: bool(ghSrc.enabled, DEFAULT_SITE_SETTINGS.github.enabled),
       defaultSort: ghSort,

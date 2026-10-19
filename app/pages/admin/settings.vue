@@ -41,7 +41,20 @@ function validate(): string {
   if (form.linkTtlDays < 1 || form.linkTtlDays > 90) return '链接巡检周期需在 1-90 天之间'
   if (form.tdkTtlDays < 1 || form.tdkTtlDays > 90) return 'TDK 巡检周期需在 1-90 天之间'
   if (form.contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contactEmail)) return '联系邮箱格式不正确'
+  for (const link of form.footerLinks) {
+    if (!link.label.trim() || !link.url.trim()) return '请填写完整的页脚导航名称和链接'
+    if (!/^https?:\/\//i.test(link.url) && !/^\/(?!\/)/.test(link.url)) return '页脚导航链接需以 / 或 http(s):// 开头'
+  }
   return ''
+}
+
+function addFooterLink() {
+  if (form.footerLinks.length >= 8) return
+  form.footerLinks.push({ label: '', url: '' })
+}
+
+function removeFooterLink(index: number) {
+  form.footerLinks.splice(index, 1)
 }
 
 async function save() {
@@ -199,7 +212,7 @@ async function save() {
 
       <section class="p-4 sm:p-5">
         <h2 class="font-semibold text-[15px]">页脚信息</h2>
-        <p class="text-[12.5px] text-ink2 mt-1">留空则前台不展示对应内容。</p>
+        <p class="text-[12.5px] text-ink2 mt-1">页脚导航的名称与链接均可修改，全部删除后前台隐藏该行。</p>
         <div class="grid sm:grid-cols-2 gap-3.5 mt-4">
           <label class="flex flex-col gap-1.5">
             <span class="text-[13px] font-medium">ICP 备案号</span>
@@ -209,11 +222,25 @@ async function save() {
             <span class="text-[13px] font-medium">联系邮箱</span>
             <input v-model="form.contactEmail" type="email" class="field" maxlength="120" placeholder="admin@example.com" />
           </label>
-          <label class="flex flex-col gap-1.5 sm:col-span-2">
-            <span class="text-[13px] font-medium">页脚自定义文案</span>
-            <textarea v-model="form.footerText" class="field !h-20 py-2.5 resize-y leading-6" maxlength="200" placeholder="例如：本站内容仅供学习交流，如有侵权请联系删除。" />
-            <span class="text-[11.5px] text-ink3">显示在版权行下方，最多 200 字，留空不展示。</span>
-          </label>
+          <div class="sm:col-span-2 flex flex-col gap-2">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <span class="text-[13px] font-medium">页脚导航</span>
+                <p class="text-[11.5px] text-ink3 mt-0.5">显示在页脚右侧，最多 8 个入口；全部删除则隐藏该行。</p>
+              </div>
+              <button type="button" class="btn btn-sm btn-ghost shrink-0" :disabled="form.footerLinks.length >= 8" @click="addFooterLink">添加入口</button>
+            </div>
+            <div v-if="form.footerLinks.length" class="flex flex-col gap-2">
+              <div v-for="(link, index) in form.footerLinks" :key="index" class="flex flex-col sm:flex-row gap-2">
+                <input v-model="link.label" class="field sm:!w-36" maxlength="20" placeholder="名称，例如 分类目录" />
+                <input v-model="link.url" class="field flex-1" maxlength="300" placeholder="/site 或 https://example.com" />
+                <button type="button" class="btn btn-sm btn-ghost text-danger shrink-0" @click="removeFooterLink(index)">删除</button>
+              </div>
+            </div>
+            <div v-else class="rounded-xl border border-dashed border-line px-4 py-3 text-[12px] text-ink3">
+              当前未展示页脚导航，点击「添加入口」恢复。
+            </div>
+          </div>
         </div>
       </section>
 
