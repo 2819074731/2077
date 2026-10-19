@@ -65,7 +65,7 @@ async function save() {
   <div class="animate-fade-up max-w-[900px]">
     <div class="flex items-center gap-2 mb-4 flex-wrap">
       <p class="text-[13px] text-ink2 flex-1 min-w-[240px]">
-        维护站点名称、SEO、提交页文案与自动巡检参数。保存后前台约 15 秒内生效。
+        维护站点名称、SEO、页脚、提交页文案与自动巡检参数。保存后前台约 15 秒内生效。
       </p>
       <span v-if="msg" class="text-[12.5px]" :class="msgKind === 'err' ? 'text-danger' : 'text-ink2'">{{ msg }}</span>
       <button class="btn btn-sm btn-primary" :disabled="saving || loading" @click="save">{{ saving ? '保存中…' : '保存设置' }}</button>
@@ -208,6 +208,11 @@ async function save() {
           <label class="flex flex-col gap-1.5">
             <span class="text-[13px] font-medium">联系邮箱</span>
             <input v-model="form.contactEmail" type="email" class="field" maxlength="120" placeholder="admin@example.com" />
+          </label>
+          <label class="flex flex-col gap-1.5 sm:col-span-2">
+            <span class="text-[13px] font-medium">页脚自定义文案</span>
+            <textarea v-model="form.footerText" class="field !h-20 py-2.5 resize-y leading-6" maxlength="200" placeholder="例如：本站内容仅供学习交流，如有侵权请联系删除。" />
+            <span class="text-[11.5px] text-ink3">显示在版权行下方，最多 200 字，留空不展示。</span>
           </label>
         </div>
       </section>

@@ -59,6 +59,7 @@ export interface SiteSettings {
   tdkTtlDays: number
   icpNumber: string
   contactEmail: string
+  footerText: string
   github: GithubSettings
 }
 
@@ -80,6 +81,7 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   tdkTtlDays: 7,
   icpNumber: '',
   contactEmail: '',
+  footerText: '',
   github: {
     enabled: true,
     defaultSort: 'best',
@@ -186,6 +188,7 @@ export function normalizeSiteSettings(raw: any): SiteSettings {
     tdkTtlDays: integer(src.tdkTtlDays, DEFAULT_SITE_SETTINGS.tdkTtlDays, 1, 90),
     icpNumber: text(src.icpNumber, DEFAULT_SITE_SETTINGS.icpNumber, 60),
     contactEmail: text(src.contactEmail, DEFAULT_SITE_SETTINGS.contactEmail, 120),
+    footerText: text(src.footerText, DEFAULT_SITE_SETTINGS.footerText, 200),
     github: {
       enabled: bool(ghSrc.enabled, DEFAULT_SITE_SETTINGS.github.enabled),
       defaultSort: ghSort,

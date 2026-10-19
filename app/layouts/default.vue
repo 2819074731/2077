@@ -133,8 +133,15 @@ function goHome() {
           >{{ f.name }}</a>
         </div>
         <div class="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <CopyrightBar />
-          <nav class="flex flex-wrap items-center gap-x-4 gap-y-1" aria-label="页脚导航">
+          <div class="flex min-w-0 flex-col gap-1.5">
+            <CopyrightBar />
+            <div v-if="settings.footerText || settings.icpNumber || settings.contactEmail" class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-ink3">
+              <span v-if="settings.footerText" class="whitespace-pre-line">{{ settings.footerText }}</span>
+              <a v-if="settings.icpNumber" href="https://beian.miit.gov.cn/" target="_blank" rel="noopener nofollow" class="hover:text-ink">{{ settings.icpNumber }}</a>
+              <a v-if="settings.contactEmail" :href="`mailto:${settings.contactEmail}`" class="hover:text-ink">{{ settings.contactEmail }}</a>
+            </div>
+          </div>
+          <nav class="flex flex-wrap items-center gap-x-4 gap-y-1 shrink-0" aria-label="页脚导航">
             <NuxtLink to="/site" class="hover:text-ink">分类目录</NuxtLink>
             <NuxtLink to="/sitemap" class="hover:text-ink">站点地图</NuxtLink>
             <NuxtLink to="/submit" class="hover:text-ink">提交收录</NuxtLink>
