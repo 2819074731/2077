@@ -7,19 +7,16 @@ import { COPYRIGHT } from '#shared/copyright'
     <a
       :href="`https://${COPYRIGHT.site}/`"
       rel="noopener"
-      class="hover:text-ink"
+      class="whitespace-nowrap hover:text-ink"
       :title="COPYRIGHT.owner"
       data-copyright-home
     >{{ COPYRIGHT.short }}</a>
-    <span class="opacity-40">·</span>
-    <span>{{ COPYRIGHT.footer }}</span>
+    <span class="opacity-40" aria-hidden="true">·</span>
     <a
       :href="COPYRIGHT.licenseUrl"
       rel="license noopener"
-      class="underline underline-offset-2 hover:text-ink"
+      class="whitespace-nowrap underline underline-offset-2 hover:text-ink"
       :title="COPYRIGHT.notice"
-    >{{ COPYRIGHT.license }}</a>
-    <span class="opacity-40">·</span>
-    <a :href="`https://${COPYRIGHT.site}/`" rel="noopener" class="hover:text-ink">{{ COPYRIGHT.site }}</a>
+    >{{ COPYRIGHT.licenseShort }}</a>
   </div>
 </template>
