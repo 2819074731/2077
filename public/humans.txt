@@ -1,0 +1,12 @@
+/* TEAM */
+Owner: 2077 Navigation
+Site: https://my2077.com
+
+/* LICENSE */
+PolyForm Noncommercial License 1.0.0
+https://my2077.com/license
+
+/* COPYRIGHT */
+Copyright (c) 2026 2077 Navigation (my2077.com)
+All rights reserved.
+Required Notice: Copyright (c) 2026 2077 Navigation (my2077.com)

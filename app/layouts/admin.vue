@@ -106,6 +106,7 @@ function isActive(i: any) {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /></svg>
           返回前台
         </NuxtLink>
+        <CopyrightBar class="px-3 pt-2 pb-1 text-[10px] leading-4 text-ink3" />
       </div>
     </aside>
 

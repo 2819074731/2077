@@ -141,6 +141,7 @@ function goHome() {
           <span class="opacity-40">·</span>
           <NuxtLink to="/submit" class="hover:text-ink">提交收录</NuxtLink>
         </div>
+        <CopyrightBar />
       </div>
     </footer>
 

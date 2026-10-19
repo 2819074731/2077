@@ -89,6 +89,18 @@ test('安全响应头生效', async () => {
   assert.equal(res.headers.get('x-frame-options'), 'DENY')
 })
 
+test('版权与许可信息全站可见', async () => {
+  const res = await get('/')
+  assert.equal(res.status, 200)
+  const html = await res.text()
+  assert.match(html, /PolyForm Noncommercial License 1\.0\.0/)
+  assert.match(html, /data-copyright="/)
+  assert.equal(res.headers.get('x-license'), 'PolyForm Noncommercial License 1.0.0')
+  assert.match(res.headers.get('link') || '', /rel="license"/)
+  const license = await get('/license')
+  assert.equal(license.status, 200)
+})
+
 test('验证文件已删除', async () => {
   const res = await get('/BingSiteAuth.xml')
   assert.equal(res.status, 404)

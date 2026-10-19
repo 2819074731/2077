@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, computed, ref, watch, nextTick } from 'vue'
 import { INLINE_GROUP_COUNT } from '~/data/nav'
+import { COPYRIGHT } from '#shared/copyright'
 
 const { groups, diy, syncMsg, loadLocal, applySite, addGroup, resetAll, activeCat, visibleGroups } = useNav()
 const { categories, loadCategories } = useCategories()
@@ -116,7 +117,14 @@ useHead(() => ({
           '@id': siteUrl + '/#organization',
           name: settings.value.siteName,
           url: siteUrl + '/',
-          description: settings.value.siteTagline
+          description: settings.value.siteTagline,
+          copyrightHolder: {
+            '@type': 'Organization',
+            name: COPYRIGHT.owner,
+            url: `https://${COPYRIGHT.site}/`
+          },
+          copyrightYear: COPYRIGHT.year,
+          license: COPYRIGHT.licenseUrl
         }
       ]
     })

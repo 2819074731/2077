@@ -2,6 +2,8 @@
   "name": "my2077-nav",
   "private": true,
   "type": "module",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "author": "2077 Navigation (https://my2077.com)",
   "scripts": {
     "build": "nuxt build",
     "dev": "nuxt dev",

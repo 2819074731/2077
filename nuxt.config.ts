@@ -1,3 +1,5 @@
+import { COPYRIGHT } from './shared/copyright'
+
 export default defineNuxtConfig({
   compatibilityDate: '2025-01-01',
   devtools: { enabled: false },
@@ -25,7 +27,12 @@ export default defineNuxtConfig({
 
   app: {
     head: {
-      htmlAttrs: { lang: 'zh-CN' },
+      htmlAttrs: {
+        lang: 'zh-CN',
+        'data-copyright': COPYRIGHT.owner,
+        'data-license': COPYRIGHT.license,
+        'data-license-url': COPYRIGHT.licenseUrl
+      },
       meta: [
         { charset: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
@@ -35,12 +42,22 @@ export default defineNuxtConfig({
         { name: 'twitter:card', content: 'summary' },
         { name: 'description', content: '2077 导航：可自定义的浏览器起始页，聚合常用站点，支持离线使用与云端同步。' },
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
-        { name: 'apple-mobile-web-app-title', content: '2077' }
+        { name: 'apple-mobile-web-app-title', content: '2077' },
+        { name: 'author', content: COPYRIGHT.owner },
+        { name: 'copyright', content: COPYRIGHT.zh },
+        { name: 'rights', content: COPYRIGHT.en },
+        { name: 'dcterms.rights', content: COPYRIGHT.en },
+        { name: 'license', content: COPYRIGHT.license },
+        { property: 'og:rights', content: COPYRIGHT.en },
+        { name: 'generator', content: `${COPYRIGHT.owner} · ${COPYRIGHT.license}` }
       ],
       link: [
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
         { rel: 'alternate', type: 'application/xml', title: 'XML Sitemap', href: '/sitemap.xml' },
-        { rel: 'alternate', type: 'text/plain', title: 'LLMs.txt', href: '/llms.txt' }
+        { rel: 'alternate', type: 'text/plain', title: 'LLMs.txt', href: '/llms.txt' },
+        { rel: 'license', href: COPYRIGHT.licenseUrl, title: COPYRIGHT.license },
+        { rel: 'author', href: `https://${COPYRIGHT.site}/` },
+        { rel: 'alternate', type: 'text/plain', title: 'Humans.txt', href: '/humans.txt' }
       ]
     }
   },

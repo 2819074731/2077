@@ -91,3 +91,13 @@ pm2 save
 ## 数据库
 
 首次部署执行 `schema.sql`，后续变更执行 `migrate-*.sql`。
+
+## 许可
+
+本项目采用 PolyForm Noncommercial License 1.0.0 发布，禁止商业使用。
+
+- 许可说明：https://my2077.com/license
+- 官方全文：https://polyformproject.org/licenses/noncommercial/1.0.0
+- 保留声明：`Required Notice: Copyright (c) 2026 2077 Navigation (my2077.com)`
+
+分发源码或修改版本时，必须保留版权声明、许可名称与许可链接。商业授权请联系 my2077.com。

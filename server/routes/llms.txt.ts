@@ -1,5 +1,6 @@
 import { getSiteCategories } from '../utils/categories'
 import { getSiteSettings } from '../utils/siteSettings'
+import { COPYRIGHT } from '#shared/copyright'
 
 export default defineEventHandler(async (event) => {
   const siteUrl = useRuntimeConfig().public.siteUrl
@@ -57,6 +58,12 @@ export default defineEventHandler(async (event) => {
     `- 目录站点数量：${Number(all?.n || 0)}`,
     `- 分类数量：${categories.length}`,
     `- 更新日期：${new Date().toISOString().slice(0, 10)}`,
+    '',
+    '## License',
+    '',
+    `- ${COPYRIGHT.en}`,
+    `- ${COPYRIGHT.license}: ${COPYRIGHT.licenseUrl}`,
+    `- ${COPYRIGHT.required}`,
     ''
   )
 
