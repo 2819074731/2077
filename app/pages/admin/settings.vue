@@ -213,7 +213,7 @@ async function save() {
 
       <section class="p-4 sm:p-5">
         <h2 class="font-semibold text-[15px]">页脚信息</h2>
-        <p class="text-[12.5px] text-ink2 mt-1">设置备案号、联系邮箱与页脚导航入口。</p>
+        <p class="text-[12.5px] text-ink2 mt-1">设置备案号、联系邮箱与页脚导航入口，留空则不在页脚展示。</p>
         <div class="grid sm:grid-cols-2 gap-3.5 mt-4">
           <label class="flex flex-col gap-1.5">
             <span class="text-[13px] font-medium">ICP 备案号</span>

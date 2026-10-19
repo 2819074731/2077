@@ -36,6 +36,12 @@ test('站点设置接口可用', async () => {
   assert.ok(data.siteName.length > 0)
   assert.ok(['nav', 'directory'].includes(data.submitDefaultTarget))
   assert.equal(typeof data.directoryPageSize, 'number')
+  assert.ok(Array.isArray(data.footerLinks))
+  for (const link of data.footerLinks) {
+    assert.equal(typeof link.label, 'string')
+    assert.equal(typeof link.url, 'string')
+    assert.ok(link.label.length > 0)
+  }
 })
 
 test('分类接口可用', async () => {

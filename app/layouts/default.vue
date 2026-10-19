@@ -133,7 +133,13 @@ function goHome() {
           >{{ f.name }}</a>
         </div>
         <div class="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <CopyrightBar />
+          <div class="flex min-w-0 flex-col gap-1.5">
+            <CopyrightBar />
+            <div v-if="settings.icpNumber || settings.contactEmail" class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-ink3">
+              <a v-if="settings.icpNumber" href="https://beian.miit.gov.cn/" target="_blank" rel="noopener nofollow" class="hover:text-ink">{{ settings.icpNumber }}</a>
+              <a v-if="settings.contactEmail" :href="`mailto:${settings.contactEmail}`" class="hover:text-ink">{{ settings.contactEmail }}</a>
+            </div>
+          </div>
           <nav v-if="settings.footerLinks.length" class="flex flex-wrap items-center gap-x-4 gap-y-1 shrink-0" aria-label="页脚导航">
             <template v-for="link in settings.footerLinks" :key="link.label + link.url">
               <NuxtLink v-if="link.url.startsWith('/')" :to="link.url" class="hover:text-ink">{{ link.label }}</NuxtLink>

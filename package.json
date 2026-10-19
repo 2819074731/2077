@@ -10,6 +10,7 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
+    "test:unit": "node --experimental-strip-types --test tests/siteSettings.test.mjs",
     "test:smoke": "node --test tests/smoke.test.mjs",
     "warm:icons": "node scripts/warm-icons.mjs"
   },
