@@ -5,6 +5,7 @@ import { rateLimit } from '../utils/rateLimit'
 import { urlKey } from '#shared/nav'
 import { getSiteCategories } from '../utils/categories'
 import { notifyAdmin } from '../utils/notify'
+import { clientIpFrom } from '../utils/traffic'
 
 export default defineEventHandler(async (event) => {
   const length = Number(getRequestHeader(event, 'content-length') || 0)
@@ -46,10 +47,16 @@ export default defineEventHandler(async (event) => {
   }
 
   const accessToken = randomBytes(24).toString('hex')
+  const realIp = String(getRequestHeader(event, 'x-real-ip') || '').trim()
+  const submitterIp = (realIp || clientIpFrom(
+    getRequestHeaders(event),
+    event.node.req.socket?.remoteAddress
+  )).slice(0, 64)
   const [result]: any = await db.execute(
-    'INSERT INTO submissions (user_id, name, url, icon, title, description, keywords, grp, target, status, access_token) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+    'INSERT INTO submissions (user_id, submitter_ip, name, url, icon, title, description, keywords, grp, target, status, access_token) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
     [
       user?.id || null,
+      submitterIp,
       name,
       u.toString().slice(0, 500),
       safeIcon(body?.icon) || `/api/icon?url=${encodeURIComponent(u.hostname)}`,

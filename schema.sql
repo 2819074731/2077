@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS `user_links` (
 CREATE TABLE IF NOT EXISTS `submissions` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `user_id` INT NULL,
+  `submitter_ip` VARCHAR(64) NOT NULL DEFAULT '',
   `name` VARCHAR(80) NOT NULL,
   `url` VARCHAR(500) NOT NULL,
   `icon` VARCHAR(500) NOT NULL DEFAULT '',

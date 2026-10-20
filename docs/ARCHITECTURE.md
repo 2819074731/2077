@@ -77,6 +77,7 @@ erDiagram
     }
     submissions {
         int id
+        string submitter_ip
         string name
         string url
         string grp
