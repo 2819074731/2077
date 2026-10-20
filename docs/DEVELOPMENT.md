@@ -55,7 +55,10 @@ pnpm dev
 | `pnpm build` | 构建生产产物到 `.output/` |
 | `pnpm preview` | 本地预览构建产物 |
 | `pnpm generate` | 生成静态站点（本项目主要使用 node-server，不常用） |
+| `pnpm test:unit` | 运行设置清洗等单元测试 |
 | `pnpm test:smoke` | 对运行中的站点执行冒烟测试 |
+| `pnpm test:e2e` | 运行管理员页脚端到端测试（需 `ADMIN_SID`） |
+| `pnpm typecheck` | 执行 `nuxt typecheck` 类型检查 |
 | `pnpm warm:icons` | 预热站点图标缓存 |
 | `bash deploy/migrate.sh` | 执行数据库迁移 |
 | `bash deploy/release.sh` | 零停机发布 |
@@ -259,7 +262,21 @@ export default defineEventHandler(async (event) => {
 
 修改版权信息时，同步更新 `LICENSE`、`NOTICE`、`package.json` 和 `README.md`。
 
-## 11. 测试
+## 11. 测试与类型检查
+
+单元测试不依赖运行中的服务，覆盖站点设置清洗、页脚导航默认值、上限与空数组：
+
+```bash
+pnpm test:unit
+```
+
+类型检查使用 Nuxt 生成的 tsconfig：
+
+```bash
+pnpm typecheck
+```
+
+冒烟测试需要先启动站点：
 
 ```bash
 # 先启动本地服务
@@ -269,11 +286,19 @@ pnpm dev
 BASE_URL=http://127.0.0.1:3000 pnpm test:smoke
 ```
 
-测试覆盖首页、目录、sitemap、公开设置、分类、健康检查、提交预检查、安全响应头、版权标记、热门目录、热搜、搜索事件与后台鉴权。
+冒烟测试覆盖首页、目录、sitemap、公开设置、分类、健康检查、提交预检查、安全响应头、版权标记、热门目录、热搜、搜索事件与后台鉴权。
 
-提交前建议至少执行：
+管理员页脚端到端测试会真实读写站点设置，结束时自动还原。先登录后台，从浏览器 Cookie 复制 `sid`：
 
 ```bash
+ADMIN_SID=你的sid BASE_URL=http://127.0.0.1:3000 pnpm test:e2e
+```
+
+未设置 `ADMIN_SID` 时该测试会跳过。提交前建议至少执行：
+
+```bash
+pnpm typecheck
+pnpm test:unit
 pnpm build
 BASE_URL=http://127.0.0.1:3000 pnpm test:smoke
 ```
