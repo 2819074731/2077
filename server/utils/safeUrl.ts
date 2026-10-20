@@ -57,6 +57,7 @@ async function pinnedFetch(
   timeout: number
 ): Promise<Response> {
   const target = addrs[0]
+  if (!target) throw new Error('no-address')
   const headers: Record<string, string> = {
     'User-Agent': 'Mozilla/5.0 (compatible; 2077Bot/1.0; +https://my2077.com)',
     ...opts.headers

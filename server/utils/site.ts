@@ -237,7 +237,8 @@ export async function fetchSiteMeta(input: string): Promise<SiteMeta> {
   let best = empty
   let bestScore = 0
 
-  const first = await fetchHtml(candidates[0])
+  const firstUrl = candidates[0]
+  const first = firstUrl ? await fetchHtml(firstUrl) : null
   if (first) {
     const meta = parseMeta(first.html, first.finalUrl)
     best = meta

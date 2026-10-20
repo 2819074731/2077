@@ -180,7 +180,7 @@ async function google(): Promise<string[]> {
   if (!xml) return []
   const items = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/gi)]
   const titles = items.map((m) => {
-    const title = m[1].match(/<title>([\s\S]*?)<\/title>/i)?.[1] || ''
+    const title = m[1]?.match(/<title>([\s\S]*?)<\/title>/i)?.[1] || ''
     return decodeXml(title).replace(/^<!\[CDATA\[|\]\]>$/g, '').trim()
   })
   return clean(titles)
@@ -192,7 +192,7 @@ async function github(): Promise<string[]> {
   const repos: string[] = []
   for (const chunk of html.split('<article').slice(1)) {
     const heading = chunk.match(/<h2[\s\S]*?href="\/([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)"/)
-    if (heading) repos.push(heading[1])
+    if (heading?.[1]) repos.push(heading[1])
     if (repos.length >= MAX_ITEMS) break
   }
   return clean(repos)
@@ -212,7 +212,7 @@ const PROVIDERS: Record<string, () => Promise<string[]>> = {
 export async function getHotSearch(engine: string, force = false): Promise<HotSearchResult> {
   const id = String(engine || 'bing').toLowerCase()
   if (!ENGINE_IDS.has(id)) {
-    return { items: clean(FALLBACK.bing), live: false }
+    return { items: clean(FALLBACK.bing || []), live: false }
   }
 
   const hit = cache.get(id)
@@ -235,7 +235,7 @@ export async function getHotSearch(engine: string, force = false): Promise<HotSe
     }
     const live = items.length > 0
     if (!live) {
-      items = clean(FALLBACK[id] || FALLBACK.bing)
+      items = clean(FALLBACK[id] || FALLBACK.bing || [])
       if (!error) error = PROVIDERS[id] ? '抓取结果为空，已使用内置词条' : '暂无实时来源，已使用内置词条'
     }
     const result = { items, live }

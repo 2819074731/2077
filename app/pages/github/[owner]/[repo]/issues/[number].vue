@@ -62,7 +62,10 @@ const issue = computed(() => threadData.value?.issue || null)
 const comments = computed(() => threadData.value?.comments || [])
 const partial = computed(() => threadData.value?.partial || false)
 const loading = computed(() => pending.value || (!threadData.value && !error.value))
-const errorMessage = computed(() => error.value?.data?.statusMessage || error.value?.statusMessage || 'Issue 读取失败，请稍后重试')
+const errorMessage = computed(() => {
+  const data = error.value?.data as { statusMessage?: string } | undefined
+  return data?.statusMessage || error.value?.statusMessage || 'Issue 读取失败，请稍后重试'
+})
 const repo = computed(() => repoData.value?.repo || null)
 
 function formatNumber(value: number): string {

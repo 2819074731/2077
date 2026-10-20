@@ -52,7 +52,10 @@ const user = computed(() => data.value?.user || null)
 const repos = computed(() => data.value?.repos || [])
 const partial = computed(() => data.value?.partial || false)
 const loading = computed(() => pending.value || (!data.value && !error.value))
-const errorMessage = computed(() => error.value?.data?.statusMessage || error.value?.statusMessage || '用户信息读取失败，请稍后重试')
+const errorMessage = computed(() => {
+  const data = error.value?.data as { statusMessage?: string } | undefined
+  return data?.statusMessage || error.value?.statusMessage || '用户信息读取失败，请稍后重试'
+})
 
 function formatNumber(value: number): string {
   return Number(value || 0).toLocaleString('zh-CN')

@@ -5,6 +5,14 @@ export default defineNuxtConfig({
   devtools: { enabled: false },
   srcDir: 'app',
 
+  typescript: {
+    tsConfig: {
+      compilerOptions: {
+        noUncheckedIndexedAccess: false
+      }
+    }
+  },
+
   modules: [
     '@nuxtjs/tailwindcss',
     '@nuxtjs/color-mode',
@@ -55,7 +63,7 @@ export default defineNuxtConfig({
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
         { rel: 'alternate', type: 'application/xml', title: 'XML Sitemap', href: '/sitemap.xml' },
         { rel: 'alternate', type: 'text/plain', title: 'LLMs.txt', href: '/llms.txt' },
-        { rel: 'license', href: COPYRIGHT.licenseUrl, title: COPYRIGHT.license },
+        { rel: 'license', href: COPYRIGHT.licenseUrl, title: COPYRIGHT.license } as any,
         { rel: 'author', href: `https://${COPYRIGHT.site}/` },
         { rel: 'alternate', type: 'text/plain', title: 'Humans.txt', href: '/humans.txt' }
       ]

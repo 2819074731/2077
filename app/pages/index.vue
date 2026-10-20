@@ -80,10 +80,13 @@ const { data: siteData } = await useFetch('/api/site', { key: 'site-config' })
 applySite(siteData.value, { groups: true })
 await loadCategories()
 
+useHead({
+  meta: [{ name: 'keywords', content: () => settings.value.siteKeywords }]
+})
+
 useSeoMeta({
   title: () => `${settings.value.siteName} · ${settings.value.siteTagline}`,
   description: () => settings.value.siteDescription,
-  keywords: () => settings.value.siteKeywords,
   ogTitle: () => settings.value.siteName,
   ogDescription: () => settings.value.siteTagline,
   ogType: 'website',

@@ -45,7 +45,7 @@ export default defineEventHandler(async (event) => {
   setHeader(event, 'Cache-Control', 'public, max-age=120, stale-while-revalidate=300')
   setHeader(event, 'X-Accel-Buffering', 'no')
   setHeader(event, 'Content-Security-Policy', "sandbox; default-src 'none'; style-src 'unsafe-inline'")
-  if (file.contentLength) setHeader(event, 'Content-Length', String(file.contentLength))
+  if (file.contentLength) setHeader(event, 'Content-Length', file.contentLength)
 
   return sendStream(event, limiter)
 })

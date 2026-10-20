@@ -11,7 +11,7 @@ const id = computed(() => String(route.params.id || '').replace(/\.html?$/i, '')
 
 const { data, error } = await useAsyncData(
   `directory-detail-${id.value}`,
-  () => $fetch(`/api/directory/${id.value}`),
+  () => ($fetch as unknown as (input: string) => Promise<unknown>)(`/api/directory/${id.value}`),
   { watch: [id] }
 )
 
@@ -92,10 +92,13 @@ function iconOf(url: string) {
   try { return `/api/icon?url=${encodeURIComponent(new URL(url).hostname)}` } catch { return '' }
 }
 
+useHead({
+  meta: [{ name: 'keywords', content: () => item.value.keywords || `${item.value.name},${item.value.category},网址导航,网站目录` }]
+})
+
 useSeoMeta({
   title: pageTitle,
   description: pageDesc,
-  keywords: () => item.value.keywords || `${item.value.name},${item.value.category},网址导航,网站目录`,
   ogTitle: pageTitle,
   ogDescription: pageDesc,
   ogType: 'article',

@@ -4,7 +4,7 @@ export default defineEventHandler(async (event) => {
   await requireAdmin(event)
   const body = await readBody(event).catch(() => ({}))
   const ids = Array.isArray(body?.ids)
-    ? [...new Set(body.ids.map((id: any) => Number(id)).filter((id: number) => Number.isInteger(id) && id > 0))].slice(0, 500)
+    ? [...new Set<number>((body.ids as unknown[]).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0))].slice(0, 500)
     : []
   if (!ids.length) throw createError({ statusCode: 400, statusMessage: '请选择站点' })
   const hidden = body?.hidden !== false

@@ -74,7 +74,7 @@ function writeCache(key: string, d: WData) {
 function requestWeather(url: string): Promise<WData> {
   const running = inflight.get(url)
   if (running) return running
-  const p = ($fetch(url) as Promise<WData>).finally(() => inflight.delete(url))
+  const p = (($fetch as unknown as (input: string) => Promise<WData>)(url)).finally(() => inflight.delete(url))
   inflight.set(url, p)
   return p
 }

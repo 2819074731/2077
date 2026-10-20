@@ -11,7 +11,8 @@ onMounted(async () => {
   await restore()
 })
 
-const menus = [
+type AdminMenuItem = { to: string; label: string; icon: string; exact?: boolean }
+const menus: Array<{ label: string; items: AdminMenuItem[] }> = [
   {
     label: '概览',
     items: [

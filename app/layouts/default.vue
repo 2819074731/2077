@@ -141,7 +141,7 @@ function goHome() {
             </div>
           </div>
           <nav v-if="settings.footerLinks.length" class="flex flex-wrap items-center gap-x-4 gap-y-1 shrink-0" aria-label="页脚导航">
-            <template v-for="link in settings.footerLinks" :key="link.label + link.url">
+            <template v-for="(link, index) in settings.footerLinks" :key="index">
               <NuxtLink v-if="link.url.startsWith('/')" :to="link.url" class="hover:text-ink">{{ link.label }}</NuxtLink>
               <a v-else :href="link.url" target="_blank" rel="noopener nofollow" class="hover:text-ink">{{ link.label }}</a>
             </template>

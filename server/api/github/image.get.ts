@@ -65,7 +65,7 @@ export default defineEventHandler(async (event) => {
   setHeader(event, 'X-Content-Type-Options', 'nosniff')
   setHeader(event, 'X-Accel-Buffering', 'no')
   setHeader(event, 'Content-Security-Policy', "sandbox; default-src 'none'")
-  if (Number.isFinite(length) && length > 0) setHeader(event, 'Content-Length', String(length))
+  if (Number.isFinite(length) && length > 0) setHeader(event, 'Content-Length', length)
 
   return sendStream(event, limiter)
 })

@@ -179,8 +179,8 @@ export default defineEventHandler(async (event) => {
   const db = useDb()
 
   if (action === 'bulk') {
-    const ids = Array.isArray(body?.ids)
-      ? [...new Set(body.ids.map(Number).filter((n: number) => Number.isInteger(n) && n > 0))]
+    const ids: number[] = Array.isArray(body?.ids)
+      ? [...new Set<number>((body.ids as unknown[]).map((value) => Number(value)).filter((n) => Number.isInteger(n) && n > 0))]
       : []
     const op = String(body?.op || '')
     if (!ids.length) throw createError({ statusCode: 400, statusMessage: '请选择提交记录' })

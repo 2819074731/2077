@@ -35,7 +35,7 @@ const editingItem = ref<any>(null)
 const mode = ref<'review' | 'edit'>('review')
 const toNav = ref(false)
 const toDirectory = ref(false)
-const form = ref({ name: '', url: '', title: '', description: '', keywords: '', grp: DEFAULT_CATEGORY })
+const form = ref<{ name: string; url: string; title: string; description: string; keywords: string; grp: string }>({ name: '', url: '', title: '', description: '', keywords: '', grp: DEFAULT_CATEGORY })
 const acting = ref(false)
 
 useSeoMeta({ title: '收录审核 · 2077 管理后台', robots: 'noindex' })

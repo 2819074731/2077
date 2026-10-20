@@ -26,13 +26,13 @@ const { recordClick, isBookmarked, toggleBookmark } = useNav()
 
 const { data, pending } = await useAsyncData(
   'directory-list',
-  () => $fetch('/api/directory', { query: { category: category.value, q: q.value, province: province.value, level: level.value, type: type.value, sort: sort.value, page: page.value, size: PAGE_SIZE } }),
+  () => ($fetch as unknown as (input: string, opts?: Record<string, unknown>) => Promise<unknown>)('/api/directory', { query: { category: category.value, q: q.value, province: province.value, level: level.value, type: type.value, sort: sort.value, page: page.value, size: PAGE_SIZE } }),
   { watch: [category, q, province, level, type, sort, page] }
 )
 
 const { data: popularData, pending: popularPending } = await useAsyncData(
   'directory-popular',
-  () => $fetch('/api/directory/popular', { query: { days: 7, limit: category.value ? 4 : 8, category: category.value } }),
+  () => ($fetch as unknown as (input: string, opts?: Record<string, unknown>) => Promise<unknown>)('/api/directory/popular', { query: { days: 7, limit: category.value ? 4 : 8, category: category.value } }),
   { watch: [category] }
 )
 
@@ -352,7 +352,7 @@ function resetAll() {
               </button>
             </div>
             <p class="text-[12.5px] sm:text-[13px] text-ink2 leading-relaxed line-clamp-2 mt-1">
-              {{ it.description || `收录于${settings.value.siteName}「${it.category}」分类。` }}
+              {{ it.description || `收录于${settings.siteName}「${it.category}」分类。` }}
             </p>
             <div class="flex items-center gap-1.5 mt-1.5 text-[11.5px] text-ink3 min-w-0">
               <span class="truncate">{{ hostOf(it.url) }}</span>

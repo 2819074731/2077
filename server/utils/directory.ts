@@ -14,7 +14,7 @@ export interface DirectoryEntry {
   featured: number
   sort: number
   status: string
-  detail_enabled?: number
+  detail_enabled: number
 }
 
 export function parseDirectoryId(input: unknown): number {

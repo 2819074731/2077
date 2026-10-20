@@ -11,6 +11,7 @@ const saving = ref(false)
 const msg = ref('')
 const msgKind = ref<'ok' | 'err'>('ok')
 const commentPreview = dailyNetEaseComment()
+const footerPreview = ref<'desktop' | 'mobile'>('desktop')
 
 useSeoMeta({ title: '网站设置 · 2077 管理后台', robots: 'noindex' })
 
@@ -56,6 +57,18 @@ function addFooterLink() {
 
 function removeFooterLink(index: number) {
   form.footerLinks.splice(index, 1)
+}
+
+function moveFooterLink(index: number, offset: number) {
+  const target = index + offset
+  if (target < 0 || target >= form.footerLinks.length) return
+  const [item] = form.footerLinks.splice(index, 1)
+  if (!item) return
+  form.footerLinks.splice(target, 0, item)
+}
+
+function resetFooterLinks() {
+  form.footerLinks = DEFAULT_SITE_SETTINGS.footerLinks.map((link) => ({ ...link }))
 }
 
 async function save() {
@@ -226,7 +239,7 @@ async function save() {
         </div>
 
         <div class="mt-4 rounded-xl border border-line bg-card2/40 p-3 sm:p-4">
-          <div class="flex items-start justify-between gap-3">
+          <div class="flex flex-wrap items-start justify-between gap-2">
             <div class="min-w-0">
               <div class="flex items-center gap-2">
                 <span class="text-[13px] font-medium">页脚导航</span>
@@ -234,17 +247,20 @@ async function save() {
               </div>
               <p class="text-[11.5px] text-ink3 mt-0.5">名称与链接均可修改，全部删除后前台隐藏该行。</p>
             </div>
-            <button v-if="form.footerLinks.length" type="button" class="btn btn-sm shrink-0" :disabled="form.footerLinks.length >= 8" @click="addFooterLink">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14" /></svg>
-              添加入口
-            </button>
+            <div class="flex flex-wrap items-center gap-2">
+              <button type="button" class="btn btn-sm btn-ghost" @click="resetFooterLinks">恢复默认</button>
+              <button v-if="form.footerLinks.length" type="button" class="btn btn-sm shrink-0" :disabled="form.footerLinks.length >= 8" @click="addFooterLink">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14" /></svg>
+                添加入口
+              </button>
+            </div>
           </div>
 
           <div v-if="form.footerLinks.length" class="mt-3">
-            <div class="hidden sm:grid sm:grid-cols-[10rem_minmax(0,1fr)_2.5rem] gap-2 px-1 pb-1.5 text-[11px] text-ink3">
+            <div class="hidden sm:grid sm:grid-cols-[10rem_minmax(0,1fr)_6.5rem] gap-2 px-1 pb-1.5 text-[11px] text-ink3">
               <span>名称</span>
               <span>链接地址</span>
-              <span></span>
+              <span class="text-right">操作</span>
             </div>
             <div class="flex flex-col gap-2">
               <div v-for="(link, index) in form.footerLinks" :key="index" class="flex items-start gap-2 rounded-xl border border-line bg-card p-2.5 sm:border-0 sm:bg-transparent sm:p-0">
@@ -258,9 +274,17 @@ async function save() {
                     <input v-model="link.url" class="field" maxlength="300" autocomplete="off" spellcheck="false" aria-label="页脚入口链接" placeholder="/site 或 https://example.com" />
                   </label>
                 </div>
-                <button type="button" class="btn btn-icon-sm btn-ghost mt-[20px] !h-[38px] !w-[38px] shrink-0 text-ink3 hover:!text-danger sm:mt-0 sm:self-end" :aria-label="`删除${link.label || '页脚入口'}`" title="删除入口" @click="removeFooterLink(index)">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14" /></svg>
-                </button>
+                <div class="mt-[20px] flex shrink-0 items-center gap-1 sm:mt-0 sm:self-end">
+                  <button type="button" class="btn btn-icon-sm btn-ghost !h-8 !w-8 text-ink3 disabled:pointer-events-none disabled:opacity-30" :disabled="index === 0" aria-label="上移入口" title="上移" @click="moveFooterLink(index, -1)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m18 15-6-6-6 6" /></svg>
+                  </button>
+                  <button type="button" class="btn btn-icon-sm btn-ghost !h-8 !w-8 text-ink3 disabled:pointer-events-none disabled:opacity-30" :disabled="index === form.footerLinks.length - 1" aria-label="下移入口" title="下移" @click="moveFooterLink(index, 1)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6" /></svg>
+                  </button>
+                  <button type="button" class="btn btn-icon-sm btn-ghost !h-8 !w-8 text-ink3 hover:!text-danger" :aria-label="`删除${link.label || '页脚入口'}`" title="删除入口" @click="removeFooterLink(index)">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14" /></svg>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -269,6 +293,36 @@ async function save() {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14" /></svg>
             添加第一个入口
           </button>
+        </div>
+
+        <div class="mt-4 rounded-xl border border-line bg-card p-3 sm:p-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <span class="text-[13px] font-medium">页脚预览</span>
+              <span class="text-[11.5px] text-ink3 ml-2">随输入实时更新</span>
+            </div>
+            <div class="inline-flex rounded-lg border border-line bg-card2 p-0.5" role="group" aria-label="预览设备">
+              <button type="button" class="h-7 px-3 rounded-md text-[11.5px] transition-colors" :class="footerPreview === 'desktop' ? 'bg-card text-ink shadow-sm' : 'text-ink3 hover:text-ink'" :aria-pressed="footerPreview === 'desktop'" @click="footerPreview = 'desktop'">桌面</button>
+              <button type="button" class="h-7 px-3 rounded-md text-[11.5px] transition-colors" :class="footerPreview === 'mobile' ? 'bg-card text-ink shadow-sm' : 'text-ink3 hover:text-ink'" :aria-pressed="footerPreview === 'mobile'" @click="footerPreview = 'mobile'">手机</button>
+            </div>
+          </div>
+          <div class="mt-3 rounded-xl border border-line bg-card2/30 p-3 sm:p-4">
+            <div class="rounded-lg border border-line bg-card px-3 py-3 text-xs text-ink2 pointer-events-none select-none" :class="footerPreview === 'mobile' ? 'mx-auto w-full max-w-[320px]' : 'w-full'">
+              <div class="flex flex-col-reverse gap-3" :class="footerPreview === 'desktop' ? 'sm:flex-row sm:items-center sm:justify-between' : ''">
+                <div class="flex min-w-0 flex-col gap-1.5">
+                  <CopyrightBar />
+                  <div v-if="form.icpNumber || form.contactEmail" class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink3">
+                    <span v-if="form.icpNumber">{{ form.icpNumber }}</span>
+                    <span v-if="form.contactEmail">{{ form.contactEmail }}</span>
+                  </div>
+                </div>
+                <nav v-if="form.footerLinks.length" class="flex flex-wrap items-center gap-x-4 gap-y-1 shrink-0">
+                  <span v-for="(link, index) in form.footerLinks" :key="index" :title="link.url">{{ link.label || '未命名入口' }}</span>
+                </nav>
+                <span v-else class="text-ink3">未配置页脚导航</span>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 

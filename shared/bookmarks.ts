@@ -44,7 +44,7 @@ export function parseBookmarksHtml(html: string): BookmarkFolder[] {
     }
     const url = String(m[2] || '').trim()
     if (!/^https?:\/\//i.test(url)) continue
-    const name = decode(m[3]).slice(0, 60) || url
+    const name = decode(m[3] || '').slice(0, 60) || url
     const folder = stack[stack.length - 1] || '未分类'
     if (!map.has(folder)) map.set(folder, [])
     const list = map.get(folder)!

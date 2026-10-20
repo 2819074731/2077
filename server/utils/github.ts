@@ -648,7 +648,7 @@ export async function getGithubContents(repo: string, pathValue: string): Promis
 
       const size = Number(data.size) || 0
       const itemPath = normalizeGithubPath(data.path || path)
-      let kind = fileKind(itemPath, size, maxText, maxImage)
+      let kind: GithubFileContent['kind'] = fileKind(itemPath, size, maxText, maxImage)
       let contentText = ''
       let truncated = false
 

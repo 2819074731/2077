@@ -50,7 +50,7 @@ export default defineEventHandler(async (event) => {
   setHeader(event, 'Content-Disposition', attachment(file.filename))
   setHeader(event, 'Cache-Control', 'private, no-store')
   setHeader(event, 'X-Accel-Buffering', 'no')
-  if (file.contentLength) setHeader(event, 'Content-Length', String(file.contentLength))
+  if (file.contentLength) setHeader(event, 'Content-Length', file.contentLength)
 
   return sendStream(event, limiter)
 })

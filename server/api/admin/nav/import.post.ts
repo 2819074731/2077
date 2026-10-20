@@ -51,7 +51,7 @@ export default defineEventHandler(async (event) => {
   const current = await getSiteConfig({ fresh: true })
   const recommended = Array.isArray(data?.recommended)
     ? sanitizeRecommended(data.recommended)
-    : current.recommended
+    : (current.recommended || [])
   await setSetting('site_config', { groups, recommended })
   invalidateSiteConfig()
   let sync: { created: number; updated: number; skipped: number } | null = null

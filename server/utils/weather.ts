@@ -188,6 +188,6 @@ export async function getWeather(lat: number, lon: number): Promise<any | null> 
 /** 取调用方真实 IP（nginx 已设置 X-Real-IP / X-Forwarded-For）。 */
 export function clientIp(event: any): string {
   const xf = getHeader(event, 'x-forwarded-for')
-  if (xf) return String(xf).split(',')[0].trim()
+  if (xf) return (String(xf).split(',')[0] || '').trim()
   return getHeader(event, 'x-real-ip') || ''
 }

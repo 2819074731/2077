@@ -36,10 +36,13 @@ const faqs = computed(() => [
   }
 ])
 
+useHead({
+  meta: [{ name: 'keywords', content: () => `提交网站,网址提交,网站收录,免费收录,网址导航,分类目录,${settings.value.siteName}` }]
+})
+
 useSeoMeta({
   title: () => `提交网站收录 · 免费网址提交 | ${settings.value.siteName}`,
   description: () => `免费提交网站到${settings.value.siteName}，可选择首页精选导航或分类网站目录。支持一键抓取标题、描述、关键词与图标，人工审核后收录。`,
-  keywords: () => `提交网站,网址提交,网站收录,免费收录,网址导航,分类目录,${settings.value.siteName}`,
   ogTitle: () => `提交网站收录 · ${settings.value.siteName}`,
   ogDescription: () => `免费提交网站到${settings.value.siteName}，支持首页精选导航与分类网站目录，人工审核后收录。`,
   ogType: 'website',

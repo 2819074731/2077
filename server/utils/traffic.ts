@@ -37,7 +37,7 @@ export function isMobileUa(ua: string): boolean {
 
 export function clientIpFrom(headers: Record<string, any>, socketIp?: string): string {
   const xff = String(headers['x-forwarded-for'] || '')
-  return xff.split(',')[0].trim() || String(headers['x-real-ip'] || '') || String(socketIp || '') || 'unknown'
+  return (xff.split(',')[0] || '').trim() || String(headers['x-real-ip'] || '') || String(socketIp || '') || 'unknown'
 }
 
 export function hashValue(input: string): string {
