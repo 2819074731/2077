@@ -387,7 +387,9 @@ function iconOf(url: string) {
               <span v-if="it.grp" class="chip !text-[10px]">{{ it.grp }}</span>
             </div>
             <a :href="it.url" target="_blank" rel="noopener nofollow" class="block text-[12.5px] text-ink2 hover:text-ink truncate mt-0.5">{{ it.url }}</a>
-            <p class="text-[11.5px] text-ink3 mt-1">提交 IP：{{ it.submitter_ip || '未记录' }}</p>
+            <p class="text-[11.5px] text-ink3 mt-1">
+              提交 IP：{{ it.submitter_ip || '未记录' }}<span v-if="it.submitter_location"> · {{ it.submitter_location }}</span>
+            </p>
             <p v-if="it.description" class="text-[12.5px] text-ink2 mt-1.5 line-clamp-2">{{ it.description }}</p>
           </div>
         </div>

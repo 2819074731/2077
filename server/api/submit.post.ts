@@ -6,6 +6,7 @@ import { urlKey } from '#shared/nav'
 import { getSiteCategories } from '../utils/categories'
 import { notifyAdmin } from '../utils/notify'
 import { clientIpFrom } from '../utils/traffic'
+import { lookupIpLocation } from '../utils/ipLocation'
 
 export default defineEventHandler(async (event) => {
   const length = Number(getRequestHeader(event, 'content-length') || 0)
@@ -52,11 +53,13 @@ export default defineEventHandler(async (event) => {
     getRequestHeaders(event),
     event.node.req.socket?.remoteAddress
   )).slice(0, 64)
+  const submitterLocation = await lookupIpLocation(submitterIp)
   const [result]: any = await db.execute(
-    'INSERT INTO submissions (user_id, submitter_ip, name, url, icon, title, description, keywords, grp, target, status, access_token) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+    'INSERT INTO submissions (user_id, submitter_ip, submitter_location, name, url, icon, title, description, keywords, grp, target, status, access_token) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
     [
       user?.id || null,
       submitterIp,
+      submitterLocation,
       name,
       u.toString().slice(0, 500),
       safeIcon(body?.icon) || `/api/icon?url=${encodeURIComponent(u.hostname)}`,

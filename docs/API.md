@@ -128,7 +128,7 @@
 | POST | `/api/submit` | 提交收录 |
 | GET | `/api/submit/status?token=` | 按 token 查询；登录用户可查最近 20 条 |
 
-`POST /api/submit` 会记录提交人 IP（`submitter_ip`），仅在后台提交列表中展示。请求体：
+`POST /api/submit` 会记录提交人 IP（`submitter_ip`），并通过 `api.hk0.cc/api/ip` 解析归属地（`submitter_location`），仅在后台提交列表中展示。归属地查询失败不影响提交。请求体：
 
 ```json
 {

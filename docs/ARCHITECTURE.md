@@ -78,6 +78,7 @@ erDiagram
     submissions {
         int id
         string submitter_ip
+        string submitter_location
         string name
         string url
         string grp
