@@ -38,7 +38,6 @@ const description = computed(() => {
   }
   return props.item.category ? `收录于「${props.item.category}」分类` : '收录在 2077 导航目录中的站点'
 })
-const showTitle = computed(() => !!props.item.title && props.item.title !== props.item.name)
 </script>
 
 <template>
@@ -46,7 +45,7 @@ const showTitle = computed(() => !!props.item.title && props.item.title !== prop
     :to="href"
     :target="internal ? undefined : '_blank'"
     :rel="internal ? undefined : 'noopener'"
-    class="group flex gap-3 px-4 py-4 transition-colors hover:bg-card2 sm:gap-3.5 sm:px-5"
+    class="group flex gap-3 px-4 py-3.5 transition-colors hover:bg-card2 sm:gap-3.5 sm:px-5"
     :aria-label="`${typeLabel}：${item.name}`"
     @click="emit('open')"
   >
@@ -67,17 +66,10 @@ const showTitle = computed(() => !!props.item.title && props.item.title !== prop
 
     <span class="min-w-0 flex-1">
       <span class="flex items-start justify-between gap-2">
-        <span class="min-w-0">
-          <span
-            class="block truncate text-[15px] font-semibold tracking-tight transition-colors group-hover:text-accent sm:text-[15.5px]"
-            v-html="highlightHtml(item.name, query)"
-          />
-          <span
-            v-if="showTitle"
-            class="mt-0.5 block truncate text-[12px] text-ink3"
-            v-html="highlightHtml(item.title, query)"
-          />
-        </span>
+        <span
+          class="min-w-0 truncate text-[15px] font-semibold tracking-tight transition-colors group-hover:text-accent sm:text-[15.5px]"
+          v-html="highlightHtml(item.name, query)"
+        />
         <span class="inline-flex shrink-0 items-center gap-1">
           <span v-if="item.featured" class="rounded-md bg-ink px-1.5 py-0.5 text-[10.5px] font-medium text-bg">荐</span>
           <span class="rounded-md bg-card2 px-1.5 py-0.5 text-[10.5px] text-ink3">{{ typeLabel }}</span>
