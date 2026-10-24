@@ -247,6 +247,8 @@ export default defineEventHandler(async (event) => {
 
 ## 10. 版权与许可约定
 
+项目采用 AGPL-3.0-only。`LICENSE` 保存完整许可文本，`NOTICE` 汇总版权与来源，`ADDITIONAL-TERMS.md` 规定第 7(b) 条来源标注，`TRADEMARK.md` 说明商标边界。
+
 版权文案集中在 `shared/copyright.ts`，用分段 base64 保存并在运行时解码。
 
 - 页面与组件只引用 `COPYRIGHT`，不要硬编码新的版权字符串。
@@ -257,10 +259,10 @@ export default defineEventHandler(async (event) => {
   - `app/app.vue` 的 JSON-LD
   - `app/components/CopyrightBar.vue` 的页脚
   - `public/humans.txt`、`/license`、`/llms.txt`
-- 底部版权链接固定指向 `https://my2077.com/`，不要改成部署者自己的站点。
+- 原版底部版权链接固定指向 `https://my2077.com/`，不要改成部署者自己的站点；二次开发版本需按 `ADDITIONAL-TERMS.md` 增加来源标注。
 - 不添加自毁、崩溃或运行时删除版权的校验逻辑。
 
-修改版权信息时，同步更新 `LICENSE`、`NOTICE`、`package.json` 和 `README.md`。
+修改版权或来源信息时，同步更新 `LICENSE`、`NOTICE`、`ADDITIONAL-TERMS.md`、`TRADEMARK.md`、`package.json` 和 `README.md`。
 
 ## 11. 测试与类型检查
 

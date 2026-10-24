@@ -20,15 +20,16 @@
 - 运行端口：默认 `127.0.0.1:3100`
 - 健康检查：`GET /api/health`
 - 管理后台：`/admin`，要求 `users.is_admin = 1`
-- 许可：PolyForm Noncommercial License 1.0.0
+- 许可：GNU Affero General Public License v3.0 only（AGPL-3.0-only）
 - 版权：`Copyright (c) 2026 2077 Navigation (my2077.com)`
 
 ## 许可提醒
 
-本项目允许非商业使用、修改与分发。任何分发或修改版本都必须保留：
+本项目允许商业使用、修改与分发。任何分发或通过网络提供服务的修改版本都必须：
 
-- `LICENSE` 与 `NOTICE`
-- 页面底部版权链接 https://my2077.com/
-- 全站 meta、HTML 注释、响应头与 JSON-LD 中的版权与许可信息
+- 保留 `LICENSE` 与 `NOTICE`，以及全站 meta、HTML 注释、响应头与 JSON-LD 中的版权与许可信息
+- 分发时按 AGPL 提供完整对应源码；通过网络提供服务时按第 13 条向用户提供源码
+- 按 `ADDITIONAL-TERMS.md` 第 7(b) 条保留可点击来源标注：`Based on 2077 Navigation (https://my2077.com)`
+- 遵守 `TRADEMARK.md`，不得暗示官方身份或背书
 
-商业使用需要单独授权，联系方式见 https://my2077.com/。
+原版页面底部版权链接指向 https://my2077.com/，请勿移除或改写。

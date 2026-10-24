@@ -237,7 +237,7 @@ curl -sI https://你的域名/ | head
 - `/` 返回 `200`
 - `/api/health` 返回 `{"status":"ok",...}`
 - `/license` 返回 `200`
-- 响应头包含 `X-License: PolyForm Noncommercial License 1.0.0`
+- 响应头包含 `X-License: AGPL-3.0-only`
 
 ## 12. 零停机发布
 
@@ -328,4 +328,4 @@ gzip -dc /www/backup/my2077/db-20260101-0315.sql.gz | mysql -u root my2077
 - 使用 HTTPS，并设置 `NUXT_PUBLIC_SITE_URL` 为 HTTPS 地址。
 - 定期执行数据库备份并验证可恢复。
 - 不修改 `server/middleware/security.ts` 中的关键安全头，除非明确知道影响。
-- 保留 `LICENSE`、`NOTICE` 与全站版权标记。
+- 保留 `LICENSE`、`NOTICE`、`ADDITIONAL-TERMS.md` 与全站版权标记。

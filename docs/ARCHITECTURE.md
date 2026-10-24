@@ -184,7 +184,7 @@ graph LR
     A --> G["license / humans.txt / llms.txt"]
 ```
 
-该设计只做版权展示与声明，不包含自毁、崩溃或运行时校验。底部版权链接固定指向 https://my2077.com/。
+许可采用 AGPL-3.0-only。`LICENSE` 保存完整许可文本，`NOTICE` 汇总版权、来源与附加条款，`ADDITIONAL-TERMS.md` 规定第 7(b) 条来源标注，`TRADEMARK.md` 说明商标边界。该设计只做版权展示与声明，不包含自毁、崩溃或运行时校验。原版底部版权链接固定指向 https://my2077.com/。
 
 ## 10. 扩展建议
 

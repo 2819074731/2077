@@ -119,10 +119,15 @@ pm2 save
 
 ## 许可与版权
 
-本项目采用 **PolyForm Noncommercial License 1.0.0** 发布，允许个人与非商业组织使用、修改和分发，禁止任何商业用途。
+本项目采用 **GNU Affero General Public License v3.0 only（AGPL-3.0-only）** 发布，允许商业使用、修改与分发。
 
 - 许可说明：https://my2077.com/license
-- 官方全文：https://polyformproject.org/licenses/noncommercial/1.0.0
-- 保留声明：`Required Notice: Copyright (c) 2026 2077 Navigation (my2077.com)`
+- 官方全文：https://www.gnu.org/licenses/agpl-3.0.html
+- 附加条款：https://gitea.com/qiqius/2077/blob/main/ADDITIONAL-TERMS.md
+- 商标政策：https://gitea.com/qiqius/2077/blob/main/TRADEMARK.md
 
-分发源码或修改版本时，必须保留版权声明、许可名称与许可链接。首页底部版权链接固定指向 https://my2077.com/，请勿移除或改写。商业授权请联系 my2077.com。
+通过网站、API 或其他网络服务向用户提供修改版时，必须按 AGPL 第 13 条提供完整对应源码，并按第 7(b) 条在页脚、关于页或法律声明页保留可点击来源标注：
+
+> Based on 2077 Navigation (https://my2077.com). Modified by NAME on DATE.
+
+分发源码或目标代码时，必须按 AGPL 提供完整对应源码，并保留 `LICENSE`、`NOTICE` 中的版权与许可信息。原版页脚版权链接指向 https://my2077.com/，请勿移除或改写。

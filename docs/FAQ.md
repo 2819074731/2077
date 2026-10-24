@@ -219,11 +219,19 @@ server/api/admin/nav/index.get.ts  -> /api/admin/nav
 
 ### 可以商用吗
 
-不可以。项目使用 PolyForm Noncommercial License 1.0.0，允许非商业使用、修改与分发。商业使用需要单独授权，联系方式见 https://my2077.com/。
+可以。项目使用 AGPL-3.0-only，允许商业使用、修改与分发。通过网站、API 或其他网络服务向用户提供修改版时，必须按 AGPL 第 13 条提供完整对应源码。
 
 ### 部署后可以删除页脚版权吗
 
-许可要求保留版权与许可声明。页脚可以调整样式，但应保留版权主体与指向 https://my2077.com/ 的链接。
+不可以。许可要求保留版权与许可声明。页脚可以调整样式，但应保留版权主体、许可名称，以及指向 https://my2077.com/ 的来源链接。
+
+### 二次开发需要做什么
+
+保留 `LICENSE` 与 `NOTICE`，分发时提供完整对应源码，向网络用户提供修改版时按第 13 条提供源码，标记修改过的文件，并按 `ADDITIONAL-TERMS.md` 第 7(b) 条在页脚、关于页或法律声明页展示：
+
+> Based on 2077 Navigation (https://my2077.com). Modified by NAME on DATE.
+
+同时遵守 `TRADEMARK.md`，不要使用项目名称或 Logo 暗示官方身份或背书。
 
 ### 为什么源码里看不到明文版权文案
 
@@ -231,7 +239,7 @@ server/api/admin/nav/index.get.ts  -> /api/admin/nav
 
 ### 如何修改版权主体
 
-统一修改 `shared/copyright.ts` 中的常量与 `LICENSE`、`NOTICE`、`package.json`、`README.md`。不要在各页面单独硬编码。修改后重新构建并发布。
+统一修改 `shared/copyright.ts` 中的常量与 `LICENSE`、`NOTICE`、`ADDITIONAL-TERMS.md`、`TRADEMARK.md`、`package.json`、`README.md`。不要在各页面单独硬编码。修改后重新构建并发布。
 
 ### 为什么 F12 里能看到多处版权
 

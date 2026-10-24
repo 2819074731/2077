@@ -7,16 +7,20 @@ const u = (parts: string[]): string => {
 export const COPYRIGHT = Object.freeze({
   owner: u(['MjA3NyDlr7zoiKo=']),
   site: u(['bXkyMDc3LmNvbQ==']),
-  zh: u(['54mI5p2D5omA5pyJ', 'IMKpIDIwMjYgMjA3', 'NyDlr7zoiKogwrcg', 'bXkyMDc3LmNvbQ==']),
-  short: u(['wqkgMjAyNiAyMDc3', 'IOWvvOiIqg==']),
-  en: u(['Q29weXJpZ2h0IMKp', 'IDIwMjYgMjA3NyBO', 'YXZpZ2F0aW9uICht', 'eTIwNzcuY29tKS4g', 'QWxsIHJpZ2h0cyBy', 'ZXNlcnZlZC4=']),
-  enAscii: u(['Q29weXJpZ2h0IChj', 'KSAyMDI2IDIwNzcg', 'TmF2aWdhdGlvbiAo', 'bXkyMDc3LmNvbSku', 'IEFsbCByaWdodHMg', 'cmVzZXJ2ZWQu']),
-  license: u(['UG9seUZvcm0gTm9u', 'Y29tbWVyY2lhbCBM', 'aWNlbnNlIDEuMC4w']),
-  licenseShort: u(['UG9seUZvcm0g', 'Tm9uY29tbWVy', 'Y2lhbCAxLjAuMA==']),
-  licenseUrl: u(['aHR0cHM6Ly9teTIw', 'NzcuY29tL2xpY2Vu', 'c2U=']),
-  official: u(['aHR0cHM6Ly9wb2x5', 'Zm9ybXByb2plY3Qu', 'b3JnL2xpY2Vuc2Vz', 'L25vbmNvbW1lcmNp', 'YWwvMS4wLjA=']),
-  notice: u(['5pys6aG555uu6YeH', '55SoIFBvbHlGb3Jt', 'IE5vbmNvbW1lcmNp', 'YWwgMS4wLjAg6K64', '5Y+v77ya5YWB6K64', '5Liq5Lq65LiO6Z2e', '5ZWG5Lia57uE57uH', '5L2/55So44CB5L+u', '5pS55ZKM5YiG5Y+R', '77yM56aB5q2i5Lu7', '5L2V5ZWG5Lia55So', '6YCU44CC5ZWG5Lia', '5o6I5p2D6K+36IGU', '57O7IG15MjA3Ny5j', 'b23jgII=']),
-  required: u(['UmVxdWlyZWQgTm90', 'aWNlOiBDb3B5cmln', 'aHQgKGMpIDIwMjYg', 'MjA3NyBOYXZpZ2F0', 'aW9uIChteTIwNzcu', 'Y29tKQ==']),
+  zh: u(['54mI5p2D5omA5pyJIM', 'KpIDIwMjYgMjA3NyDl', 'r7zoiKogwrcgbXkyMD', 'c3LmNvbQ==']),
+  short: u(['wqkgMjAyNiAyMDc3IO', 'WvvOiIqg==']),
+  en: u(['Q29weXJpZ2h0IMKpID', 'IwMjYgMjA3NyBOYXZp', 'Z2F0aW9uIChteTIwNz', 'cuY29tKS4gQWxsIHJp', 'Z2h0cyByZXNlcnZlZC', '4=']),
+  enAscii: u(['Q29weXJpZ2h0IChjKS', 'AyMDI2IDIwNzcgTmF2', 'aWdhdGlvbiAobXkyMD', 'c3LmNvbSkuIEFsbCBy', 'aWdodHMgcmVzZXJ2ZW', 'Qu']),
+  license: u(['R05VIEFmZmVybyBHZW', '5lcmFsIFB1YmxpYyBM', 'aWNlbnNlIHYzLjAgb2', '5seSAoQUdQTC0zLjAt', 'b25seSk=']),
+  licenseShort: u(['QUdQTC0zLjAtb25seQ==']),
+  spdx: u(['QUdQTC0zLjAtb25seQ==']),
+  licenseUrl: u(['aHR0cHM6Ly9teTIwNz', 'cuY29tL2xpY2Vuc2U=']),
+  official: u(['aHR0cHM6Ly93d3cuZ2', '51Lm9yZy9saWNlbnNl', 'cy9hZ3BsLTMuMC5odG', '1s']),
+  notice: u(['5pys6aG555uu6YeH55', 'SoIEdOVSBBZmZlcm8g', 'R2VuZXJhbCBQdWJsaW', 'MgTGljZW5zZSB2My4w', 'IG9ubHnvvIhBR1BMLT', 'MuMC1vbmx577yJ5Y+R', '5biD77ya5YWB6K645Z', 'WG5Lia5L2/55So44CB', '5L+u5pS55LiO5YiG5Y', '+R77yb5a+55aSW5o+Q', '5L6b572R57uc5pyN5Y', 'qh5pe25b+F6aG75YWs', '5byA5a+55bqU5rqQ56', 'CB77yM5bm25L+d55WZ', '54mI5p2D44CB6K645Y', '+v5Y+K4oCc5Z+65LqO', 'IDIwNzcg5a+86Iiq5L', 'qM5qyh5byA5Y+R4oCd', '55qE5p2l5rqQ5qCH5r', 'Oo44CC']),
+  required: u(['UmVxdWlyZWQgTm90aW', 'NlOiBDb3B5cmlnaHQg', 'KGMpIDIwMjYgMjA3Ny', 'BOYXZpZ2F0aW9uICht', 'eTIwNzcuY29tKS4gTW', '9kaWZpZWQgdmVyc2lv', 'bnMgbXVzdCBzdGF0ZS', 'AiQmFzZWQgb24gMjA3', 'NyBOYXZpZ2F0aW9uIC', 'hodHRwczovL215MjA3', 'Ny5jb20pIiBhbmQgcH', 'Jlc2VydmUgdGhpcyBu', 'b3RpY2Uu']),
+  source: u(['aHR0cHM6Ly9naXRlYS', '5jb20vcWlxaXVzLzIw', 'Nzc=']),
+  termsUrl: u(['aHR0cHM6Ly9naXRlYS', '5jb20vcWlxaXVzLzIw', 'NzcvYmxvYi9tYWluL0', 'FERElUSU9OQUwtVEVS', 'TVMubWQ=']),
+  trademarkUrl: u(['aHR0cHM6Ly9naXRlYS', '5jb20vcWlxaXVzLzIw', 'NzcvYmxvYi9tYWluL1', 'RSQURFTUFSSy5tZA==']),
   year: '2026'
 })
 
@@ -33,6 +37,6 @@ export const COPYRIGHT_JSON_LD = Object.freeze({
     url: `https://${COPYRIGHT.site}/`
   },
   copyrightYear: COPYRIGHT.year,
-  license: COPYRIGHT.licenseUrl,
+  license: COPYRIGHT.official,
   creditText: COPYRIGHT.en
 })

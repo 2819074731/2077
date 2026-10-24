@@ -131,10 +131,12 @@ GitHub Token 推荐在后台维护，后台配置优先于环境变量。每个 
 - `owner`：2077 导航
 - `site`：my2077.com
 - `zh` / `en`：中英文版权行
-- `license`：PolyForm Noncommercial License 1.0.0
+- `license`：GNU Affero General Public License v3.0 only（AGPL-3.0-only）
+- `licenseShort` / `spdx`：AGPL-3.0-only
 - `licenseUrl`：https://my2077.com/license
-- `official`：官方许可全文地址
-- `notice` / `footer` / `required`：许可说明与保留声明
+- `official`：https://www.gnu.org/licenses/agpl-3.0.html
+- `source` / `termsUrl` / `trademarkUrl`：源码、附加条款与商标政策地址
+- `notice` / `required`：许可说明与保留声明
 
 版权展示位置：
 
@@ -148,7 +150,7 @@ GitHub Token 推荐在后台维护，后台配置优先于环境变量。每个 
 | 许可页 | `app/pages/license.vue` |
 | 文本入口 | `public/humans.txt`、`server/routes/llms.txt.ts` |
 
-页脚版权链接固定指向 https://my2077.com/。部署或修改版本时不要移除或改写该链接。
+原版页脚版权链接固定指向 https://my2077.com/。部署或修改版本时不要移除或改写该链接；二次开发版本还需按 `ADDITIONAL-TERMS.md` 增加来源标注。
 
 ## 7. PWA 与缓存
 

@@ -6,7 +6,7 @@
 
 - 状态：维护中
 - 范围：起始页、导航同步、分类目录、收录审核、管理后台、SEO、PWA、零停机发布
-- 许可：PolyForm Noncommercial License 1.0.0（源码可见，禁止商业使用）
+- 许可：GNU Affero General Public License v3.0 only（AGPL-3.0-only，允许商业使用）
 
 ## 下一版本：站内搜索引擎
 
@@ -55,7 +55,7 @@
 下一版本发布前必须全部满足：
 
 - [x] 建立公开 Git 仓库，README 中的仓库地址可访问
-- [ ] 明确许可证：PolyForm Noncommercial 与 OSI 开源二选一，并同步 README、LICENSE、NOTICE、页面版权
+- [x] 明确许可证：采用 AGPL-3.0-only，并同步 README、LICENSE、NOTICE、ADDITIONAL-TERMS、TRADEMARK、页面版权与 `package.json`
 - [x] 仓库不包含 `.env`、`/data/`、`node_modules/`、`.output/`、`.nuxt/`、日志和部署机专属文件
 - [x] 移除一次性运维脚本，或移动到 `scripts/` 并补充说明
 - [ ] 根目录 `migrate-*.sql` 与 `server/database/migrations/` 只保留一套权威迁移

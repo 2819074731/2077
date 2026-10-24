@@ -127,7 +127,7 @@ useHead(() => ({
             url: `https://${COPYRIGHT.site}/`
           },
           copyrightYear: COPYRIGHT.year,
-          license: COPYRIGHT.licenseUrl
+          license: COPYRIGHT.official
         }
       ]
     })

@@ -8,7 +8,7 @@
     "node": ">=24.11.0",
     "pnpm": ">=10 <12"
   },
-  "license": "PolyForm-Noncommercial-1.0.0",
+  "license": "AGPL-3.0-only",
   "author": "2077 Navigation (https://my2077.com)",
   "scripts": {
     "build": "nuxt build",

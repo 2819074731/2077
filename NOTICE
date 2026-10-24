@@ -1,14 +1,22 @@
-2077 Navigation (my2077.com)
+2077 Navigation (2077 导航)
+https://my2077.com
+
 Copyright (c) 2026 2077 Navigation
 All rights reserved.
 
-This project is licensed under the PolyForm Noncommercial License 1.0.0.
-Commercial use requires a separate written license.
+This project is licensed under the GNU Affero General Public License,
+version 3 only (AGPL-3.0-only). See LICENSE for the full license text.
 
-License: https://my2077.com/license
-Official text: https://polyformproject.org/licenses/noncommercial/1.0.0
+Additional terms under Section 7(b) of the AGPL-3.0 apply: modified
+versions that are conveyed or made available to interact with users
+over a network must preserve the attribution notice described in
+ADDITIONAL-TERMS.md.
 
-Required Notice: Copyright (c) 2026 2077 Navigation (my2077.com)
+The names "2077 Navigation" and "2077 导航", the project logo, and the
+my2077.com domain are trademarks or brand identifiers of the project
+owner. The software license does not grant trademark rights. See
+TRADEMARK.md.
 
-The copyright notice, the license name, and the license URL must be
-retained in all copies, modified versions, and redistributions.
+Source code: https://gitea.com/qiqius/2077
+Official site: https://my2077.com
+License page: https://my2077.com/license

@@ -99,12 +99,14 @@ test('版权与许可信息全站可见', async () => {
   const res = await get('/')
   assert.equal(res.status, 200)
   const html = await res.text()
-  assert.match(html, /PolyForm Noncommercial License 1\.0\.0/)
+  assert.match(html, /GNU Affero General Public License/)
+  assert.match(html, /AGPL-3\.0-only/)
   assert.match(html, /data-copyright="/)
-  assert.equal(res.headers.get('x-license'), 'PolyForm Noncommercial License 1.0.0')
+  assert.equal(res.headers.get('x-license'), 'AGPL-3.0-only')
   assert.match(res.headers.get('link') || '', /rel="license"/)
   const license = await get('/license')
   assert.equal(license.status, 200)
+  assert.match(await license.text(), /Based on 2077 Navigation/)
 })
 
 test('验证文件已删除', async () => {
