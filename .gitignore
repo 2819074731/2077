@@ -9,7 +9,8 @@ dist-admin/
 
 # 环境变量与密钥（切勿提交）
 .env
-.env.local
+.env.*
+!.env.example
 *.local
 
 # 日志
@@ -23,4 +24,22 @@ logs/
 *.swp
 
 # 运行期数据（favicon 缓存等）
-data/
+/data/
+
+# 部署机专属文件
+.output*
+.stale/
+.well-known/
+.htaccess
+.user.ini
+index.html
+404.html
+
+# 一次性运维脚本与旧版迁移（以 server/database/migrations 为准）
+/migrate-*.sql
+/inspect-nav-config.mjs
+/toggle-comment.mjs
+/update-nav-config.mjs
+
+# 备份与临时文件
+*.bak*

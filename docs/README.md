@@ -12,6 +12,7 @@
 | [CONFIGURATION.md](CONFIGURATION.md) | 环境变量、站点设置、GitHub 代理、限流与版权配置 |
 | [API.md](API.md) | 公开接口与后台接口概览 |
 | [FAQ.md](FAQ.md) | 常见问题与快速排查 |
+| [ROADMAP.md](ROADMAP.md) | 版本范围与开源发布门槛 |
 
 ## 项目速览
 

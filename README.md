@@ -76,6 +76,7 @@ pnpm dev
 - [配置参考](docs/CONFIGURATION.md)
 - [接口概览](docs/API.md)
 - [常见问题](docs/FAQ.md)
+- [路线图](docs/ROADMAP.md)
 
 ## 目录结构
 
