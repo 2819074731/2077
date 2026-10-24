@@ -46,53 +46,58 @@ const showTitle = computed(() => !!props.item.title && props.item.title !== prop
     :to="href"
     :target="internal ? undefined : '_blank'"
     :rel="internal ? undefined : 'noopener'"
-    class="card group flex gap-3.5 p-4 sm:p-5 transition-all hover:border-line2 hover:shadow-pop"
+    class="group flex gap-3 px-4 py-4 transition-colors hover:bg-card2 sm:gap-3.5 sm:px-5"
     :aria-label="`${typeLabel}：${item.name}`"
     @click="emit('open')"
   >
-    <span class="grid place-items-center w-11 h-11 rounded-xl bg-card2 border border-line shrink-0 overflow-hidden">
-      <img
-        v-if="icon && !failed"
-        :src="icon"
-        :alt="item.name"
-        class="w-5 h-5 object-contain"
-        loading="lazy"
-        referrerpolicy="no-referrer"
-        @error="failed = true"
-      />
-      <span v-else class="text-[15px] font-bold text-ink2">{{ initial }}</span>
+    <span class="shrink-0 pt-0.5">
+      <span class="grid h-9 w-9 place-items-center overflow-hidden rounded-lg border border-line bg-card2 sm:h-10 sm:w-10">
+        <img
+          v-if="icon && !failed"
+          :src="icon"
+          :alt="item.name"
+          class="h-5 w-5 object-contain"
+          loading="lazy"
+          referrerpolicy="no-referrer"
+          @error="failed = true"
+        />
+        <span v-else class="text-[13px] font-bold text-ink2">{{ initial }}</span>
+      </span>
     </span>
 
     <span class="min-w-0 flex-1">
-      <span class="flex items-center gap-2 flex-wrap">
-        <span class="text-[15px] font-semibold leading-snug break-words" v-html="highlightHtml(item.name, query)" />
-        <span class="shrink-0 rounded-md bg-card2 px-1.5 py-0.5 text-[10.5px] text-ink3">{{ typeLabel }}</span>
-        <span v-if="item.featured" class="shrink-0 rounded-md bg-ink px-1.5 py-0.5 text-[10.5px] font-medium text-bg">荐</span>
+      <span class="flex items-start justify-between gap-2">
+        <span class="min-w-0">
+          <span
+            class="block truncate text-[15px] font-semibold tracking-tight transition-colors group-hover:text-accent sm:text-[15.5px]"
+            v-html="highlightHtml(item.name, query)"
+          />
+          <span
+            v-if="showTitle"
+            class="mt-0.5 block truncate text-[12px] text-ink3"
+            v-html="highlightHtml(item.title, query)"
+          />
+        </span>
+        <span class="inline-flex shrink-0 items-center gap-1">
+          <span v-if="item.featured" class="rounded-md bg-ink px-1.5 py-0.5 text-[10.5px] font-medium text-bg">荐</span>
+          <span class="rounded-md bg-card2 px-1.5 py-0.5 text-[10.5px] text-ink3">{{ typeLabel }}</span>
+        </span>
       </span>
+
       <span
-        v-if="showTitle"
-        class="mt-1 block text-[12.5px] leading-relaxed text-ink2 line-clamp-1"
-        v-html="highlightHtml(item.title, query)"
-      />
-      <span
-        class="mt-1 block text-[12.5px] leading-relaxed text-ink2 line-clamp-2 break-words [overflow-wrap:anywhere]"
+        class="mt-1 line-clamp-2 break-words text-[12.5px] leading-[1.65] text-ink2 sm:text-[13px] [overflow-wrap:anywhere]"
         v-html="highlightHtml(description, query)"
       />
-      <span class="mt-2 flex items-center gap-1.5 flex-wrap text-[11.5px] text-ink3">
-        <span class="truncate max-w-[220px]">{{ host }}</span>
-        <template v-if="item.category">
-          <span>·</span>
-          <span>{{ item.category }}</span>
-        </template>
-        <template v-if="item.owner">
-          <span>·</span>
-          <span>{{ item.owner.nickname }}</span>
-        </template>
+
+      <span class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-ink3">
+        <span class="max-w-[220px] truncate">{{ host }}</span>
+        <span v-if="item.category" class="truncate">{{ item.category }}</span>
+        <span v-if="item.owner" class="truncate">{{ item.owner.nickname }}</span>
       </span>
     </span>
 
-    <span class="mt-1 grid place-items-center w-7 h-7 shrink-0 rounded-lg text-ink3 transition-colors group-hover:bg-card2 group-hover:text-ink">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <span class="mt-1 hidden shrink-0 place-items-center self-center rounded-lg text-ink3 transition-colors group-hover:bg-card2 group-hover:text-ink sm:grid sm:h-7 sm:w-7">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
         <path d="M7 17 17 7M9 7h8v8" />
       </svg>
     </span>
