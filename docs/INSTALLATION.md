@@ -44,8 +44,12 @@ nginx -v
 mkdir -p /www/wwwroot
 cd /www/wwwroot
 
-# 替换为实际仓库地址
+# 从 Gitea 克隆
 git clone https://gitea.com/qiqius/2077.git my2077.com
+cd my2077.com
+
+# 或从 GitHub 镜像克隆（与上面二选一）
+git clone https://github.com/2819074731/2077.git my2077.com
 cd my2077.com
 ```
 

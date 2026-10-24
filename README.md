@@ -4,7 +4,9 @@
 
 - 线上站点：https://my2077.com
 - 许可说明：https://my2077.com/license
-- 源码仓库：https://gitea.com/qiqius/2077
+- 源码仓库：
+  - Gitea：https://gitea.com/qiqius/2077
+  - GitHub：https://github.com/2819074731/2077
 
 ## 功能
 
@@ -123,8 +125,8 @@ pm2 save
 
 - 许可说明：https://my2077.com/license
 - 官方全文：https://www.gnu.org/licenses/agpl-3.0.html
-- 附加条款：https://gitea.com/qiqius/2077/blob/main/ADDITIONAL-TERMS.md
-- 商标政策：https://gitea.com/qiqius/2077/blob/main/TRADEMARK.md
+- 附加条款：[ADDITIONAL-TERMS.md](./ADDITIONAL-TERMS.md)
+- 商标政策：[TRADEMARK.md](./TRADEMARK.md)
 
 通过网站、API 或其他网络服务向用户提供修改版时，必须按 AGPL 第 13 条提供完整对应源码，并按第 7(b) 条在页脚、关于页或法律声明页保留可点击来源标注：
 

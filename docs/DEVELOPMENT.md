@@ -14,7 +14,12 @@
 corepack enable
 corepack prepare pnpm@10 --activate
 
+# 从 Gitea 克隆
 git clone https://gitea.com/qiqius/2077.git
+cd 2077
+
+# 或从 GitHub 镜像克隆（与上面二选一）
+git clone https://github.com/2819074731/2077.git
 cd 2077
 pnpm install
 cp .env.example .env
