@@ -59,6 +59,7 @@
 - [x] 仓库不包含 `.env`、`/data/`、`node_modules/`、`.output/`、`.nuxt/`、日志和部署机专属文件
 - [x] 移除一次性运维脚本，或移动到 `scripts/` 并补充说明
 - [ ] 根目录 `migrate-*.sql` 与 `server/database/migrations/` 只保留一套权威迁移
+  - 阻塞：`schema.sql` 目前只有 6 张基础表，`directory_entries`、`link_clicks`、`link_click_agg`、`meta_cache`、`link_health`、`traffic_log` 仍依赖根目录旧迁移；先补 `000_base_tables.sql` 或完整 `schema.sql`，再删除旧文件
 - [x] `package.json` 增加 `version`、`packageManager`、`engines`
 - [x] CI 覆盖单元测试、类型检查和生产构建
 - [ ] 生成版本标签和发布说明（CHANGELOG 已建立）
