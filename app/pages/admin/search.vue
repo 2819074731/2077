@@ -6,6 +6,10 @@ definePageMeta({ layout: 'admin', middleware: 'admin' })
 const days = ref(14)
 const stats = ref<any>(null)
 const sources = ref<any[]>([])
+const indexStatus = ref<any>(null)
+const indexLoading = ref(true)
+const indexRebuilding = ref(false)
+const indexMsg = ref('')
 const loading = ref(true)
 const statusLoading = ref(true)
 const refreshing = ref(false)
@@ -57,12 +61,41 @@ async function refreshAll() {
   }
 }
 
+async function loadIndex() {
+  indexLoading.value = true
+  try {
+    const data: any = await $fetch('/api/admin/search-index')
+    indexStatus.value = data?.status || null
+  } catch {
+    indexStatus.value = null
+  } finally {
+    indexLoading.value = false
+  }
+}
+
+async function rebuildIndex() {
+  if (indexRebuilding.value) return
+  indexRebuilding.value = true
+  indexMsg.value = ''
+  try {
+    const data: any = await $fetch('/api/admin/search-index', { method: 'POST', body: { action: 'rebuild' } })
+    indexStatus.value = data?.status || indexStatus.value
+    indexMsg.value = '索引已重建'
+  } catch (e: any) {
+    indexMsg.value = e?.data?.statusMessage || e?.data?.message || '索引重建失败'
+  } finally {
+    indexRebuilding.value = false
+    setTimeout(() => { if (indexMsg.value === '索引已重建') indexMsg.value = '' }, 2200)
+  }
+}
+
 onMounted(() => {
   loadStats()
   loadSources()
+  loadIndex()
 })
 
-const summary = computed(() => stats.value?.summary || { total: 0, today: 0, tracked: 0, zero: 0 })
+const summary = computed(() => stats.value?.summary || { total: 0, today: 0, tracked: 0, zero: 0, site: 0, siteClicks: 0, ctr: 0, avgTook: 0, p95Took: 0, maxTook: 0 })
 const zeroRate = computed(() => summary.value.tracked ? Math.round(summary.value.zero / summary.value.tracked * 100) : 0)
 const engines = computed<any[]>(() => stats.value?.engines || [])
 const terms = computed<any[]>(() => stats.value?.terms || [])
@@ -79,9 +112,10 @@ const hotRate = computed(() => {
   return total ? Math.round(hotCount.value / total * 100) : 0
 })
 const nameMap = computed(() => new Map(sources.value.map(s => [s.engine, s.name])))
+const specialEngines = new Map([['site', '站内搜索']])
 
 function engineName(id: string) {
-  return nameMap.value.get(id) || id
+  return specialEngines.get(id) || nameMap.value.get(id) || id
 }
 
 function pct(v: number, max: number) {
@@ -134,6 +168,51 @@ function ago(checkedAt: number | null) {
         <div class="text-[24px] font-semibold leading-none mt-1">{{ loading ? '—' : inputCount }}</div>
       </div>
     </div>
+
+    <div class="card px-4 py-3 mb-4 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[12px] text-ink2">
+      <span>站内搜索 <b class="text-ink">{{ loading ? '—' : summary.site }}</b> 次</span>
+      <span>结果点击 <b class="text-ink">{{ loading ? '—' : summary.siteClicks }}</b> 次</span>
+      <span>点击率 <b class="text-ink">{{ loading ? '—' : summary.ctr + '%' }}</b></span>
+      <span>平均耗时 <b class="text-ink">{{ loading ? '—' : summary.avgTook + ' ms' }}</b></span>
+      <span>P95 <b class="text-ink">{{ loading ? '—' : summary.p95Took + ' ms' }}</b></span>
+      <span>峰值 <b class="text-ink">{{ loading ? '—' : summary.maxTook + ' ms' }}</b></span>
+    </div>
+
+    <section class="card overflow-hidden mb-3">
+      <div class="px-4 py-3 border-b border-line flex items-center gap-2 flex-wrap">
+        <h2 class="font-semibold text-[14px]">站内搜索索引</h2>
+        <span class="text-[11.5px] text-ink3">{{ indexStatus?.engine || 'MariaDB LIKE + pinyin-pro' }}</span>
+        <span v-if="indexMsg" class="text-[11.5px] text-ink3">{{ indexMsg }}</span>
+        <button class="btn btn-sm btn-ghost ml-auto" :disabled="indexLoading || indexRebuilding" @click="rebuildIndex">
+          {{ indexRebuilding ? '重建中…' : '全量重建' }}
+        </button>
+      </div>
+      <div v-if="indexLoading" class="p-5 text-center text-ink2 text-[13px]">加载中…</div>
+      <div v-else-if="!indexStatus" class="p-5 text-center text-ink2 text-[13px]">索引状态不可用</div>
+      <div v-else class="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 text-[12px]">
+        <div class="rounded-xl border border-line bg-card2/60 p-3">
+          <div class="text-ink3">目录文档</div>
+          <div class="mt-1 text-[17px] font-semibold leading-none">{{ indexStatus.directory }}</div>
+        </div>
+        <div class="rounded-xl border border-line bg-card2/60 p-3">
+          <div class="text-ink3">公开收藏</div>
+          <div class="mt-1 text-[17px] font-semibold leading-none">{{ indexStatus.links }}</div>
+        </div>
+        <div class="rounded-xl border border-line bg-card2/60 p-3">
+          <div class="text-ink3">拼音别名</div>
+          <div class="mt-1 text-[17px] font-semibold leading-none">{{ indexStatus.aliases }}</div>
+        </div>
+        <div class="rounded-xl border border-line bg-card2/60 p-3">
+          <div class="text-ink3">构建耗时</div>
+          <div class="mt-1 text-[17px] font-semibold leading-none">{{ indexStatus.durationMs }} ms</div>
+        </div>
+        <div class="rounded-xl border border-line bg-card2/60 p-3">
+          <div class="text-ink3">构建时间</div>
+          <div class="mt-1 text-[13px] font-medium leading-tight">{{ ago(indexStatus.builtAt) }}</div>
+        </div>
+      </div>
+      <p class="px-4 pb-3 text-[11px] text-ink3">目录变更会自动失效并重建；多实例下最长约 15 秒同步。公开收藏实时查询，无需重建。</p>
+    </section>
 
     <section class="card overflow-hidden mb-3">
       <div class="px-4 py-3 border-b border-line flex items-center gap-2 flex-wrap">
@@ -239,7 +318,7 @@ function ago(checkedAt: number | null) {
         </div>
       </div>
       <p class="px-4 py-2.5 text-[11px] text-ink3 border-t border-line">
-        仅统计站内 GitHub 搜索的首次结果；命中 0 条时记录，可用于补充内容或同义词。
+        统计站内搜索与 GitHub 搜索的首次结果；命中 0 条时记录，可用于补充内容或同义词。
       </p>
     </section>
 

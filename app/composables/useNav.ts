@@ -1,4 +1,4 @@
-import { DEFAULT_GROUPS, DEFAULT_ENGINE, ENGINES, INLINE_GROUP_COUNT, urlKey, type NavGroup, type Engine } from '~/data/nav'
+import { DEFAULT_GROUPS, DEFAULT_ENGINE, ENGINES, INLINE_GROUP_COUNT, SITE_ENGINE, urlKey, type NavGroup, type Engine } from '~/data/nav'
 const uid = () => 'x' + Math.random().toString(36).slice(2, 10)
 const LS_GROUPS = 'my2077.groups'
 const LS_FREQ = 'my2077.freq'
@@ -410,7 +410,8 @@ export function useNav() {
 
   /** 所有可用搜索引擎：内置 + 用户自定义。 */
   function allEngines(): Engine[] {
-    return customEngine.value ? [...ENGINES, customEngine.value] : ENGINES
+    const list = [SITE_ENGINE, ...ENGINES]
+    return customEngine.value ? [...list, customEngine.value] : list
   }
 
   /** 当前搜索引擎对象。 */

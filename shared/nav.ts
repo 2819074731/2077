@@ -18,6 +18,8 @@ export const ENGINES: Engine[] = [
   { id: 'youtube', name: 'YouTube', url: 'https://www.youtube.com/results?search_query=%s' }
 ]
 
+export const SITE_ENGINE: Engine = { id: 'site', name: '站内搜索', url: '/search?q=%s' }
+
 export const DEFAULT_ENGINE = 'bing'
 
 /** 站长推荐站点池：按 URL 匹配，命中后在各分类内置顶展示（不单独成区块）。 */

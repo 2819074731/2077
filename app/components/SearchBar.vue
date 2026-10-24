@@ -26,10 +26,18 @@ const recent = ref<string[]>([])
 const activeIndex = ref(-1)
 const panelMax = ref(0)
 let hotSeq = 0
+let siteSeq = 0
+let siteTimer: ReturnType<typeof setTimeout> | null = null
 let closeTimer: ReturnType<typeof setTimeout> | null = null
 
 const engine = computed(() => currentEngine())
+const isSiteSearch = computed(() => engine.value.id === 'site')
+const inputPlaceholder = computed(() => isSiteSearch.value ? '搜索目录站点、公开收藏，回车查看结果' : '搜索或输入网址，回车直达')
+const panelTitle = computed(() => isSiteSearch.value
+  ? (q.value.trim() ? '站内搜索建议' : '站内热门')
+  : `${engine.value.name} 热搜`)
 const filteredHot = computed(() => {
+  if (isSiteSearch.value) return hotItems.value
   const text = q.value.trim().toLowerCase()
   if (!text) return hotItems.value
   return hotItems.value.filter(item => item.toLowerCase().includes(text)).slice(0, 8)
@@ -80,6 +88,7 @@ function clearRecent() {
 }
 
 function track(term: string, kind: 'hot' | 'input') {
+  if (isSiteSearch.value) return
   const text = term.trim()
   if (!text) return
   const body = JSON.stringify({ engine: engine.value.id, term: text, kind })
@@ -131,13 +140,38 @@ function onEnter() {
   go()
 }
 
+async function loadSiteSuggest() {
+  const seq = ++siteSeq
+  hotSeq++
+  hotLoading.value = !hotItems.value.length
+  try {
+    const res = await $fetch<{ items?: string[] }>('/api/search/suggest', {
+      query: { q: q.value.trim(), limit: 10 }
+    })
+    if (seq !== siteSeq) return
+    hotItems.value = Array.isArray(res.items) ? res.items : []
+    hotLive.value = true
+  } catch {
+    if (seq !== siteSeq) return
+    hotItems.value = []
+    hotLive.value = false
+  } finally {
+    if (seq === siteSeq) hotLoading.value = false
+  }
+}
+
 async function loadHot(id: string, force = false) {
+  if (id === 'site') {
+    await loadSiteSuggest()
+    return
+  }
   if (id === 'custom') {
     hotItems.value = []
     hotLive.value = false
     hotLoading.value = false
     return
   }
+  siteSeq++
   const cached = hotCache.get(id)
   if (cached) {
     hotItems.value = cached.items
@@ -172,6 +206,10 @@ function openHot() {
 }
 
 function prefetchHot(id: string) {
+  if (id === 'site') {
+    if (!hotItems.value.length) loadSiteSuggest()
+    return
+  }
   if (id === 'custom' || hotCache.has(id)) return
   $fetch<{ items?: string[]; live?: boolean }>('/api/hot-search', { query: { engine: id } })
     .then((res) => {
@@ -234,6 +272,9 @@ watch(() => engine.value.id, (id) => {
 
 watch(q, () => {
   activeIndex.value = -1
+  if (!isSiteSearch.value || !hotOpen.value) return
+  if (siteTimer) clearTimeout(siteTimer)
+  siteTimer = setTimeout(() => { void loadSiteSuggest() }, 180)
 })
 
 watch(hotOpen, (open) => {
@@ -250,6 +291,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  if (siteTimer) clearTimeout(siteTimer)
   document.removeEventListener('pointerdown', onDocPointerDown)
   window.removeEventListener('resize', updatePanelHeight)
   window.visualViewport?.removeEventListener('resize', updatePanelHeight)
@@ -278,7 +320,7 @@ function go(kind: 'hot' | 'input' = 'input') {
   if (!text) return
   if (/^https?:\/\//.test(text)) { window.location.href = text; return }
   remember(text)
-  track(text, kind)
+  if (!isSiteSearch.value) track(text, kind)
   const target = engine.value.url.replace('%s', encodeURIComponent(text))
   if (target.startsWith('/')) {
     navigateTo(target)
@@ -338,10 +380,10 @@ function go(kind: 'hot' | 'input' = 'input') {
         type="text"
         enterkeyhint="search"
         class="flex-1 min-w-0 bg-transparent outline-none px-2 text-[15px] h-full"
-        placeholder="搜索或输入网址，回车直达"
+        :placeholder="inputPlaceholder"
         autocomplete="off"
         spellcheck="false"
-        aria-label="搜索或输入网址"
+        :aria-label="inputPlaceholder"
         :aria-expanded="hotOpen"
         aria-controls="search-suggestions"
         @focus="openHot"
@@ -371,7 +413,7 @@ function go(kind: 'hot' | 'input' = 'input') {
     >
       <div class="flex items-center justify-between gap-3 px-1.5 pb-2">
         <div class="flex items-center gap-1.5 min-w-0">
-          <span class="text-[12px] font-medium text-ink truncate">{{ engine.name }} 热搜</span>
+          <span class="text-[12px] font-medium text-ink truncate">{{ panelTitle }}</span>
           <span v-if="hotLive" class="inline-flex items-center gap-1 h-[18px] px-1.5 rounded-md bg-card2 text-[10px] text-ink2 shrink-0">
             <span class="w-1 h-1 rounded-full bg-success" />
             实时
@@ -435,7 +477,7 @@ function go(kind: 'hot' | 'input' = 'input') {
       <div v-else-if="!q.trim() && recent.length" class="hidden" />
 
       <div v-else class="px-2 py-6 text-center text-[12.5px] text-ink2">
-        <template v-if="q.trim()">没有匹配的热搜词，回车直接搜索「{{ q.trim() }}」</template>
+        <template v-if="q.trim()">没有匹配的{{ isSiteSearch ? '站内内容' : '热搜词' }}，回车{{ isSiteSearch ? '查看完整搜索' : '直接搜索' }}「{{ q.trim() }}」</template>
         <template v-else>暂无热搜，直接输入关键词搜索</template>
       </div>
     </div>

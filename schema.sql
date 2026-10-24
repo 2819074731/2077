@@ -74,6 +74,8 @@ CREATE TABLE IF NOT EXISTS `search_events` (
   `engine` VARCHAR(32) NOT NULL,
   `term` VARCHAR(120) NOT NULL,
   `kind` VARCHAR(16) NOT NULL DEFAULT 'input',
+  `results` INT NULL DEFAULT NULL,
+  `took_ms` INT NULL DEFAULT NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_created` (`created_at`),

@@ -13,11 +13,12 @@ const props = withDefaults(defineProps<{
   placeholder?: string
   query: string
   sort: string
-  sortOptions: SearchSortOption[]
+  sortOptions: readonly SearchSortOption[]
   loading?: boolean
   error?: string
   total?: number
   countSuffix?: string
+  took?: number
   incomplete?: boolean
   emptyTitle?: string
   emptyHint?: string
@@ -32,6 +33,7 @@ const props = withDefaults(defineProps<{
   error: '',
   total: 0,
   countSuffix: '条结果',
+  took: 0,
   incomplete: false,
   emptyTitle: '没有找到相关内容',
   emptyHint: '换一个关键词再试。',
@@ -131,6 +133,7 @@ function formatNumber(value: number): string {
           <template v-else-if="error">搜索未完成</template>
           <template v-else>
             约 {{ formatNumber(total) }} {{ countSuffix }}
+            <span v-if="took" class="text-ink3">· {{ took }} ms</span>
             <span v-if="incomplete" class="text-ink3">（结果可能不完整）</span>
           </template>
         </p>
@@ -159,8 +162,20 @@ function formatNumber(value: number): string {
       </div>
 
       <div v-else-if="!total" class="card p-8 text-center">
-        <p class="text-[14px] font-medium">{{ emptyTitle }}</p>
-        <p class="mt-1 text-[12.5px] text-ink2">{{ emptyHint }}</p>
+        <slot name="empty">
+          <p class="text-[14px] font-medium">{{ emptyTitle }}</p>
+          <p class="mt-1 text-[12.5px] text-ink2">{{ emptyHint }}</p>
+        </slot>
+        <div v-if="suggestions.length" class="mt-5 flex items-center justify-center gap-2 flex-wrap text-[12.5px] text-ink2">
+          <span>试试：</span>
+          <button
+            v-for="term in suggestions"
+            :key="term"
+            type="button"
+            class="chip hover:border-line2 hover:text-ink transition-colors"
+            @click="emit('suggestion', term)"
+          >{{ term }}</button>
+        </div>
       </div>
 
       <div v-else class="grid gap-3">

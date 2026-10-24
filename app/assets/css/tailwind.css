@@ -109,6 +109,13 @@ img.img-error {
   background: var(--accent-soft);
 }
 
+mark {
+  background: var(--accent-soft);
+  color: inherit;
+  border-radius: 4px;
+  padding: 0 2px;
+}
+
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;

@@ -15,7 +15,7 @@ test('首页可访问', async () => {
 })
 
 test('目录与站点地图可访问', async () => {
-  for (const path of ['/site', '/sitemap.xml', '/llms.txt', '/offline']) {
+  for (const path of ['/site', '/search', '/sitemap.xml', '/llms.txt', '/offline']) {
     const res = await get(path)
     assert.equal(res.status, 200, path)
   }
@@ -161,8 +161,29 @@ test('搜索事件接口可用且忽略网址', async () => {
   assert.equal(data.ok, true)
 })
 
+test('站内搜索接口可用', async () => {
+  const res = await get('/api/search?q=github&size=5')
+  assert.equal(res.status, 200)
+  const data = await res.json()
+  assert.equal(data.q, 'github')
+  assert.ok(Array.isArray(data.items))
+  assert.ok(data.items.length <= 5)
+  assert.equal(typeof data.counts.all, 'number')
+  assert.equal(typeof data.took, 'number')
+  assert.ok(data.took >= 0)
+})
+
+test('站内搜索联想接口可用', async () => {
+  const res = await get('/api/search/suggest?q=git&limit=5')
+  assert.equal(res.status, 200)
+  const data = await res.json()
+  assert.equal(data.q, 'git')
+  assert.ok(Array.isArray(data.items))
+  assert.ok(data.items.length <= 5)
+})
+
 test('搜索分析接口要求管理员权限', async () => {
-  for (const path of ['/api/admin/search-stats', '/api/admin/hot-search-status']) {
+  for (const path of ['/api/admin/search-stats', '/api/admin/hot-search-status', '/api/admin/search-index']) {
     const res = await get(path)
     assert.equal(res.status, 401, path)
   }
