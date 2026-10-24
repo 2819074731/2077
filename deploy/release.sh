@@ -5,7 +5,7 @@ set -euo pipefail
 
 APP_DIR="${APP_DIR:-/www/wwwroot/my2077.com}"
 RELEASE_ROOT="${RELEASE_ROOT:-/www/wwwroot/releases}"
-NODE_BIN="${NODE_BIN:-/www/server/nodejs/v24.21.0/bin}"
+NODE_BIN="${NODE_BIN:-/www/server/nodejs/v24.22.1/bin}"
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:3100/}"
 PREFLIGHT_PORT="${PREFLIGHT_PORT:-$((3200 + RANDOM % 500))}"
 SKIP_INSTALL="${SKIP_INSTALL:-0}"
@@ -42,7 +42,7 @@ echo "[release] 目标版本 $TS"
 
 if [ "$SKIP_INSTALL" != "1" ]; then
   echo "[release] 安装依赖"
-  pnpm install --frozen-lockfile
+  pnpm install --frozen-lockfile --config.confirmModulesPurge=false
 fi
 
 echo "[release] 复制源码到临时构建目录"

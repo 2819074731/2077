@@ -26,7 +26,7 @@ module.exports = {
     {
       name: 'my2077-nav',
       script: '.output/server/index.mjs',
-      interpreter: '/www/server/nodejs/v24.21.0/bin/node',
+      interpreter: '/www/server/nodejs/v24.22.1/bin/node',
       cwd: __dirname,
       instances: 2,
       exec_mode: 'cluster',

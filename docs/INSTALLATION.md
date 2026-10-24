@@ -19,9 +19,9 @@
 ## 2. 安装基础软件
 
 ```bash
-# 安装 Node.js 24（示例使用 nvm，也可使用系统包或宝塔 Node 管理器）
-nvm install 24
-nvm use 24
+# 安装 Node.js 24.22.1 或更高（示例使用 nvm，也可使用系统包或宝塔 Node 管理器）
+nvm install 24.22.1
+nvm use 24.22.1
 
 # 启用 pnpm
 corepack enable
@@ -157,6 +157,8 @@ interpreter: '/your/node/bin/node'
 
 也可以删除该字段，让 PM2 使用当前环境的 Node。
 
+升级 Node 后执行 `pm2 update`，然后用 `pm2 status` 确认应用全部在线。若进程列表为空，执行 `pm2 resurrect` 恢复，再执行 `pm2 save` 固化进程表。
+
 PM2 开机自启：
 
 ```bash
@@ -257,7 +259,7 @@ bash deploy/release.sh
 | --- | --- | --- |
 | `APP_DIR` | `/www/wwwroot/my2077.com` | 源码目录 |
 | `RELEASE_ROOT` | `/www/wwwroot/releases` | 历史版本目录 |
-| `NODE_BIN` | `/www/server/nodejs/v24.21.0/bin` | Node 可执行文件目录 |
+| `NODE_BIN` | `/www/server/nodejs/v24.22.1/bin` | Node 可执行文件目录 |
 | `HEALTH_URL` | `http://127.0.0.1:3100/` | 健康检查地址 |
 | `SKIP_INSTALL` | `0` | 设为 `1` 时跳过 `pnpm install` |
 
