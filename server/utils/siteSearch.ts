@@ -205,7 +205,7 @@ function resolvePinyinIds(cache: PinyinCache, tokens: string[]): Map<string, num
     if (!key || key.length < 2 || !/^[a-z0-9]+$/.test(key)) continue
     const ids = new Set<number>()
     for (const [alias, matches] of cache.aliases) {
-      if (alias === key || (key.length >= 3 && alias.startsWith(key))) {
+      if (alias === key || alias.startsWith(key)) {
         for (const id of matches) {
           ids.add(id)
           if (ids.size >= 120) break
