@@ -24,6 +24,7 @@ export const DEFAULT_ENGINE = 'bing'
 
 /** 站长推荐站点池：按 URL 匹配，命中后在各分类内置顶展示（不单独成区块）。 */
 export const RECOMMENDED_LINKS: NavLink[] = [
+  { id: 'r-ai-bbs', name: 'AI BBS 中转', url: 'https://ai.bbs.lc' },
   { id: 'r1', name: 'GitHub', url: 'https://github.com' },
   { id: 'r2', name: 'ChatGPT', url: 'https://chat.openai.com' },
   { id: 'r4', name: 'Bilibili', url: 'https://www.bilibili.com' },
@@ -50,6 +51,7 @@ export const DEFAULT_GROUPS: NavGroup[] = [
     { id: 'l12', name: 'Postman', url: 'https://www.postman.com' }
   ]},
   { id: 'g-ai', name: 'AI 与模型', recommended: true, links: [
+    { id: 'l-ai-bbs', name: 'AI BBS 中转', url: 'https://ai.bbs.lc' },
     { id: 'l13', name: 'ChatGPT', url: 'https://chat.openai.com' },
     { id: 'l14', name: 'Claude', url: 'https://claude.ai' },
     { id: 'l15', name: 'Gemini', url: 'https://gemini.google.com' },
