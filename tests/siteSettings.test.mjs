@@ -84,3 +84,11 @@ test('Google 搜索数值范围与语言会被清洗', () => {
   assert.equal(settings.google.timeoutMs, 15000)
   assert.equal(settings.google.language, 'zh-CN')
 })
+
+test('Google中转访问令牌会被清洗', () => {
+  const token = 'a'.repeat(24)
+  assert.equal(normalizeSiteSettings({ google: { relayToken: token } }).google.relayToken, token)
+  assert.equal(normalizeSiteSettings({ google: { relayToken: 'short' } }).google.relayToken, '')
+  assert.equal(normalizeSiteSettings({ google: { relayToken: 'has space here' } }).google.relayToken, '')
+  assert.equal(normalizeSiteSettings({}).google.relayToken, '')
+})

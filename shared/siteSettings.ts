@@ -25,6 +25,7 @@ export interface GoogleSearchSettings {
   cacheSec: number
   timeoutMs: number
   relays: string[]
+  relayToken: string
 }
 
 export interface GithubSettings {
@@ -113,7 +114,8 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
     safeSearch: false,
     cacheSec: 300,
     timeoutMs: 6000,
-    relays: [...DEFAULT_GOOGLE_SEARCH_RELAYS]
+    relays: [...DEFAULT_GOOGLE_SEARCH_RELAYS],
+    relayToken: ''
   },
   github: {
     enabled: true,
@@ -273,7 +275,8 @@ export function normalizeSiteSettings(raw: any): SiteSettings {
       safeSearch: bool(gSrc.safeSearch, DEFAULT_SITE_SETTINGS.google.safeSearch),
       cacheSec: integer(gSrc.cacheSec, DEFAULT_SITE_SETTINGS.google.cacheSec, 60, 3600),
       timeoutMs: integer(gSrc.timeoutMs, DEFAULT_SITE_SETTINGS.google.timeoutMs, 2000, 15000),
-      relays: googleRelayList(gSrc.relays, DEFAULT_GOOGLE_SEARCH_RELAYS)
+      relays: googleRelayList(gSrc.relays, DEFAULT_GOOGLE_SEARCH_RELAYS),
+      relayToken: /^[A-Za-z0-9._~+/=-]{8,200}$/.test(text(gSrc.relayToken, '',200)) ? text(gSrc.relayToken, '',200) : ''
     },
     github: {
       enabled: bool(ghSrc.enabled, DEFAULT_SITE_SETTINGS.github.enabled),

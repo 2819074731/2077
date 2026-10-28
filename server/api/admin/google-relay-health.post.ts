@@ -9,7 +9,7 @@ export default defineEventHandler(async (event) => {
 
   const settings = await getGoogleSearchSettings()
   const relays = resolveGoogleRelays(settings)
-  const rows = await probeGoogleRelays(relays)
+  const rows = await probeGoogleRelays(relays, settings.relayToken)
 
   return {
     enabled: settings.enabled,

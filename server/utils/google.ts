@@ -79,15 +79,21 @@ function decodeBody(body: Buffer, contentType: string): string {
   return body.toString('utf8')
 }
 
-async function fetchRelay(url: string, timeout: number): Promise<{ body: string; contentType: string; finalUrl: string }> {
+async function fetchRelay(
+  url: string,
+  timeout: number,
+  token = ''
+): Promise<{ body: string; contentType: string; finalUrl: string }> {
+  const headers: Record<string, string> = {
+    Accept: 'application/json, text/html;q=0.9, */*;q=0.8',
+    'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+    'User-Agent': 'Mozilla/5.0 (Windows NT10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36'
+  }
+  if (token) headers.Authorization = `Bearer ${token}`
   const hit = await safeFetch(url, {
     timeout,
     maxRedirects: 3,
-    headers: {
-      Accept: 'application/json, text/html;q=0.9, */*;q=0.8',
-      'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36'
-    }
+    headers
   })
   if (!hit) throw new Error('relay-unreachable')
   const { res, finalUrl } = hit
@@ -140,7 +146,7 @@ export async function searchGoogle(query: string, page = 1): Promise<GoogleSearc
         safeSearch: settings.safeSearch
       })
       try {
-        const payload = await fetchRelay(url, timeout)
+        const payload = await fetchRelay(url, timeout, settings.relayToken)
         const parsed = parseSearchResponse(payload.body, payload.contentType, payload.finalUrl, pageSize)
         const result: GoogleSearchResult = {
           q,

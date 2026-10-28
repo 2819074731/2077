@@ -22,6 +22,7 @@
 | `GITHUB_TOKEN` | 空 | GitHub API Token 兜底 |
 | `GITHUB_TOKENS` | 空 | 多个 GitHub Token，逗号分隔轮询 |
 | `GITHUB_SEARCH_RELAYS` | 内置列表 | GitHub 搜索中转兜底 |
+| `GOOGLE_SEARCH_RELAYS` |空 | Google搜索中转兜底，逗号分隔，只接受 https |
 
 说明：
 
@@ -91,7 +92,55 @@
 
 GitHub Token 推荐在后台维护，后台配置优先于环境变量。每个 Token 独立计算额度，未配置时匿名额度较低。中转只用于搜索与下载兜底，不会把 Token 发送给第三方。
 
-## 4. 限流
+## 4. Google 搜索设置
+
+后台「引擎设置」的 Google页签配置站内 Google搜索（`/google`）。默认没有内置中转，需自行填写可用线路。
+
+|字段 |说明 |
+| --- | --- |
+| `enabled` |是否启用 Google站内搜索，关闭后接口返回503 |
+| `pageSize` / `maxPages` |每页条数（10到30）与最大页数（1到10） |
+| `language` |搜索语言，默认 `zh-CN` |
+| `safeSearch` |是否过滤成人内容 |
+| `cacheSec` |结果缓存时间（60到3600秒） |
+| `timeoutMs` |单条线路超时（2000到15000毫秒） |
+| `relays` |中转地址，最多6条，只接受 https，按顺序尝试 |
+| `relayToken` |可选的中转访问令牌，非空时请求带 `Authorization: Bearer <token>`；8到200位，可用 `A-Za-z0-9._~+/=-` |
+
+中转地址支持两种写法：
+
+- SearXNG实例根地址，例如 `https://searx.example.com`，服务端自动拼 `/search?q=%s&format=json&pageno=N`。实例需在 `settings.yml`的 `search.formats`中保留 `json`，否则会返回 HTML或403。
+-带占位符的自定义地址，例如 Google CSE：`https://www.googleapis.com/customsearch/v1?key=KEY&cx=CX&q=%s&start=%start%`。
+
+可用占位符：`%s`（关键词，已编码）、`%pageno%`、`%start%`、`%lang%`、`%pagesize%`。
+
+返回体支持 JSON（SearXNG的 `results`、CSE的 `items`、`organic`、`data`、`web.results`）与 HTML（h3锚点、`result` class、`<h2>`邻近回退）。所有线路都失败时接口返回502。
+
+后台「测速」按钮会并行探测所有线路（`/api/admin/google-relay-health`），按可用性与耗时排序，绿色徽标表示当前可用。
+
+### 4.1 自建 SearXNG中转
+
+公共 SearXNG实例普遍有速率限制或人机挑战，长期使用建议自建。要点：
+
+1. `settings.yml`中 `search.formats`需包含 `json`，并保持 `public_instance: false`。
+2.中转域名必须是**公网可访问的 https**：`isHttpRelay`会拒绝含凭据的地址，内网/回环地址也会被拒绝。
+3.用 Nginx反代并校验令牌，令牌与后台 `relayToken`保持一致：
+
+```nginx
+location / {
+ if ($http_authorization != "Bearer <与后台一致的令牌>") {
+ return401;
+ }
+ proxy_pass http://127.0.0.1:8081;
+}
+```
+
+4. TLS证书必须覆盖中转域名本身。签发后可先用 `curl -s -o /dev/null -w '%{http_code}' https://<域名>/healthz`验证为 `200`；若返回 `000`，通常是证书 SAN不匹配导致校验失败。
+
+仓库内 `deploy/nginx-searx-relay.conf`是一份可直接参考的完整配置（HTTP跳转 + ACME验证 +令牌鉴权 + `/healthz`）。
+
+
+## 5. 限流
 
 限流由 `server/utils/rateLimit.ts` 提供，生产环境使用 `rate_limits` 表共享计数，数据库异常时回退进程内限流。主要接口：
 
@@ -106,11 +155,13 @@ GitHub Token 推荐在后台维护，后台配置优先于环境变量。每个 
 | TDK 抓取 | 每 IP 120 次/分钟 |
 | GitHub 搜索 | 每 IP 40 次/分钟 |
 | GitHub 下载 | 每 IP 15 次/分钟 |
+| Google搜索 |每 IP30次/分钟 |
+| Google线路测速 |管理员每 IP10次/分钟 |
 | CSP 报告 | 每 IP 30 次/分钟 |
 
 限流依赖 Nginx 正确写入 `X-Real-IP` 与 `X-Forwarded-For`。
 
-## 5. 安全响应头
+## 6. 安全响应头
 
 `server/middleware/security.ts` 设置：
 
@@ -124,7 +175,7 @@ GitHub Token 推荐在后台维护，后台配置优先于环境变量。每个 
 
 修改安全头前请确认不会破坏 PWA、内联 JSON-LD 或第三方图片。
 
-## 6. 版权与许可配置
+## 7. 版权与许可配置
 
 版权常量位于 `shared/copyright.ts`，包含：
 
@@ -152,7 +203,7 @@ GitHub Token 推荐在后台维护，后台配置优先于环境变量。每个 
 
 原版页脚版权链接固定指向 https://my2077.com/。部署或修改版本时不要移除或改写该链接；二次开发版本还需按 `ADDITIONAL-TERMS.md` 增加来源标注。
 
-## 7. PWA 与缓存
+## 8. PWA 与缓存
 
 - Service Worker 由 `@vite-pwa/nuxt` 生成。
 - 页面导航使用 `NetworkFirst`，失败回退 `/offline`。
@@ -160,14 +211,14 @@ GitHub Token 推荐在后台维护，后台配置优先于环境变量。每个 
 - 图标使用 `CacheFirst`，缓存 30 天。
 - 修改 PWA 配置后，旧 Service Worker 需要刷新一次或注销后更新。
 
-## 8. SEO 配置
+## 9. SEO 配置
 
 - `nuxt.config.ts` 中配置 `site.url`、`site.name`、`site.description`。
 - `sitemap.sources` 指向 `/api/__sitemap__/urls`。
 - `robots.disallow` 排除登录、设置、后台与 API。
 - 页面使用 `useSeoMeta` 与 `useHead` 设置标题、描述、canonical 与 JSON-LD。
 
-## 9. 运行期目录
+## 10. 运行期目录
 
 | 目录 | 说明 |
 | --- | --- |

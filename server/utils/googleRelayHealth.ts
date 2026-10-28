@@ -22,7 +22,7 @@ function snapshot(): Map<string, GoogleRelayHealth> {
   return new Map(cache)
 }
 
-export async function probeGoogleRelay(template: string): Promise<GoogleRelayHealth> {
+export async function probeGoogleRelay(template: string, token = ''): Promise<GoogleRelayHealth> {
   const started = Date.now()
   const base: GoogleRelayHealth = { url: template, ok: false, status: 0, ms: 0, items: 0, at: Date.now() }
   if (!isHttpRelay(template)) {
@@ -32,14 +32,16 @@ export async function probeGoogleRelay(template: string): Promise<GoogleRelayHea
   }
 
   const url = buildGoogleRelayUrl(template, { q: 'nuxt', page: 1, pageSize: 5, language: 'zh-CN' })
+  const headers: Record<string, string> = {
+    Accept: 'application/json, text/html;q=0.9, */*;q=0.8',
+    'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+    'User-Agent': 'Mozilla/5.0 (Windows NT10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36'
+  }
+  if (token) headers.Authorization = `Bearer ${token}`
   const hit = await safeFetch(url, {
     timeout: PROBE_TIMEOUT,
     maxRedirects: 3,
-    headers: {
-      Accept: 'application/json, text/html;q=0.9, */*;q=0.8',
-      'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36'
-    }
+    headers
   }).catch(() => null)
 
   const ms = Date.now() - started
@@ -71,8 +73,8 @@ export async function probeGoogleRelay(template: string): Promise<GoogleRelayHea
   return health
 }
 
-export async function probeGoogleRelays(urls: string[]): Promise<GoogleRelayHealth[]> {
-  return Promise.all(urls.map(probeGoogleRelay))
+export async function probeGoogleRelays(urls: string[], token = ''): Promise<GoogleRelayHealth[]> {
+  return Promise.all(urls.map(url => probeGoogleRelay(url, token)))
 }
 
 export function orderGoogleRelays(urls: string[]): string[] {

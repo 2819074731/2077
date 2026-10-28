@@ -107,6 +107,7 @@
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | GET | `/api/github/search?q=&page=&sort=` | 仓库搜索，`sort` 支持 `best`、`stars`、`forks`、`updated` |
+| GET | `/api/google/search?q=&page=` |站内 Google搜索，走后台配置的中转线路 |
 | GET | `/api/github/repo?owner=&repo=` | 仓库信息 |
 | GET | `/api/github/readme?owner=&repo=` | README |
 | GET | `/api/github/contents?owner=&repo=&path=` | 目录内容 |
@@ -278,6 +279,7 @@
 | POST | `/api/admin/github-tokens` | 添加 Token |
 | DELETE | `/api/admin/github-tokens` | 删除 Token |
 | POST | `/api/admin/github-relay-health` | 检查 GitHub 中转 |
+| POST | `/api/admin/google-relay-health` |检查 Google中转可用性与耗时 |
 | POST | `/api/admin/hot-search-refresh` | 刷新热搜 |
 | GET | `/api/admin/hot-search-status` | 热搜状态 |
 

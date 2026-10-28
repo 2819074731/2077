@@ -16,3 +16,6 @@
 - 重做运营流量后台：区间切换、浏览/蜘蛛/点击趋势、24小时分时、热门页面、来源、设备、蜘蛛抓取路径与搜索概览
 - 流量接口改为并行查询并加30秒私有缓存；补充 `traffic_log`组合索引（`016_traffic_indexes.sql`）
 - 蜘蛛 UA识别扩充（YisouSpider、Amazonbot、DataForSeoBot、Headless等），埋点路径改为白名单
+- Google中转支持访问令牌（`relayToken`），请求带 `Authorization: Bearer`，测速同样生效
+- 新增 `deploy/nginx-searx-relay.conf`参考配置：自建 SearXNG的 HTTP跳转、ACME验证、令牌鉴权与 `/healthz`
+- 文档补充自建 SearXNG中转的证书与令牌注意事项

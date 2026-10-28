@@ -231,7 +231,7 @@ async function save() {
       method: 'PUT',
       body: {
         github: { ...form, searchRelays: relays },
-        ...(loadedGoogle.value ? { google: { ...googleForm, relays: googleRelays } } : {})
+        ...(loadedGoogle.value ? { google: { ...googleForm, relays: googleRelays, relayToken: googleForm.relayToken.trim() } } : {})
       }
     })
     apply(data?.github)
@@ -370,6 +370,21 @@ async function save() {
               <i class="w-1.5 h-1.5 rounded-full mr-1.5" :class="row.ok ? 'bg-success' : 'bg-ink3'" />
               {{ relayHost(row.url) }} · {{ row.ok ? `${row.ms}ms` : '失败' }}
             </span>
+          </div>
+          <div class="mt-4 border-t border-line pt-4">
+            <label class="flex flex-col gap-1.5 max-w-md">
+            <span class="text-[13px] font-medium">中转访问令牌</span>
+            <input
+              v-model="googleForm.relayToken"
+              type="password"
+              class="field text-[12.5px]"
+              placeholder="留空表示不发送 Authorization"
+              spellcheck="false"
+              autocomplete="new-password"
+              maxlength="200"
+            />
+            <span class="text-[11.5px] text-ink2">填写后以 <code class="px-1 rounded bg-card2">Authorization: Bearer &lt;令牌&gt;</code>访问中转线路，用于自建 SearXNG只对本站开放。</span>
+            </label>
           </div>
           <div class="mt-3 space-y-1 text-[11px] leading-relaxed text-ink3">
             <p>模板占位符：<code class="px-1 rounded bg-card2">%s</code> 关键词、<code class="px-1 rounded bg-card2">%pageno%</code> 页码、<code class="px-1 rounded bg-card2">%start%</code> 起始偏移、<code class="px-1 rounded bg-card2">%lang%</code> 语言。</p>
