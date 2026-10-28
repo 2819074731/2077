@@ -5,7 +5,7 @@ export interface Engine { id: string; name: string; url: string; custom?: boolea
 /** 内置搜索引擎；默认使用必应，用户可切换或自定义。 */
 export const ENGINES: Engine[] = [
   { id: 'bing', name: '必应', url: 'https://www.bing.com/search?q=%s' },
-  { id: 'google', name: 'Google', url: 'https://www.google.com/search?q=%s' },
+  { id: 'google', name: 'Google', url: '/google?q=%s' },
   { id: 'baidu', name: '百度', url: 'https://www.baidu.com/s?wd=%s' },
   { id: 'ddg', name: 'DuckDuckGo', url: 'https://duckduckgo.com/?q=%s' },
   { id: 'github', name: 'GitHub', url: '/github?q=%s' },

@@ -39,3 +39,48 @@ test('空数组允许隐藏页脚导航，且不污染默认值', () => {
   settings.footerLinks.push({ label: '新增', url: '/new' })
   assert.equal(defaults.length, 3)
 })
+
+test('Google 搜索默认关闭线路并保留开关', () => {
+  const settings = normalizeSiteSettings({})
+  assert.equal(settings.google.enabled, true)
+  assert.deepEqual(settings.google.relays, [])
+  assert.equal(settings.google.language, 'zh-CN')
+})
+
+test('Google 中转线路只接受 https 且最多 6 条', () => {
+  const settings = normalizeSiteSettings({
+    google: {
+      relays: [
+        'https://searx.example.com',
+        'http://plain.example.com',
+        'https://user:pass@auth.example.com',
+        'https://a.example.com/search?q=%s&format=json',
+        'https://searx.example.com',
+        'https://b.example.com',
+        'https://c.example.com',
+        'https://d.example.com',
+        'https://e.example.com',
+        'https://f.example.com'
+      ]
+    }
+  })
+  assert.deepEqual(settings.google.relays, [
+    'https://searx.example.com',
+    'https://a.example.com/search?q=%s&format=json',
+    'https://b.example.com',
+    'https://c.example.com',
+    'https://d.example.com',
+    'https://e.example.com'
+  ])
+})
+
+test('Google 搜索数值范围与语言会被清洗', () => {
+  const settings = normalizeSiteSettings({
+    google: { pageSize: 999, maxPages: 0, cacheSec: 10, timeoutMs: 99999, language: 'not a lang' }
+  })
+  assert.equal(settings.google.pageSize, 30)
+  assert.equal(settings.google.maxPages, 1)
+  assert.equal(settings.google.cacheSec, 60)
+  assert.equal(settings.google.timeoutMs, 15000)
+  assert.equal(settings.google.language, 'zh-CN')
+})

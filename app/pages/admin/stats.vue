@@ -29,7 +29,7 @@ function setDays(n: number) {
 
 onMounted(load)
 
-const summary = computed(() => data.value?.summary || { today: {}, total: {}, clicks: {} })
+const summary = computed(() => data.value?.summary || { today: {}, total: {}, clicks: {}, realtime: {}, search: {} })
 const daily = computed<any[]>(() => data.value?.daily || [])
 const tops = computed<any[]>(() => data.value?.topPages || [])
 const maxTop = computed(() => Math.max(1, ...tops.value.map(t => Number(t.pv) || 0)))
@@ -39,6 +39,10 @@ const maxDevice = computed(() => Math.max(1, ...devices.value.map(d => Number(d.
 const bots = computed<any[]>(() => data.value?.bots || [])
 const botPaths = computed<any[]>(() => data.value?.botPaths || [])
 const recentBots = computed<any[]>(() => data.value?.recentBots || [])
+const hourly = computed<any[]>(() => data.value?.hourly || [])
+const statuses = computed<any[]>(() => data.value?.statuses || [])
+const topClicks = computed<any[]>(() => data.value?.topClicks || [])
+const search = computed(() => summary.value.search || {})
 
 const summaryCards = computed(() => [
   { l: '今日访客', v: summary.value.today.uv, total: summary.value.total.uv },
@@ -46,6 +50,16 @@ const summaryCards = computed(() => [
   { l: '今日蜘蛛', v: summary.value.today.bot, total: summary.value.total.bot },
   { l: '今日点击', v: summary.value.clicks.today, total: summary.value.clicks.total }
 ])
+
+const secondaryCards = computed(() => [
+  { l: '近 30 分钟浏览', v: summary.value.realtime?.pv ?? 0, sub: `访客 ${summary.value.realtime?.uv ?? 0}` },
+  { l: '近 30 分钟蜘蛛', v: summary.value.realtime?.bot ?? 0, sub: '抓取请求' },
+  { l: '搜索次数', v: search.value.searches ?? 0, sub: `零结果率 ${search.value.zeroRate ?? 0}%` },
+  { l: '站内搜索点击率', v: `${search.value.ctr ?? 0}%`, sub: `点击 ${search.value.siteClicks ?? 0} 次` }
+])
+
+const maxHour = computed(() => Math.max(1, ...hourly.value.map((h) => Math.max(Number(h.pv) || 0, Number(h.bot) || 0))))
+const maxStatus = computed(() => Math.max(1, ...statuses.value.map((s) => Number(s.n) || 0)))
 
 const chart = computed(() => {
   const rows = daily.value
@@ -86,8 +100,21 @@ function pct(v: number, max: number) {
   return Math.max(2, Math.round((Number(v) || 0) / max * 100)) + '%'
 }
 
+function bar(v: number, max: number) {
+  return Math.min(100, Math.max(0, Math.round((Number(v) || 0) / max * 100))) + '%'
+}
+
 function deviceLabel(d: string) {
   return d === 'mobile' ? '手机' : d === 'desktop' ? '桌面' : d || '未知'
+}
+
+function statusLabel(code: number) {
+  if (code === 404) return '未找到'
+  if (code === 403) return '禁止访问'
+  if (code === 410) return '已删除'
+  if (code === 429) return '限流'
+  if (code >= 500) return '服务端错误'
+  return '客户端错误'
 }
 
 function fmtTime(v: string) {
@@ -112,17 +139,28 @@ function fmtTime(v: string) {
         >近 {{ n }} 天</button>
       </div>
       <button class="btn btn-sm btn-ghost" :disabled="loading" @click="load">刷新</button>
-      <span class="text-[12px] text-ink3 ml-auto">蜘蛛与访客均按页面访问统计</span>
+      <NuxtLink to="/admin/search" class="text-[12px] text-ink2 hover:text-ink">搜索分析 →</NuxtLink>
+      <span class="text-[12px] text-ink3 ml-auto">统计首页、目录、搜索页与站点详情，已排除接口与后台</span>
     </div>
 
     <p v-if="error" class="card p-4 text-danger text-[13px] mb-4">{{ error }}</p>
 
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
       <div v-for="c in summaryCards" :key="c.l" class="card p-4">
         <div class="text-ink2 text-[12px]">{{ c.l }}</div>
         <div class="flex items-end gap-2 mt-1">
           <span class="text-[24px] font-semibold leading-none">{{ loading ? '—' : (c.v ?? 0) }}</span>
           <span class="text-[11px] text-ink3 mb-0.5">累计 {{ loading ? '—' : (c.total ?? 0) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+      <div v-for="c in secondaryCards" :key="c.l" class="rounded-xl border border-line bg-card2/50 px-3.5 py-3">
+        <div class="text-[11.5px] text-ink2">{{ c.l }}</div>
+        <div class="mt-0.5 flex items-baseline gap-1.5">
+          <span class="text-[18px] font-semibold leading-none tabular-nums">{{ loading ? '—' : c.v }}</span>
+          <span class="text-[11px] text-ink3">{{ c.sub }}</span>
         </div>
       </div>
     </div>
@@ -156,10 +194,38 @@ function fmtTime(v: string) {
           </g>
           <g>
             <circle v-for="(d, i) in daily" :key="'hit-' + d.d" :cx="chart.x(i)" :cy="chart.y(d.pv)" r="7" fill="transparent">
-              <title>{{ d.d }}：浏览 {{ d.pv }} · 蜘蛛 {{ d.bot }} · 点击 {{ d.clicks || 0 }}</title>
+              <title>{{ d.d }}：浏览 {{ d.pv }} · 访客 {{ d.uv }} · 蜘蛛 {{ d.bot }} · 点击 {{ d.clicks || 0 }}</title>
             </circle>
           </g>
         </svg>
+      </div>
+    </section>
+
+    <section class="card overflow-hidden mb-3">
+      <div class="px-4 py-3 border-b border-line flex items-center gap-3 flex-wrap">
+        <h2 class="font-semibold text-[14px]">今日分时</h2>
+        <span class="text-[11.5px] text-ink3">按小时统计，蜘蛛单独着色</span>
+        <div class="ml-auto flex items-center gap-3 text-[11px] text-ink2">
+          <span class="text-ink"><i class="inline-block w-2.5 h-2.5 rounded-sm bg-current align-middle mr-1" />浏览</span>
+          <span class="text-accent"><i class="inline-block w-2.5 h-2.5 rounded-sm bg-current align-middle mr-1" />蜘蛛</span>
+        </div>
+      </div>
+      <div v-if="loading" class="p-6 text-center text-ink2 text-[13px]">加载中…</div>
+      <div v-else class="p-4">
+        <div class="flex h-28 items-end gap-[3px]" role="img" aria-label="今日每小时浏览与蜘蛛">
+          <div
+            v-for="h in hourly"
+            :key="h.h"
+            class="group relative flex h-full min-w-0 flex-1 flex-col justify-end"
+            :title="`${String(h.h).padStart(2, '0')}:00 浏览 ${h.pv} · 访客 ${h.uv} · 蜘蛛 ${h.bot}`"
+          >
+            <div class="w-full rounded-t-sm bg-accent/70" :style="{ height: bar(h.bot, maxHour) }" />
+            <div class="w-full rounded-b-sm bg-ink" :style="{ height: bar(h.pv, maxHour) }" />
+          </div>
+        </div>
+        <div class="mt-1.5 flex justify-between text-[10px] text-ink3">
+          <span>00</span><span>06</span><span>12</span><span>18</span><span>23</span>
+        </div>
       </div>
     </section>
 
@@ -237,6 +303,58 @@ function fmtTime(v: string) {
 
       <details class="card overflow-hidden group">
         <summary class="flex items-center gap-2 px-4 py-3 cursor-pointer select-none list-none">
+          <h2 class="font-semibold text-[14px]">错误状态</h2>
+          <span class="text-[11.5px] text-ink3">{{ statuses.length }} 类</span>
+          <svg class="ml-auto transition-transform group-open:rotate-180" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6" /></svg>
+        </summary>
+        <div v-if="!statuses.length" class="p-6 text-center text-ink2 text-[13px]">没有 4xx/5xx 访问</div>
+        <div v-else class="divide-y divide-line border-t border-line">
+          <div v-for="s in statuses" :key="s.status" class="px-4 py-2.5">
+            <div class="flex items-center gap-2">
+              <span class="text-[12.5px] font-medium tabular-nums">HTTP {{ s.status }}</span>
+              <span class="text-[11px] text-ink3">{{ statusLabel(s.status) }}</span>
+              <span class="ml-auto text-[12px] text-ink2 tabular-nums">{{ s.n }} 次</span>
+            </div>
+            <div class="mt-1.5 h-1.5 rounded-full bg-card2 overflow-hidden">
+              <div class="h-full rounded-full bg-warning" :style="{ width: pct(s.n, maxStatus) }" />
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <details class="card overflow-hidden group">
+        <summary class="flex items-center gap-2 px-4 py-3 cursor-pointer select-none list-none">
+          <h2 class="font-semibold text-[14px]">搜索概览</h2>
+          <span class="text-[11.5px] text-ink3">近 {{ days }} 天</span>
+          <NuxtLink to="/admin/search" class="ml-auto text-[11.5px] text-ink2 hover:text-ink">详情 →</NuxtLink>
+        </summary>
+        <div class="grid grid-cols-2 gap-x-4 gap-y-3 border-t border-line p-4 text-[12.5px]">
+          <div>
+            <div class="text-ink3 text-[11.5px]">搜索次数</div>
+            <div class="mt-0.5 text-[16px] font-semibold tabular-nums">{{ search.searches ?? 0 }}</div>
+          </div>
+          <div>
+            <div class="text-ink3 text-[11.5px]">记录结果数</div>
+            <div class="mt-0.5 text-[16px] font-semibold tabular-nums">{{ search.tracked ?? 0 }}</div>
+          </div>
+          <div>
+            <div class="text-ink3 text-[11.5px]">零结果</div>
+            <div class="mt-0.5 text-[16px] font-semibold tabular-nums">{{ search.zero ?? 0 }}<span class="ml-1 text-[11px] font-normal text-ink3">{{ search.zeroRate ?? 0 }}%</span></div>
+          </div>
+          <div>
+            <div class="text-ink3 text-[11.5px]">站内点击</div>
+            <div class="mt-0.5 text-[16px] font-semibold tabular-nums">{{ search.siteClicks ?? 0 }}<span class="ml-1 text-[11px] font-normal text-ink3">{{ search.ctr ?? 0 }}%</span></div>
+          </div>
+          <div class="col-span-2 flex flex-wrap gap-2 border-t border-line pt-2.5">
+            <span class="chip">GitHub {{ search.github ?? 0 }}</span>
+            <span class="chip">Google {{ search.google ?? 0 }}</span>
+            <span class="chip">全部 {{ search.total ?? 0 }}</span>
+          </div>
+        </div>
+      </details>
+
+      <details class="card overflow-hidden group">
+        <summary class="flex items-center gap-2 px-4 py-3 cursor-pointer select-none list-none">
           <h2 class="font-semibold text-[14px]">蜘蛛抓取路径</h2>
           <span class="text-[11.5px] text-ink3">{{ botPaths.length }} 条</span>
           <svg class="ml-auto transition-transform group-open:rotate-180" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6" /></svg>
@@ -265,6 +383,21 @@ function fmtTime(v: string) {
               <span class="text-[11px] text-ink3 ml-auto">HTTP {{ b.status }}</span>
             </div>
             <div class="text-[11.5px] text-ink2 truncate mt-0.5">{{ b.path }}</div>
+          </div>
+        </div>
+      </details>
+
+      <details class="card overflow-hidden group">
+        <summary class="flex items-center gap-2 px-4 py-3 cursor-pointer select-none list-none">
+          <h2 class="font-semibold text-[14px]">热门点击</h2>
+          <span class="text-[11.5px] text-ink3">{{ topClicks.length }} 条</span>
+          <NuxtLink to="/admin/clicks" class="ml-auto text-[11.5px] text-ink2 hover:text-ink">详情 →</NuxtLink>
+        </summary>
+        <div v-if="!topClicks.length" class="p-6 text-center text-ink2 text-[13px]">暂无点击记录</div>
+        <div v-else class="divide-y divide-line border-t border-line">
+          <div v-for="c in topClicks" :key="c.url" class="flex items-center gap-2 px-4 py-2.5">
+            <span class="min-w-0 flex-1 truncate text-[12.5px]">{{ c.name || c.url }}</span>
+            <span class="shrink-0 text-[12px] tabular-nums text-ink2">{{ c.hits }} 次</span>
           </div>
         </div>
       </details>

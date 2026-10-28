@@ -16,7 +16,7 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
-    "test:unit": "node --experimental-strip-types --test tests/siteSettings.test.mjs tests/search.test.mjs",
+    "test:unit": "node --experimental-strip-types --test tests/siteSettings.test.mjs tests/search.test.mjs tests/google.test.mjs",
     "test:e2e": "node --test tests/admin-footer.e2e.mjs",
     "test:smoke": "node --test tests/smoke.test.mjs",
     "typecheck": "nuxt typecheck",

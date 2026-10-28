@@ -22,6 +22,21 @@ const BOTS: Array<[RegExp, string]> = [
   [/ahrefsbot/i, 'AhrefsBot'],
   [/mj12bot/i, 'MJ12bot'],
   [/petalbot/i, 'PetalBot'],
+  [/yisouspider/i, 'YisouSpider'],
+  [/amazonbot/i, 'Amazonbot'],
+  [/googleother/i, 'GoogleOther'],
+  [/dataforseobot/i, 'DataForSeoBot'],
+  [/serpstatbot/i, 'SerpstatBot'],
+  [/blexbot/i, 'BLEXBot'],
+  [/dotbot/i, 'DotBot'],
+  [/seznambot/i, 'SeznamBot'],
+  [/naver/i, 'NaverBot'],
+  [/daumoa/i, 'Daum'],
+  [/qwantify/i, 'Qwantify'],
+  [/mojeekbot/i, 'MojeekBot'],
+  [/slurp/i, 'Yahoo'],
+  [/uptimerobot/i, 'UptimeRobot'],
+  [/headlesschrome|phantomjs|selenium/i, 'Headless'],
   [/crawler|spider|bot\b/i, 'OtherBot']
 ]
 
@@ -32,7 +47,7 @@ export function classifyBot(ua: string): string {
 }
 
 export function isMobileUa(ua: string): boolean {
-  return /mobile|android|iphone|ipad|harmonyos|phone/i.test(String(ua || ''))
+  return /mobile|android|iphone|ipad|ipod|harmonyos|phone|blackberry|opera mini/i.test(String(ua || ''))
 }
 
 export function clientIpFrom(headers: Record<string, any>, socketIp?: string): string {
@@ -53,11 +68,13 @@ export function localDayKey(value: any = new Date()): string {
 
 export function shouldTrack(path: string): boolean {
   if (!path) return false
-  if (path === '/' || path === '/submit') return true
+  if (path.startsWith('/api') || path.startsWith('/_nuxt') || path.startsWith('/admin')) return false
+  if (path.startsWith('/settings') || path.startsWith('/login') || path.startsWith('/register')) return false
+  if (path.startsWith('/share') || path.startsWith('/auth')) return false
   if (path === '/robots.txt' || path === '/sitemap.xml' || path === '/sitemap_index.xml') return true
-  if (path.startsWith('/site') || path.startsWith('/u/')) return true
-  if (path.startsWith('/_nuxt') || path.startsWith('/api') || path.startsWith('/admin')) return false
-  if (path.startsWith('/settings') || path.startsWith('/login') || path.startsWith('/register') || path.startsWith('/share')) return false
+  if (path === '/' || path === '/submit' || path === '/search' || path === '/github' || path === '/google') return true
+  if (path === '/site' || path.startsWith('/site/')) return true
+  if (path.startsWith('/u/')) return true
   return false
 }
 

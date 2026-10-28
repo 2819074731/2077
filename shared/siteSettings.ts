@@ -14,6 +14,19 @@ export const DEFAULT_GITHUB_SEARCH_RELAYS = [
   'https://ghproxy.icu'
 ]
 
+export const DEFAULT_GOOGLE_SEARCH_RELAYS: string[] = []
+
+export interface GoogleSearchSettings {
+  enabled: boolean
+  pageSize: number
+  maxPages: number
+  language: string
+  safeSearch: boolean
+  cacheSec: number
+  timeoutMs: number
+  relays: string[]
+}
+
 export interface GithubSettings {
   enabled: boolean
   defaultSort: GithubSort
@@ -66,6 +79,7 @@ export interface SiteSettings {
   contactEmail: string
   footerLinks: FooterLink[]
   github: GithubSettings
+  google: GoogleSearchSettings
 }
 
 export const DEFAULT_SITE_SETTINGS: SiteSettings = {
@@ -91,6 +105,16 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
     { label: '站点地图', url: '/sitemap' },
     { label: '提交收录', url: '/submit' }
   ],
+  google: {
+    enabled: true,
+    pageSize: 10,
+    maxPages: 5,
+    language: 'zh-CN',
+    safeSearch: false,
+    cacheSec: 300,
+    timeoutMs: 6000,
+    relays: [...DEFAULT_GOOGLE_SEARCH_RELAYS]
+  },
   github: {
     enabled: true,
     defaultSort: 'best',
@@ -173,6 +197,29 @@ function relayList(value: unknown, fallback: string[]): string[] {
   return result
 }
 
+function isHttpsUrl(value: string): boolean {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' && !url.username && !url.password && !url.hash
+  } catch {
+    return false
+  }
+}
+
+function googleRelayList(value: unknown, fallback: string[]): string[] {
+  if (!Array.isArray(value)) return [...fallback]
+  const result: string[] = []
+  for (const item of value) {
+    if (typeof item !== 'string') continue
+    const raw = item.trim()
+    if (!raw || raw.length > 500 || !isHttpsUrl(raw)) continue
+    const normalized = raw.replace(/#.*$/, '')
+    if (!result.includes(normalized)) result.push(normalized)
+    if (result.length >= 6) break
+  }
+  return result
+}
+
 /** 统一清洗配置，服务端保存与公开读取共用，避免历史脏数据进入页面。 */
 export function normalizeSiteSettings(raw: any): SiteSettings {
   const src = raw && typeof raw === 'object' ? raw : {}
@@ -195,6 +242,10 @@ export function normalizeSiteSettings(raw: any): SiteSettings {
     ? ghSrc.defaultSort
     : DEFAULT_SITE_SETTINGS.github.defaultSort
 
+  const gSrc = src.google && typeof src.google === 'object' ? src.google : {}
+  const gLang = text(gSrc.language, DEFAULT_SITE_SETTINGS.google.language, 16)
+  const language = /^[A-Za-z]{2,3}(?:-[A-Za-z]{2,4})?$/.test(gLang) ? gLang : DEFAULT_SITE_SETTINGS.google.language
+
   return {
     siteName: text(src.siteName, DEFAULT_SITE_SETTINGS.siteName, 40) || DEFAULT_SITE_SETTINGS.siteName,
     siteShortName: text(src.siteShortName, DEFAULT_SITE_SETTINGS.siteShortName, 12) || DEFAULT_SITE_SETTINGS.siteShortName,
@@ -214,6 +265,16 @@ export function normalizeSiteSettings(raw: any): SiteSettings {
     icpNumber: text(src.icpNumber, DEFAULT_SITE_SETTINGS.icpNumber, 60),
     contactEmail: text(src.contactEmail, DEFAULT_SITE_SETTINGS.contactEmail, 120),
     footerLinks: footerLinkList(src.footerLinks, DEFAULT_SITE_SETTINGS.footerLinks),
+    google: {
+      enabled: bool(gSrc.enabled, DEFAULT_SITE_SETTINGS.google.enabled),
+      pageSize: integer(gSrc.pageSize, DEFAULT_SITE_SETTINGS.google.pageSize, 10, 30),
+      maxPages: integer(gSrc.maxPages, DEFAULT_SITE_SETTINGS.google.maxPages, 1, 10),
+      language,
+      safeSearch: bool(gSrc.safeSearch, DEFAULT_SITE_SETTINGS.google.safeSearch),
+      cacheSec: integer(gSrc.cacheSec, DEFAULT_SITE_SETTINGS.google.cacheSec, 60, 3600),
+      timeoutMs: integer(gSrc.timeoutMs, DEFAULT_SITE_SETTINGS.google.timeoutMs, 2000, 15000),
+      relays: googleRelayList(gSrc.relays, DEFAULT_GOOGLE_SEARCH_RELAYS)
+    },
     github: {
       enabled: bool(ghSrc.enabled, DEFAULT_SITE_SETTINGS.github.enabled),
       defaultSort: ghSort,
